@@ -5,7 +5,7 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-   base: "/martial-arts-hub/",
+   base: "/amsp-website/",
   server: {
     host: "::",
     port: 8080,
