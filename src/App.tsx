@@ -19,7 +19,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter basename="/martial-arts-hub">
+      <BrowserRouter basename="/amsp-website">
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/disciplines" element={<Disciplines />} />
