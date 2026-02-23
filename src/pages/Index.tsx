@@ -25,7 +25,7 @@ const Index = () => {
             <span className="text-primary">A.M.S.P</span>
           </h1>
           <p className="mb-2 text-lg text-foreground/80 md:text-2xl">
-            Association d'Arts Martiaux St Pierrois
+            Association d'Arts Martiaux St Pierrois Sylvaine
           </p>
           <p className="mx-auto mb-8 max-w-xl text-sm text-muted-foreground md:text-base">
             6 disciplines — un seul dojo. Karaté, Viet Vo Dao, Tai Chi, Aïkido, Wutao & Épée.
