@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import Layout from "@/components/Layout";
 import { useEffect, useState } from "react";
 import { client } from "@/sanityClient";
+import { Sparkles } from "lucide-react";
 import { iconesDisciplines } from "@/iconesDisciplines";
 
 interface Discipline {
@@ -42,33 +43,44 @@ const Disciplines = () => {
             <p className="text-center text-muted-foreground">Chargement...</p>
           ) : (
             <div className="space-y-16">
-              {disciplines.map((d, i) => (
-                <motion.article
-                  key={d._id}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: 0.1 }}
-                  className="scroll-mt-24 rounded-lg border border-border/50 bg-card p-8"
-                >
-                  <div>
-                    <h2 className="mb-3 font-serif text-2xl font-bold">{d.nom}</h2>
-                    <p className="mb-4 text-muted-foreground">{d.description}</p>
-                    <div className="flex flex-wrap gap-4 text-sm">
-                      {d.professeur && (
-                        <span className="rounded bg-secondary px-3 py-1 text-foreground">
-                          👤 {d.professeur}
-                        </span>
-                      )}
-                      {d.niveaux?.map((niveau) => (
-                        <span key={niveau} className="rounded bg-secondary px-3 py-1 text-foreground">
-                          🥋 {niveau}
-                        </span>
-                      ))}
+              {disciplines.map((d) => {
+
+                // ← ICI : on récupère le composant icône correspondant au nom stocké dans Sanity
+                // Si l'icône n'existe pas dans notre liste, on met Sparkles par défaut
+                const IconeComposant = iconesDisciplines[d.icone] || Sparkles;
+
+                return (
+                  <motion.article
+                    key={d._id}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: 0.1 }}
+                    className="scroll-mt-24 rounded-lg border border-border/50 bg-card p-8"
+                  >
+                    {/* ← ICI : on utilise IconeComposant comme une balise React normale */}
+                    <div className="flex items-start gap-4">
+                      <IconeComposant size={40} className="mt-1 shrink-0 text-primary" />
+                      <div>
+                        <h2 className="mb-3 font-serif text-2xl font-bold">{d.nom}</h2>
+                        <p className="mb-4 text-muted-foreground">{d.description}</p>
+                        <div className="flex flex-wrap gap-4 text-sm">
+                          {d.professeur && (
+                            <span className="rounded bg-secondary px-3 py-1 text-foreground">
+                              👤 {d.professeur}
+                            </span>
+                          )}
+                          {d.niveaux?.map((niveau) => (
+                            <span key={niveau} className="rounded bg-secondary px-3 py-1 text-foreground">
+                              🥋 {niveau}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </motion.article>
-              ))}
+                  </motion.article>
+                );
+              })}
             </div>
           )}
         </div>
