@@ -9,8 +9,15 @@
     <meta property="og:description" content="Découvrez nos disciplines : Karaté, Viet Vo Dao, Tai Chi, Aïkido, Wutao, Épée. Inscription en ligne." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
-    <script type="module" crossorigin src="/martial-arts-hub/assets/index-DevrBZWC.js"></script>
-    <link rel="stylesheet" crossorigin href="/martial-arts-hub/assets/index-CTVuwVoo.css">
+    <script>
+  var redirect = sessionStorage.getItem('redirect');
+  if (redirect) {
+    sessionStorage.removeItem('redirect');
+    window.history.replaceState(null, null, redirect);
+  }
+</script>
+    <script type="module" crossorigin src="/amsp-website/assets/index-CEaR-Unc.js"></script>
+    <link rel="stylesheet" crossorigin href="/amsp-website/assets/index-CTVuwVoo.css">
   </head>
   <body>
     <div id="root"></div>
