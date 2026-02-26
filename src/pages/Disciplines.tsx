@@ -63,7 +63,7 @@ const Disciplines = () => {
   whileInView={{ opacity: 1, y: 0 }}
   viewport={{ once: true }}
   transition={{ delay: 0.1 }}
-  className="scroll-mt-24 rounded-lg border border-border/50 bg-card overflow-hidden transition-all duration-400 ease-[cubic-bezier(0.4,0,0.2,1)] hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/5"
+  className="scroll-mt-24 rounded-lg border border-border/50 bg-card overflow-hidden transition-all duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)] hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/5"
 >
       <div className="flex flex-col md:flex-row">
 
