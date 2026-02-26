@@ -8,11 +8,15 @@ import { iconesDisciplines } from "@/iconesDisciplines";
 interface Discipline {
   _id: string;
   nom: string;
+  nomCourt: string;
+  icone: string;
+  couleur: string;
   description: string;
+  horaires: string;
   professeur: string;
   niveaux: string[];
+  ages: string[];
   ordre: number;
-  icone: string;
 }
 
 const Disciplines = () => {
@@ -44,9 +48,6 @@ const Disciplines = () => {
           ) : (
             <div className="space-y-16">
               {disciplines.map((d) => {
-
-                // ← ICI : on récupère le composant icône correspondant au nom stocké dans Sanity
-                // Si l'icône n'existe pas dans notre liste, on met Sparkles par défaut
                 const IconeComposant = iconesDisciplines[d.icone] || Sparkles;
 
                 return (
@@ -57,25 +58,50 @@ const Disciplines = () => {
                     viewport={{ once: true }}
                     transition={{ delay: 0.1 }}
                     className="scroll-mt-24 rounded-lg border border-border/50 bg-card p-8"
+                    style={ d.couleur ? { borderLeftColor: d.couleur, borderLeftWidth: '4px' } : {} }
                   >
-                    {/* ← ICI : on utilise IconeComposant comme une balise React normale */}
                     <div className="flex items-start gap-4">
-                      <IconeComposant size={40} className="mt-1 shrink-0 text-primary" />
-                      <div>
+                      <IconeComposant
+                        size={40}
+                        className="mt-1 shrink-0"
+                        style={ d.couleur ? { color: d.couleur } : {} }
+                      />
+                      <div className="flex-1">
                         <h2 className="mb-3 font-serif text-2xl font-bold">{d.nom}</h2>
                         <p className="mb-4 text-muted-foreground">{d.description}</p>
-                        <div className="flex flex-wrap gap-4 text-sm">
+
+                        <div className="flex flex-wrap gap-3 text-sm">
+                          {d.horaires && (
+                            <span className="rounded bg-secondary px-3 py-1 text-foreground">
+                              📅 {d.horaires}
+                            </span>
+                          )}
                           {d.professeur && (
                             <span className="rounded bg-secondary px-3 py-1 text-foreground">
                               👤 {d.professeur}
                             </span>
                           )}
-                          {d.niveaux?.map((niveau) => (
-                            <span key={niveau} className="rounded bg-secondary px-3 py-1 text-foreground">
-                              🥋 {niveau}
-                            </span>
-                          ))}
                         </div>
+
+                        {d.niveaux?.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-2 text-sm">
+                            {d.niveaux.map((niveau) => (
+                              <span key={niveau} className="rounded bg-secondary px-3 py-1 text-foreground">
+                                🥋 {niveau}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {d.ages?.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-2 text-sm">
+                            {d.ages.map((age) => (
+                              <span key={age} className="rounded bg-secondary px-3 py-1 text-foreground">
+                                👶 {age}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </motion.article>
