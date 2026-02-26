@@ -13,7 +13,7 @@ interface Discipline {
   icone: string;
   description: string;
   horaires: string;
-  professeur: string;
+  professeur: string[];
   niveaux: string[];
   ages: string[];
   ordre: number;
@@ -89,49 +89,49 @@ const Disciplines = () => {
                             {d.description}
                           </p>
 
-                          {/* Horaires + Professeur — même style badge qu'avant */}
-                          <div className="flex flex-wrap gap-4 text-sm">
-                            {d.horaires && (
-                              <span className="rounded bg-secondary px-3 py-1 text-foreground">
-                                📅 {d.horaires}
-                              </span>
-                            )}
-                            {d.professeur && (
-                              <span className="rounded bg-secondary px-3 py-1 text-foreground">
-                                👤 {d.professeur}
-                              </span>
-                            )}
-                          </div>
+{/* Horaires */}
+<div className="flex flex-wrap gap-4 text-sm">
+  {d.horaires && (
+    <span className="rounded bg-secondary px-3 py-1 text-foreground">
+      📅 {d.horaires}
+    </span>
+  )}
+</div>
 
-                          {/* Niveaux — icône GraduationCap, même style badge */}
-                          {d.niveaux?.length > 0 && (
-                            <div className="mt-3 flex flex-wrap gap-2 text-sm">
-                              {d.niveaux.map((niveau) => (
-                                <span
-                                  key={niveau}
-                                  className="flex items-center gap-1.5 rounded bg-secondary px-3 py-1 text-foreground"
-                                >
-                                  <GraduationCap size={14} className="text-primary" />
-                                  {niveau}
-                                </span>
-                              ))}
-                            </div>
-                          )}
+{/* Professeurs — juste après les horaires */}
+{d.professeur?.length > 0 && (
+  <div className="mt-3 flex flex-wrap gap-2 text-sm">
+    {d.professeur.map((prof) => (
+      <span key={prof} className="rounded bg-secondary px-3 py-1 text-foreground">
+        👤 {prof}
+      </span>
+    ))}
+  </div>
+)}
 
-                          {/* Âges — icône Users, même style badge */}
-                          {d.ages?.length > 0 && (
-                            <div className="mt-3 flex flex-wrap gap-2 text-sm">
-                              {d.ages.map((age) => (
-                                <span
-                                  key={age}
-                                  className="flex items-center gap-1.5 rounded bg-secondary px-3 py-1 text-foreground"
-                                >
-                                  <Users size={14} className="text-primary" />
-                                  {age}
-                                </span>
-                              ))}
-                            </div>
-                          )}
+{/* Niveaux */}
+{d.niveaux?.length > 0 && (
+  <div className="mt-3 flex flex-wrap gap-2 text-sm">
+    {d.niveaux.map((niveau) => (
+      <span key={niveau} className="flex items-center gap-1.5 rounded bg-secondary px-3 py-1 text-foreground">
+        <GraduationCap size={14} className="text-primary" />
+        {niveau}
+      </span>
+    ))}
+  </div>
+)}
+
+{/* Âges */}
+{d.ages?.length > 0 && (
+  <div className="mt-3 flex flex-wrap gap-2 text-sm">
+    {d.ages.map((age) => (
+      <span key={age} className="flex items-center gap-1.5 rounded bg-secondary px-3 py-1 text-foreground">
+        <Users size={14} className="text-primary" />
+        {age}
+      </span>
+    ))}
+  </div>
+)}
                         </div>
                       </div>
                     </div>
