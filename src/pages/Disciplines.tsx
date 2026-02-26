@@ -70,7 +70,7 @@ const Disciplines = () => {
                       <img
                         src={urlFor(d.image).width(1200).height(400).fit('crop').url()}
                         alt={d.nom}
-                        className="w-full object-cover h-56"
+                        className="w-full object-cover h-48 md:h-56"
                       />
                     )}
 
