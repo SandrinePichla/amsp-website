@@ -2,9 +2,9 @@ import { motion } from "framer-motion";
 import Layout from "@/components/Layout";
 import { useEffect, useState } from "react";
 import { client } from "@/sanityClient";
+import { Sparkles, GraduationCap, Users } from "lucide-react";
 import { iconesDisciplines } from "@/iconesDisciplines";
 import { urlFor } from "@/sanityImage";
-import { GraduationCap, Users } from "lucide-react";
 
 interface Discipline {
   _id: string;
@@ -52,10 +52,9 @@ const Disciplines = () => {
           {loading ? (
             <p className="text-center text-muted-foreground">Chargement...</p>
           ) : (
-            <div className="space-y-10">
+            <div className="space-y-16">
               {disciplines.map((d) => {
-                const config = iconesDisciplines[d.icone] || iconesDisciplines["Sparkles"];
-                const IconeComposant = config.icone;
+                const IconeComposant = iconesDisciplines[d.icone] || Sparkles;
 
                 return (
                   <motion.article
@@ -64,9 +63,9 @@ const Disciplines = () => {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ delay: 0.1 }}
-                    className={`scroll-mt-24 rounded-xl border border-border/50 bg-card overflow-hidden`}
+                    className="scroll-mt-24 rounded-lg border border-border/50 bg-card overflow-hidden"
                   >
-                    {/* Photo en haut, bien dimensionnée */}
+                    {/* Photo */}
                     {d.image && (
                       <img
                         src={urlFor(d.image).width(1200).height(400).fit('crop').url()}
@@ -76,62 +75,65 @@ const Disciplines = () => {
                     )}
 
                     <div className="p-8">
-                      {/* Icône + Titre */}
-                      <div className="flex items-center gap-4 mb-4">
-                        <div className={`rounded-xl p-3 ${config.bg}`}>
-                          <IconeComposant size={32} className={config.couleur} />
+                      {/* Icône + Titre — même style qu'avant */}
+                      <div className="flex items-start gap-4">
+                        <IconeComposant
+                          size={40}
+                          className="mt-1 shrink-0 text-primary"
+                        />
+                        <div className="flex-1">
+                          <h2 className="mb-3 font-serif text-2xl font-bold">
+                            {d.nom}
+                          </h2>
+                          <p className="mb-4 text-muted-foreground">
+                            {d.description}
+                          </p>
+
+                          {/* Horaires + Professeur — même style badge qu'avant */}
+                          <div className="flex flex-wrap gap-4 text-sm">
+                            {d.horaires && (
+                              <span className="rounded bg-secondary px-3 py-1 text-foreground">
+                                📅 {d.horaires}
+                              </span>
+                            )}
+                            {d.professeur && (
+                              <span className="rounded bg-secondary px-3 py-1 text-foreground">
+                                👤 {d.professeur}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Niveaux — icône GraduationCap, même style badge */}
+                          {d.niveaux?.length > 0 && (
+                            <div className="mt-3 flex flex-wrap gap-2 text-sm">
+                              {d.niveaux.map((niveau) => (
+                                <span
+                                  key={niveau}
+                                  className="flex items-center gap-1.5 rounded bg-secondary px-3 py-1 text-foreground"
+                                >
+                                  <GraduationCap size={14} className="text-primary" />
+                                  {niveau}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Âges — icône Users, même style badge */}
+                          {d.ages?.length > 0 && (
+                            <div className="mt-3 flex flex-wrap gap-2 text-sm">
+                              {d.ages.map((age) => (
+                                <span
+                                  key={age}
+                                  className="flex items-center gap-1.5 rounded bg-secondary px-3 py-1 text-foreground"
+                                >
+                                  <Users size={14} className="text-primary" />
+                                  {age}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                        <h2 className="font-serif text-2xl font-bold">{d.nom}</h2>
                       </div>
-
-                      {/* Description */}
-                      <p className="mb-6 text-muted-foreground leading-relaxed">
-                        {d.description}
-                      </p>
-
-                      {/* Horaires + Professeur */}
-                      <div className="flex flex-wrap gap-3 text-sm mb-4">
-                        {d.horaires && (
-                          <span className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-foreground font-medium">
-                            📅 {d.horaires}
-                          </span>
-                        )}
-                        {d.professeur && (
-                          <span className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-foreground font-medium">
-                            👤 {d.professeur}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Niveaux — icône GraduationCap à la place de 🥋 */}
-                      {d.niveaux?.length > 0 && (
-                        <div className="flex flex-wrap gap-2 text-sm mb-3">
-                          {d.niveaux.map((niveau) => (
-                            <span
-                              key={niveau}
-                              className={`flex items-center gap-1.5 rounded-full px-3 py-1 font-medium ${config.bg} ${config.couleur}`}
-                            >
-                              <GraduationCap size={14} />
-                              {niveau}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Âges — icône Users */}
-                      {d.ages?.length > 0 && (
-                        <div className="flex flex-wrap gap-2 text-sm">
-                          {d.ages.map((age) => (
-                            <span
-                              key={age}
-                              className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-muted-foreground font-medium"
-                            >
-                              <Users size={14} />
-                              {age}
-                            </span>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   </motion.article>
                 );
