@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { client } from "@/sanityClient";
 import { Sparkles } from "lucide-react";
 import { iconesDisciplines } from "@/iconesDisciplines";
+import { urlFor } from "@/sanityImage";
 
 interface Discipline {
   _id: string;
@@ -17,6 +18,11 @@ interface Discipline {
   niveaux: string[];
   ages: string[];
   ordre: number;
+  image?: {
+    asset: {
+      _ref: string;
+      }
+  }
 }
 
 const Disciplines = () => {
@@ -25,7 +31,7 @@ const Disciplines = () => {
 
   useEffect(() => {
     client
-      .fetch('*[_type == "discipline"] | order(ordre asc)')
+      .fetch('*[_type == "discipline"] | order(ordre asc) { ..., image }')
       .then((data) => {
         setDisciplines(data);
         setLoading(false);
@@ -51,7 +57,7 @@ const Disciplines = () => {
                 const IconeComposant = iconesDisciplines[d.icone] || Sparkles;
 
                 return (
-                  <motion.article
+                  <motion.article                  
                     key={d._id}
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
@@ -60,6 +66,13 @@ const Disciplines = () => {
                     className="scroll-mt-24 rounded-lg border border-border/50 bg-card p-8"
                     style={ d.couleur ? { borderLeftColor: d.couleur, borderLeftWidth: '4px' } : {} }
                   >
+                    {d.image && (
+                  <img
+                    src={urlFor(d.image).width(800).height(400).fit('crop').url()}
+                    alt={d.nom}
+                    className="mb-6 w-full rounded-lg object-cover h-48"
+                  />
+                )}
                     <div className="flex items-start gap-4">
                       <IconeComposant
                         size={40}
@@ -69,6 +82,7 @@ const Disciplines = () => {
                       <div className="flex-1">
                         <h2 className="mb-3 font-serif text-2xl font-bold">{d.nom}</h2>
                         <p className="mb-4 text-muted-foreground">{d.description}</p>
+                        
 
                         <div className="flex flex-wrap gap-3 text-sm">
                           {d.horaires && (
