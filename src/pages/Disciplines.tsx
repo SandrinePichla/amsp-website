@@ -54,90 +54,99 @@ const Disciplines = () => {
           ) : (
             <div className="space-y-16">
               {disciplines.map((d) => {
-                const IconeComposant = iconesDisciplines[d.icone] || Sparkles;
+  const IconeComposant = iconesDisciplines[d.icone] || Sparkles;
 
-                return (
-                  <motion.article
-                    key={d._id}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: 0.1 }}
-                    className="scroll-mt-24 rounded-lg border border-border/50 bg-card overflow-hidden"
-                  >
-                    {/* Photo */}
-                    {d.image && (
-                      <img
-                        src={urlFor(d.image).width(1200).height(400).fit('crop').url()}
-                        alt={d.nom}
-                        className="w-full object-cover h-48 md:h-56"
-                      />
-                    )}
+  return (
+    <motion.article
+      key={d._id}
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay: 0.1 }}
+      className="scroll-mt-24 rounded-lg border border-border/50 bg-card overflow-hidden transition-all duration-400 ease-[cubic-bezier(0.4,0,0.2,1)] hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/5"
+    >
+      <div className="flex flex-col md:flex-row">
 
-                    <div className="p-8">
-                      {/* Icône + Titre — même style qu'avant */}
-                      <div className="flex items-start gap-4">
-                        <IconeComposant
-                          size={40}
-                          className="mt-1 shrink-0 text-primary"
-                        />
-                        <div className="flex-1">
-                          <h2 className="mb-3 font-serif text-2xl font-bold">
-                            {d.nom}
-                          </h2>
-                          <p className="mb-4 text-muted-foreground">
-                            {d.description}
-                          </p>
+        {/* Colonne gauche — texte */}
+        <div className="flex-1 p-8">
+          {/* Icône + Titre */}
+          <div className="flex items-center gap-4 mb-4">
+            <IconeComposant
+              size={40}
+              className="shrink-0 text-primary"
+            />
+            <h2 className="font-serif text-2xl font-bold">{d.nom}</h2>
+          </div>
 
-{/* Horaires */}
-<div className="flex flex-wrap gap-4 text-sm">
-  {d.horaires && (
-    <span className="rounded bg-secondary px-3 py-1 text-foreground">
-      📅 {d.horaires}
-    </span>
-  )}
-</div>
+          {/* Description */}
+          <p className="mb-6 text-muted-foreground leading-relaxed">
+            {d.description}
+          </p>
 
-{/* Professeurs — juste après les horaires */}
-{d.professeurs?.length > 0 && (
-  <div className="mt-3 flex flex-wrap gap-2 text-sm">
-    {d.professeurs.map((prof) => (
-      <span key={prof} className="rounded bg-secondary px-3 py-1 text-foreground">
-        👤 {prof}
-      </span>
-    ))}
-  </div>
-)}
+          {/* Horaires + Professeurs */}
+          <div className="flex flex-wrap gap-3 text-sm mb-4">
+            {d.horaires && (
+              <span className="rounded bg-secondary px-3 py-1 text-foreground">
+                📅 {d.horaires}
+              </span>
+            )}
+          </div>
 
-{/* Niveaux */}
-{d.niveaux?.length > 0 && (
-  <div className="mt-3 flex flex-wrap gap-2 text-sm">
-    {d.niveaux.map((niveau) => (
-      <span key={niveau} className="flex items-center gap-1.5 rounded bg-secondary px-3 py-1 text-foreground">
-        <GraduationCap size={14} className="text-primary" />
-        {niveau}
-      </span>
-    ))}
-  </div>
-)}
+          {d.professeurs?.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-2 text-sm">
+              {d.professeurs.map((prof) => (
+                <span key={prof} className="rounded bg-secondary px-3 py-1 text-foreground">
+                  👤 {prof}
+                </span>
+              ))}
+            </div>
+          )}
 
-{/* Âges */}
-{d.ages?.length > 0 && (
-  <div className="mt-3 flex flex-wrap gap-2 text-sm">
-    {d.ages.map((age) => (
-      <span key={age} className="flex items-center gap-1.5 rounded bg-secondary px-3 py-1 text-foreground">
-        <Users size={14} className="text-primary" />
-        {age}
-      </span>
-    ))}
-  </div>
-)}
-                        </div>
-                      </div>
-                    </div>
-                  </motion.article>
-                );
-              })}
+          {/* Niveaux */}
+          {d.niveaux?.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-2 text-sm">
+              {d.niveaux.map((niveau) => (
+                <span key={niveau} className="flex items-center gap-1.5 rounded bg-secondary px-3 py-1 text-foreground">
+                  <GraduationCap size={14} className="text-primary" />
+                  {niveau}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Âges */}
+          {d.ages?.length > 0 && (
+            <div className="flex flex-wrap gap-2 text-sm">
+              {d.ages.map((age) => (
+                <span key={age} className="flex items-center gap-1.5 rounded bg-secondary px-3 py-1 text-foreground">
+                  <Users size={14} className="text-primary" />
+                  {age}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Colonne droite — photo */}
+        {d.image ? (
+          <div className="md:w-2/5 shrink-0">
+            <img
+              src={urlFor(d.image).width(600).height(500).fit('crop').url()}
+              alt={d.nom}
+              className="w-full h-64 md:h-full object-cover"
+            />
+          </div>
+        ) : (
+          // Placeholder si pas de photo
+          <div className="md:w-2/5 shrink-0 bg-secondary/30 flex items-center justify-center min-h-48">
+            <IconeComposant size={64} className="text-primary/20" />
+          </div>
+        )}
+
+      </div>
+    </motion.article>
+  );
+})}
             </div>
           )}
         </div>
