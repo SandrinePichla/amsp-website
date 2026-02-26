@@ -13,7 +13,7 @@ interface Discipline {
   icone: string;
   description: string;
   horaires: string;
-  professeur: string[];
+  professeurs: string[];
   niveaux: string[];
   ages: string[];
   ordre: number;
@@ -99,9 +99,9 @@ const Disciplines = () => {
 </div>
 
 {/* Professeurs — juste après les horaires */}
-{d.professeur?.length > 0 && (
+{d.professeurs?.length > 0 && (
   <div className="mt-3 flex flex-wrap gap-2 text-sm">
-    {d.professeur.map((prof) => (
+    {d.professeurs.map((prof) => (
       <span key={prof} className="rounded bg-secondary px-3 py-1 text-foreground">
         👤 {prof}
       </span>
