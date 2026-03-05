@@ -7,7 +7,7 @@ import { client } from "@/sanityClient";
 import { urlFor } from "@/sanityImage";
 import { Sparkles } from "lucide-react";
 import { iconesDisciplines } from "@/iconesDisciplines";
-import heroImage from "@/assets/hero-martial.png";
+import heroImage from "@/assets/hero-martial-banner.webp";
 
 interface Discipline {
   _id: string;
@@ -53,18 +53,22 @@ const Index = () => {
   return (
     <Layout>
       {/* Hero */}
-      <section className="relative flex min-h-[85vh] items-center justify-center overflow-hidden">
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${heroImage})` }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/50 to-background" />
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          className="relative z-10 px-4 text-center"
-        >
+      <section className="relative flex h-[60vh] items-center justify-center overflow-hidden">
+  <img
+    src={heroImage}
+    alt="Arts martiaux AMSP"
+    className="absolute inset-0 h-full w-full object-contain md:object-cover"
+    loading="eager"
+  />
+
+  <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/50 to-background" />
+
+  <motion.div
+    initial={{ opacity: 0, y: 30 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.8 }}
+    className="relative z-10 px-4 text-center"
+  >
           <h1 className="mb-4 font-serif text-5xl font-black tracking-tight md:text-7xl">
             <span className="text-primary">A.M.S.P</span>
           </h1>
