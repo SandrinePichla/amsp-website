@@ -7,7 +7,7 @@ import { client } from "@/sanityClient";
 import { urlFor } from "@/sanityImage";
 import { Sparkles } from "lucide-react";
 import { iconesDisciplines } from "@/iconesDisciplines";
-import heroImage from "@/assets/hero-martial.jpg";
+import heroImage from "@/assets/hero-martial.png";
 
 interface Discipline {
   _id: string;
