@@ -11,6 +11,8 @@ interface Photo {
   _key: string;
   legende?: string;
   asset: { _ref: string };
+  albumId: string;
+  albumIndex: number;
 }
 
 interface Album {
@@ -19,7 +21,7 @@ interface Album {
   date: string;
   prive: boolean;
   discipline?: { nom: string; nomCourt: string };
-  photos: Photo[];
+  photos: Omit<Photo, 'albumId' | 'albumIndex'>[];
 }
 
 const Galerie = () => {
@@ -42,10 +44,8 @@ const Galerie = () => {
       });
   }, []);
 
-  // Filtre selon connexion : visiteur ne voit que les albums publics
   const albumsVisibles = albums.filter((a) => !a.prive || user);
 
-  // Disciplines pour les filtres
   const disciplinesFiltres = [
     "Toutes",
     ...Array.from(new Set(
@@ -61,19 +61,16 @@ const Galerie = () => {
         (a.discipline?.nomCourt || a.discipline?.nom) === filter
       );
 
-  // Navigation lightbox
   const goNext = () => {
     if (!lightbox) return;
     const photos = lightbox.album.photos;
-    const nextIndex = (lightbox.index + 1) % photos.length;
-    setLightbox({ album: lightbox.album, index: nextIndex });
+    setLightbox({ album: lightbox.album, index: (lightbox.index + 1) % photos.length });
   };
 
   const goPrev = () => {
     if (!lightbox) return;
     const photos = lightbox.album.photos;
-    const prevIndex = (lightbox.index - 1 + photos.length) % photos.length;
-    setLightbox({ album: lightbox.album, index: prevIndex });
+    setLightbox({ album: lightbox.album, index: (lightbox.index - 1 + photos.length) % photos.length });
   };
 
   return (
@@ -87,7 +84,6 @@ const Galerie = () => {
             Retrouvez les moments forts de l'association en images.
           </p>
 
-          {/* Bandeau espace membre si non connecté */}
           {!user && (
             <div className="mb-8 flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-5 py-4">
               <div className="flex items-center gap-3">
@@ -109,7 +105,6 @@ const Galerie = () => {
             <p className="text-center text-muted-foreground">Chargement...</p>
           ) : (
             <>
-              {/* Filtres par discipline */}
               {disciplinesFiltres.length > 1 && (
                 <div className="mb-8 flex flex-wrap justify-center gap-2">
                   {disciplinesFiltres.map((d) => (
@@ -128,67 +123,61 @@ const Galerie = () => {
                 </div>
               )}
 
-              {/* Grille d'albums */}
-              {albumsFiltres.length === 0 ? (
-                <p className="text-center text-muted-foreground">Aucun album disponible.</p>
-              ) : (
-                <div className="space-y-12">
-                  {albumsFiltres.map((album) => (
-                    <div key={album._id}>
-                      {/* En-tête album */}
-                      <div className="mb-4 flex items-center gap-3">
-                        <h2 className="font-serif text-xl font-bold">
-                          {album.titre || album.discipline?.nom || 'Album photos'}
-                        </h2>
-                        {album.prive && (
-                          <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
-                            <Lock size={10} /> Membres
-                          </span>
-                        )}
-                        {album.date && (
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(album.date).toLocaleDateString('fr-FR', {
-                              day: 'numeric', month: 'long', year: 'numeric'
-                            })}
-                          </span>
-                        )}
-                        {album.discipline && (
-                          <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
-                            {album.discipline.nomCourt || album.discipline.nom}
-                          </span>
-                        )}
-                      </div>
+ {albumsFiltres.length === 0 ? (
+  <p className="text-center text-muted-foreground">Aucun album disponible.</p>
+) : (
+  <div>
+    {albumsFiltres.map((album) => (
+      <div key={album._id} className="mb-10">
+        {/* Séparateur fin */}
+        <div className="mb-3 flex flex-wrap items-center gap-3">
+          <div className="h-px flex-1 bg-border/50" />
+          <h2 className="font-serif text-sm font-bold text-muted-foreground uppercase tracking-wider">
+            {album.titre || album.discipline?.nom || 'Album photos'}
+          </h2>
+          {album.date && (
+            <span className="text-xs text-muted-foreground">
+              {new Date(album.date).toLocaleDateString('fr-FR', {
+                day: 'numeric', month: 'long', year: 'numeric'
+              })}
+            </span>
+          )}
+          {album.prive && (
+            <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
+              <Lock size={10} /> Membres
+            </span>
+          )}
+          <div className="h-px flex-1 bg-border/50" />
+        </div>
 
-                      {/* Photos de l'album */}
-                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                        {album.photos?.map((photo, index) => (
-                          <motion.div
-                            key={photo._key}
-                            layout
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="group cursor-pointer overflow-hidden rounded-lg"
-                            onClick={() => setLightbox({ album, index })}
-                          >
-                            <img
-                              src={urlFor(photo).width(400).height(300).fit('crop').url()}
-                              alt={photo.legende || album.titre}
-                              loading="lazy"
-                              className="aspect-[4/3] w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                            />
-                          </motion.div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+        {/* Photos en colonnes maçonnerie */}
+        <div className="columns-2 sm:columns-3 lg:columns-4 xl:columns-5 gap-3">
+          {album.photos?.map((photo, index) => (
+            <motion.div
+              key={photo._key}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="group cursor-pointer overflow-hidden rounded-lg break-inside-avoid mb-3"
+              onClick={() => setLightbox({ album, index })}
+            >
+              <img
+                src={urlFor(photo).width(400).url()}
+                alt={photo.legende || album.titre || ''}
+                loading="lazy"
+                className="w-full object-cover transition-transform duration-300 group-hover:scale-105"
+              />
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    ))}
+  </div>
+)}
             </>
           )}
         </div>
       </section>
 
-      {/* Lightbox */}
       <AnimatePresence>
         {lightbox && (
           <motion.div
@@ -205,7 +194,6 @@ const Galerie = () => {
               <X size={24} />
             </button>
 
-            {/* Navigation précédent */}
             {lightbox.album.photos.length > 1 && (
               <button
                 className="absolute left-4 rounded-full bg-secondary px-4 py-2 text-foreground hover:bg-secondary/80"
@@ -222,7 +210,6 @@ const Galerie = () => {
               onClick={(e) => e.stopPropagation()}
             />
 
-            {/* Navigation suivant */}
             {lightbox.album.photos.length > 1 && (
               <button
                 className="absolute right-4 rounded-full bg-secondary px-4 py-2 text-foreground hover:bg-secondary/80"
@@ -232,7 +219,6 @@ const Galerie = () => {
               </button>
             )}
 
-            {/* Légende + compteur */}
             <div className="absolute bottom-4 text-center">
               {lightbox.album.photos[lightbox.index]?.legende && (
                 <p className="text-sm text-foreground">{lightbox.album.photos[lightbox.index].legende}</p>
