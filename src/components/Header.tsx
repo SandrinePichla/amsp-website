@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { Menu, X } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Menu, X, LogOut, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
   { label: "Accueil", path: "/" },
@@ -15,6 +16,14 @@ const navItems = [
 const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/");
+    setMobileOpen(false);
+  };
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
@@ -43,12 +52,31 @@ const Header = () => {
               {item.label}
             </Link>
           ))}
-          <Link
-            to="/connexion"
-            className="ml-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Espace Membre
-          </Link>
+
+          {user ? (
+            // Connecté — affiche email + bouton déconnexion
+            <div className="ml-2 flex items-center gap-2">
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <User size={14} className="text-primary" />
+                {user.email}
+              </span>
+              <button
+                onClick={handleSignOut}
+                className="flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+              >
+                <LogOut size={14} />
+                Déconnexion
+              </button>
+            </div>
+          ) : (
+            // Non connecté — bouton Espace Membre
+            <Link
+              to="/connexion"
+              className="ml-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              Espace Membre
+            </Link>
+          )}
         </nav>
 
         {/* Mobile toggle */}
@@ -85,13 +113,29 @@ const Header = () => {
                   {item.label}
                 </Link>
               ))}
-              <Link
-                to="/connexion"
-                onClick={() => setMobileOpen(false)}
-                className="mt-2 rounded-md bg-primary px-4 py-2 text-center text-sm font-medium text-primary-foreground"
-              >
-                Espace Membre
-              </Link>
+
+              {user ? (
+                <>
+                  <span className="px-3 py-2 text-xs text-muted-foreground">
+                    Connecté : {user.email}
+                  </span>
+                  <button
+                    onClick={handleSignOut}
+                    className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary"
+                  >
+                    <LogOut size={14} />
+                    Se déconnecter
+                  </button>
+                </>
+              ) : (
+                <Link
+                  to="/connexion"
+                  onClick={() => setMobileOpen(false)}
+                  className="mt-2 rounded-md bg-primary px-4 py-2 text-center text-sm font-medium text-primary-foreground"
+                >
+                  Espace Membre
+                </Link>
+              )}
             </div>
           </motion.nav>
         )}
