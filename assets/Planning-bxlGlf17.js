@@ -1,4 +1,4 @@
-import{r as i,j as e}from"./index-rZy61Z18.js";import{L as g}from"./Layout-DvOiPGhS.js";import{c as l}from"./sanityClient-BppCMQK-.js";const v=["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"],_=()=>{const[a,f]=i.useState([]),[d,u]=i.useState([]),[c,h]=i.useState([]),[o,j]=i.useState("Toutes"),[b,N]=i.useState(!0);i.useEffect(()=>{l.fetch(`*[_type == "cours"] | order(jour asc, heureDebut asc) {
+import{r as i,j as e}from"./index-BNyJ2LNP.js";import{L as g}from"./Layout-Bp1CP7QO.js";import{c as l}from"./sanityClient-C1yRdBrT.js";const v=["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"],_=()=>{const[a,f]=i.useState([]),[d,u]=i.useState([]),[c,h]=i.useState([]),[o,j]=i.useState("Toutes"),[b,N]=i.useState(!0);i.useEffect(()=>{l.fetch(`*[_type == "cours"] | order(jour asc, heureDebut asc) {
         _id, jour, heureDebut, heureFin, lieu, niveau, ages,
         discipline-> { nom, nomCourt }
       }`).then(r=>{f(r),N(!1)}),l.fetch(`*[_type == "tarif"] | order(ordre asc) {
