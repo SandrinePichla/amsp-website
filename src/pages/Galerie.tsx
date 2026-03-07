@@ -151,7 +151,7 @@ const Galerie = () => {
         </div>
 
         {/* Photos en colonnes maçonnerie */}
-        <div className="columns-2 sm:columns-3 lg:columns-4 xl:columns-5 gap-3">
+        <div className="columns-4 sm:columns-5 lg:columns-6 xl:columns-8 gap-2">
           {album.photos?.map((photo, index) => (
             <motion.div
               key={photo._key}
@@ -161,7 +161,7 @@ const Galerie = () => {
               onClick={() => setLightbox({ album, index })}
             >
               <img
-                src={urlFor(photo).width(400).url()}
+                src={urlFor(photo).width(150).url()}
                 alt={photo.legende || album.titre || ''}
                 loading="lazy"
                 className="w-full object-cover transition-transform duration-300 group-hover:scale-105"
