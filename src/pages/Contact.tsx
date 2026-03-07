@@ -1,16 +1,65 @@
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { MapPin, Mail, Clock } from "lucide-react";
+import { MapPin, Mail, Clock, Phone } from "lucide-react";
 import { toast } from "sonner";
+import emailjs from "@emailjs/browser";
+import { client } from "@/sanityClient";
+
+const SERVICE_ID = "service_hvx0rnw";
+const TEMPLATE_ID = "template_konhz3s";
+const PUBLIC_KEY = "r044e90XA84E6Ua5B";
+
+interface Parametres {
+  adresse: string;
+  email: string;
+  telephone: string;
+  horairesAccueil: string[];
+}
 
 const Contact = () => {
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const [parametres, setParametres] = useState<Parametres | null>(null);
+  const [form, setForm] = useState({
+    from_name: "",
+    from_email: "",
+    subject: "",
+    message: ""
+  });
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    client
+      .fetch('*[_type == "parametres"][0]')
+      .then((data) => setParametres(data));
+  }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setForm({ ...form, [e.target.id]: e.target.value });
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    toast.success("Message envoyé ! Nous vous répondrons dans les meilleurs délais.");
+    setSending(true);
+
+    try {
+      await emailjs.send(SERVICE_ID, TEMPLATE_ID, {
+        from_name: form.from_name,
+        from_email: form.from_email,
+        subject: form.subject,
+        message: form.message,
+      }, PUBLIC_KEY);
+
+      toast.success("Message envoyé ! Nous vous répondrons dans les meilleurs délais.");
+      setForm({ from_name: "", from_email: "", subject: "", message: "" });
+    } catch (error) {
+      toast.error("Erreur lors de l'envoi. Veuillez réessayer ou nous contacter par email.");
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -25,6 +74,7 @@ const Contact = () => {
           </p>
 
           <div className="grid gap-12 md:grid-cols-2">
+            {/* Formulaire */}
             <motion.form
               onSubmit={handleSubmit}
               initial={{ opacity: 0, x: -20 }}
@@ -32,58 +82,117 @@ const Contact = () => {
               className="space-y-5 rounded-lg border border-border/50 bg-card p-8"
             >
               <div className="space-y-2">
-                <Label htmlFor="name">Nom *</Label>
-                <Input id="name" required maxLength={100} placeholder="Votre nom" />
+                <Label htmlFor="from_name">Nom *</Label>
+                <Input
+                  id="from_name"
+                  required
+                  maxLength={100}
+                  placeholder="Votre nom"
+                  value={form.from_name}
+                  onChange={handleChange}
+                />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email">Email *</Label>
-                <Input id="email" type="email" required maxLength={255} placeholder="votre@email.com" />
+                <Label htmlFor="from_email">Email *</Label>
+                <Input
+                  id="from_email"
+                  type="email"
+                  required
+                  maxLength={255}
+                  placeholder="votre@email.com"
+                  value={form.from_email}
+                  onChange={handleChange}
+                />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="sujet">Sujet *</Label>
-                <Input id="sujet" required maxLength={200} placeholder="Objet de votre message" />
+                <Label htmlFor="subject">Sujet *</Label>
+                <Input
+                  id="subject"
+                  required
+                  maxLength={200}
+                  placeholder="Objet de votre message"
+                  value={form.subject}
+                  onChange={handleChange}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="message">Message *</Label>
-                <Textarea id="message" required maxLength={1000} rows={5} placeholder="Votre message..." />
+                <Textarea
+                  id="message"
+                  required
+                  maxLength={1000}
+                  rows={5}
+                  placeholder="Votre message..."
+                  value={form.message}
+                  onChange={handleChange}
+                />
               </div>
-              <Button type="submit" className="w-full" size="lg">
-                Envoyer
+              <Button type="submit" className="w-full" size="lg" disabled={sending}>
+                {sending ? "Envoi en cours..." : "Envoyer"}
               </Button>
             </motion.form>
 
+            {/* Infos de contact */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               className="space-y-8"
             >
-              <div className="flex items-start gap-4">
-                <MapPin size={24} className="mt-1 shrink-0 text-primary" />
-                <div>
-                  <h3 className="mb-1 font-serif font-bold">Adresse</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Saint-Pierre<br />
-                    (Adresse complète à renseigner)
-                  </p>
+              {parametres?.adresse && (
+                <div className="flex items-start gap-4">
+                  <MapPin size={24} className="mt-1 shrink-0 text-primary" />
+                  <div>
+                    <h3 className="mb-1 font-serif font-bold">Adresse</h3>
+                    <p className="text-sm text-muted-foreground whitespace-pre-line">
+                      {parametres.adresse}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-start gap-4">
-                <Mail size={24} className="mt-1 shrink-0 text-primary" />
-                <div>
-                  <h3 className="mb-1 font-serif font-bold">Email</h3>
-                  <p className="text-sm text-muted-foreground">contact@amsp.fr</p>
+              )}
+
+              {parametres?.email && (
+                <div className="flex items-start gap-4">
+                  <Mail size={24} className="mt-1 shrink-0 text-primary" />
+                  <div>
+                    <h3 className="mb-1 font-serif font-bold">Email</h3>
+                    
+                      <a href={`mailto:${parametres.email}`}
+                      className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      {parametres.email}
+                    </a>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-start gap-4">
-                <Clock size={24} className="mt-1 shrink-0 text-primary" />
-                <div>
-                  <h3 className="mb-1 font-serif font-bold">Horaires d'accueil</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Lundi au Vendredi : 18h00 — 21h00<br />
-                    Samedi : 9h00 — 12h30
-                  </p>
+              )}
+
+              {parametres?.telephone && (
+                <div className="flex items-start gap-4">
+                  <Phone size={24} className="mt-1 shrink-0 text-primary" />
+                  <div>
+                    <h3 className="mb-1 font-serif font-bold">Téléphone</h3>
+                    
+                     <a href={`tel:${parametres.telephone}`}
+                      className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      {parametres.telephone}
+                    </a>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {parametres?.horairesAccueil?.length > 0 && (
+                <div className="flex items-start gap-4">
+                  <Clock size={24} className="mt-1 shrink-0 text-primary" />
+                  <div>
+                    <h3 className="mb-1 font-serif font-bold">Horaires d'accueil</h3>
+                    <ul className="space-y-1">
+                      {parametres.horairesAccueil.map((h, i) => (
+                        <li key={i} className="text-sm text-muted-foreground">{h}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
             </motion.div>
           </div>
         </div>
