@@ -54,7 +54,7 @@ const Disciplines = () => {
               Nos <span className="text-primary">Disciplines</span>
             </h1>
             <p className="mx-auto max-w-xl text-muted-foreground">
-              Découvrez les {disciplines.length} disciplines enseignées au sein
+              Découvrez les disciplines enseignées au sein
               de l'Association d'Arts Martiaux St Pierrois.
             </p>
           </motion.div>

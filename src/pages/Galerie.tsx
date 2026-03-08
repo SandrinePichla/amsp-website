@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Lock } from "lucide-react";
-import { Link } from "react-router-dom";
+import { X, Lock, Images, ArrowLeft } from "lucide-react";
 import Layout from "@/components/Layout";
 import { client } from "@/sanityClient";
 import { urlFor } from "@/sanityImage";
@@ -11,8 +10,6 @@ interface Photo {
   _key: string;
   legende?: string;
   asset: { _ref: string };
-  albumId: string;
-  albumIndex: number;
 }
 
 interface Album {
@@ -21,12 +18,13 @@ interface Album {
   date: string;
   prive: boolean;
   discipline?: { nom: string; nomCourt: string };
-  photos: Omit<Photo, 'albumId' | 'albumIndex'>[];
+  photos: Photo[];
 }
 
 const Galerie = () => {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [filter, setFilter] = useState("Toutes");
+  const [openAlbum, setOpenAlbum] = useState<Album | null>(null);
   const [lightbox, setLightbox] = useState<{ album: Album; index: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
@@ -73,6 +71,7 @@ const Galerie = () => {
     setLightbox({ album: lightbox.album, index: (lightbox.index - 1 + photos.length) % photos.length });
   };
 
+
   return (
     <Layout>
       <section className="py-20">
@@ -84,25 +83,10 @@ const Galerie = () => {
             Retrouvez les moments forts de l'association en images.
           </p>
 
-          {!user && (
-            <div className="mb-8 flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-5 py-4">
-              <div className="flex items-center gap-3">
-                <Lock size={18} className="text-primary" />
-                <p className="text-sm text-muted-foreground">
-                  Certains albums sont réservés aux membres connectés.
-                </p>
-              </div>
-              <Link
-                to="/connexion"
-                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-              >
-                Se connecter
-              </Link>
-            </div>
-          )}
-
           {loading ? (
-            <p className="text-center text-muted-foreground">Chargement...</p>
+            <div className="flex items-center justify-center py-20">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            </div>
           ) : (
             <>
               {disciplinesFiltres.length > 1 && (
@@ -111,9 +95,9 @@ const Galerie = () => {
                     <button
                       key={d}
                       onClick={() => setFilter(d)}
-                      className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                      className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
                         filter === d
-                          ? "bg-primary text-primary-foreground"
+                          ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
                           : "bg-secondary text-muted-foreground hover:text-foreground"
                       }`}
                     >
@@ -123,68 +107,125 @@ const Galerie = () => {
                 </div>
               )}
 
- {albumsFiltres.length === 0 ? (
-  <p className="text-center text-muted-foreground">Aucun album disponible.</p>
-) : (
-  <div>
-    {albumsFiltres.map((album) => (
-      <div key={album._id} className="mb-10">
-        {/* Séparateur fin */}
-        <div className="mb-3 flex flex-wrap items-center gap-3">
-          <div className="h-px flex-1 bg-border/50" />
-          <h2 className="font-serif text-sm font-bold text-muted-foreground uppercase tracking-wider">
-            {album.titre || album.discipline?.nom || 'Album photos'}
-          </h2>
-          {album.date && (
-            <span className="text-xs text-muted-foreground">
-              {new Date(album.date).toLocaleDateString('fr-FR', {
-                day: 'numeric', month: 'long', year: 'numeric'
-              })}
-            </span>
-          )}
-          {album.prive && (
-            <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
-              <Lock size={10} /> Membres
-            </span>
-          )}
-          <div className="h-px flex-1 bg-border/50" />
-        </div>
-
-        {/* Photos en colonnes maçonnerie */}
-        <div className="columns-4 sm:columns-5 lg:columns-6 xl:columns-8 gap-2">
-          {album.photos?.map((photo, index) => (
-            <motion.div
-              key={photo._key}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="group cursor-pointer overflow-hidden rounded-lg break-inside-avoid mb-3"
-              onClick={() => setLightbox({ album, index })}
-            >
-              <img
-                src={urlFor(photo).width(150).url()}
-                alt={photo.legende || album.titre || ''}
-                loading="lazy"
-                className="w-full object-cover transition-transform duration-300 group-hover:scale-105"
-              />
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    ))}
-  </div>
-)}
+              {albumsFiltres.length === 0 ? (
+                <p className="text-center text-muted-foreground">Aucun album disponible.</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                  {albumsFiltres.map((album, i) => {
+                    const cover = album.photos?.[0];
+                    const label = album.titre || album.discipline?.nomCourt || album.discipline?.nom || 'Album';
+                    return (
+                      <motion.button
+                        key={album._id}
+                        initial={{ opacity: 0, scale: 0.97 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: i * 0.04 }}
+                        onClick={() => setOpenAlbum(album)}
+                        className="group relative w-full overflow-hidden rounded-xl border border-border/40 bg-card transition-all duration-300 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 text-left"
+                      >
+                        <div className="relative aspect-square overflow-hidden">
+                          {cover ? (
+                            <img
+                              src={urlFor(cover).width(300).height(300).fit('crop').url()}
+                              alt={label}
+                              loading="lazy"
+                              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-secondary/50">
+                              <Images size={32} className="text-muted-foreground/30" />
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
+                          {album.prive && (
+                            <span className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-black/50 px-2 py-0.5 text-[10px] text-white backdrop-blur-sm">
+                              <Lock size={9} /> Membres
+                            </span>
+                          )}
+                          <div className="absolute bottom-0 left-0 right-0 p-2.5">
+                            <p className="font-serif text-xs font-bold leading-tight text-white line-clamp-2">{label}</p>
+                            <div className="mt-0.5 flex items-center justify-between">
+                              {album.date && (
+                                <p className="text-[10px] text-white/60">
+                                  {new Date(album.date).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}
+                                </p>
+                              )}
+                              <p className="text-[10px] text-white/60">{album.photos?.length} photos</p>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              )}
             </>
           )}
         </div>
       </section>
 
+      {/* Modale album */}
+      <AnimatePresence>
+        {openAlbum && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex flex-col bg-background"
+          >
+            {/* Header */}
+            <div className="flex shrink-0 items-center gap-3 border-b border-border bg-card px-4 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="font-serif text-base font-bold leading-tight truncate">
+                  {openAlbum.titre || openAlbum.discipline?.nom || 'Album'}
+                </p>
+                {openAlbum.date && (
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(openAlbum.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    {' · '}{openAlbum.photos?.length} photos
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => setOpenAlbum(null)}
+                className="flex shrink-0 items-center gap-1.5 rounded-lg bg-secondary px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+              >
+                <X size={16} />
+                Fermer
+              </button>
+            </div>
+
+            {/* Photos */}
+            <div className="flex-1 overflow-y-auto p-3">
+              <div className="columns-4 sm:columns-6 md:columns-8 lg:columns-10 xl:columns-12 gap-1.5">
+                {openAlbum.photos?.map((photo, index) => (
+                  <div
+                    key={photo._key}
+                    className="group cursor-pointer overflow-hidden rounded-md break-inside-avoid mb-1.5"
+                    onClick={() => setLightbox({ album: openAlbum, index })}
+                  >
+                    <img
+                      src={urlFor(photo).width(160).url()}
+                      alt={photo.legende || ''}
+                      loading="lazy"
+                      className="w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Lightbox */}
       <AnimatePresence>
         {lightbox && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 p-4"
+            className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 p-4"
             onClick={() => setLightbox(null)}
           >
             <button

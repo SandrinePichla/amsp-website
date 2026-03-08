@@ -76,7 +76,7 @@ const Index = () => {
             Association d'Arts Martiaux St Pierrois
           </p>
           <p className="mx-auto mb-8 max-w-xl text-sm text-muted-foreground md:text-base">
-            {disciplines.length} disciplines.
+Arts martiaux & sports de paix.
           </p>
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <Link
