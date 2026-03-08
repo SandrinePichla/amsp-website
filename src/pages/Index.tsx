@@ -97,50 +97,78 @@ const Index = () => {
 
       {/* Section Actualités — visible uniquement s'il y a des actualités publiées */}
       {actualites.length > 0 && (
-        <section className="py-16 bg-secondary/20">
+        <section className="py-20 bg-secondary/10">
           <div className="container mx-auto px-4">
-            <h2 className="mb-10 text-center font-serif text-3xl font-bold md:text-4xl">
-              Actualités & <span className="text-primary">Stages</span>
-            </h2>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mb-12 text-center">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary/60">Agenda</p>
+              <h2 className="font-serif text-3xl font-bold md:text-4xl">
+                Actualités & <span className="text-primary">Stages</span>
+              </h2>
+            </div>
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {actualites.map((a, i) => (
                 <motion.div
                   key={a._id}
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 24 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  transition={{ delay: i * 0.1 }}
-                  className="rounded-lg border border-border/50 bg-card overflow-hidden cursor-pointer group hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 transition-all"
+                  transition={{ delay: i * 0.08 }}
+                  className="group cursor-pointer flex"
                   onClick={() => setSelectedActu(a)}
                 >
-                  {a.image && (
-                    <img
-                      src={urlFor(a.image).width(600).height(300).fit('crop').url()}
-                      alt={a.titre}
-                      className="w-full object-cover h-48 transition-transform group-hover:scale-105"
-                    />
-                  )}
-                  <div className="p-5">
-                    {/* Badge type */}
-                    <span className={`inline-block mb-2 text-xs font-medium px-2 py-0.5 rounded-full ${
-                      a.type === 'stage'
-                        ? 'bg-primary/10 text-primary'
-                        : 'bg-secondary text-foreground'
-                    }`}>
-                      {a.type === 'stage' ? '🥋 Stage' : '📢 Actualité'}
-                    </span>
-                    {a.date && (
-                      <p className="mb-1 text-xs text-muted-foreground">
-                        📅 {new Date(a.date).toLocaleDateString('fr-FR', {
-                          day: 'numeric', month: 'long', year: 'numeric'
-                        })}
-                      </p>
-                    )}
-                    <h3 className="mb-2 font-serif text-lg font-bold">{a.titre}</h3>
-                    {a.contenu && (
-                      <p className="text-sm text-muted-foreground line-clamp-2">{a.contenu}</p>
-                    )}
-                    <p className="mt-3 text-xs text-primary font-medium">Lire + →</p>
+                  <div className="flex flex-col w-full overflow-hidden rounded-xl border border-border/40 bg-card transition-all duration-300 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10">
+                    {/* Zone image / placeholder — hauteur fixe */}
+                    <div className="relative h-48 shrink-0 overflow-hidden">
+                      {a.image ? (
+                        <img
+                          src={urlFor(a.image).width(600).height(400).fit('crop').url()}
+                          alt={a.titre}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className={`h-full w-full ${
+                          a.type === 'stage'
+                            ? 'bg-gradient-to-br from-primary/60 via-primary/30 to-primary/10'
+                            : 'bg-gradient-to-br from-secondary via-secondary/60 to-secondary/20'
+                        }`} />
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
+
+                      <span className={`absolute left-3 top-3 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide backdrop-blur-sm ${
+                        a.type === 'stage'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-black/50 text-white'
+                      }`}>
+                        {a.type === 'stage' ? 'Stage' : 'Actualité'}
+                      </span>
+
+                      {a.date && (
+                        <div className="absolute right-3 top-3 min-w-[42px] rounded-lg bg-black/55 px-2 py-1.5 text-center backdrop-blur-sm">
+                          <p className="text-lg font-black leading-none text-white">
+                            {new Date(a.date).getDate()}
+                          </p>
+                          <p className="text-[9px] font-semibold uppercase tracking-wider text-white/70">
+                            {new Date(a.date).toLocaleDateString('fr-FR', { month: 'short' })}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Contenu — flex-1 pour égaliser les hauteurs */}
+                    <div className="flex flex-1 flex-col p-4">
+                      <h3 className="mb-1.5 font-serif text-base font-bold leading-snug line-clamp-2 transition-colors group-hover:text-primary">
+                        {a.titre}
+                      </h3>
+                      {a.contenu && (
+                        <p className="flex-1 text-xs text-muted-foreground line-clamp-3 leading-relaxed">
+                          {a.contenu}
+                        </p>
+                      )}
+                      <div className="mt-3 flex items-center gap-1 text-xs font-semibold text-primary">
+                        Voir le détail
+                        <ArrowRight size={12} className="transition-transform duration-200 group-hover:translate-x-1" />
+                      </div>
+                    </div>
                   </div>
                 </motion.div>
               ))}
@@ -266,41 +294,66 @@ const Index = () => {
       {/* Disciplines grid */}
       <section className="py-20">
         <div className="container mx-auto px-4">
-          <h2 className="mb-12 text-center font-serif text-3xl font-bold md:text-4xl">
-            Nos <span className="text-primary">Disciplines</span>
-          </h2>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mb-12 text-center">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary/60">Arts pratiqués</p>
+            <h2 className="font-serif text-3xl font-bold md:text-4xl">
+              Nos <span className="text-primary">Disciplines</span>
+            </h2>
+          </div>
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {disciplines.map((d, i) => {
               const IconeComposant = iconesDisciplines[d.icone] || Sparkles;
               return (
                 <motion.div
                   key={d._id}
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 24 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  transition={{ delay: i * 0.1 }}
+                  transition={{ delay: i * 0.08 }}
                 >
                   <Link
                     to="/disciplines"
-                    className="group block rounded-lg border border-border/50 bg-card p-6 transition-all hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5"
+                    className="group block overflow-hidden rounded-xl border border-border/40 bg-card transition-all duration-300 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10"
                   >
-                    <IconeComposant
-                      size={32}
-                      className="mb-4 text-primary transition-transform group-hover:scale-110"
-                    />
-                    <h3 className="mb-2 font-serif text-lg font-bold">
-                      {d.nomCourt || d.nom}
-                    </h3>
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                      {d.description}
-                    </p>
-                    {d.horaires && (
-                      <p className="mt-3 text-xs text-accent">{d.horaires}</p>
-                    )}
+                    {/* Header — nom en vedette */}
+                    <div className="relative flex h-28 items-center gap-4 overflow-hidden bg-gradient-to-br from-primary/15 via-primary/8 to-transparent px-5">
+                      <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-primary/8 transition-all duration-500 group-hover:scale-125 group-hover:bg-primary/12" />
+                      {/* Icone — secondaire */}
+                      <div className="relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/12 ring-1 ring-primary/20 transition-all duration-300 group-hover:bg-primary/22 group-hover:ring-primary/40">
+                        <IconeComposant size={22} className="text-primary" />
+                      </div>
+                      {/* Nom — héros */}
+                      <h3 className="relative z-10 font-serif text-xl font-black leading-tight transition-colors group-hover:text-primary">
+                        {d.nomCourt || d.nom}
+                      </h3>
+                    </div>
+
+                    {/* Corps */}
+                    <div className="p-5">
+                      <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+                        {d.description}
+                      </p>
+                      {d.horaires && (
+                        <p className="mt-2 text-xs font-medium text-primary/70">{d.horaires}</p>
+                      )}
+                      <div className="mt-4 flex items-center gap-1 text-xs font-semibold text-primary opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                        En savoir plus
+                        <ArrowRight size={12} className="transition-transform duration-200 group-hover:translate-x-1" />
+                      </div>
+                    </div>
                   </Link>
                 </motion.div>
               );
             })}
+          </div>
+
+          <div className="mt-10 text-center">
+            <Link
+              to="/disciplines"
+              className="inline-flex items-center gap-2 rounded-lg border border-border/50 bg-secondary/50 px-5 py-2.5 text-sm font-medium transition-all hover:border-primary/40 hover:bg-secondary"
+            >
+              Voir toutes les disciplines <ArrowRight size={14} />
+            </Link>
           </div>
         </div>
       </section>

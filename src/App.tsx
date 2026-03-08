@@ -22,7 +22,12 @@ const App = () => (
       <Toaster />
       <Sonner />
 
-      <BrowserRouter basename="/amsp-website">       
+      <BrowserRouter basename="/amsp-website"
+       future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true
+        }}
+      >       
         <Suspense fallback={<div className="p-6 text-center text-muted-foreground">Chargement…</div>}>
           <Routes>
             <Route path="/" element={<Index />} />

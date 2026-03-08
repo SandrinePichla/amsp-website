@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import Layout from "@/components/Layout";
 import { useEffect, useState } from "react";
 import { client } from "@/sanityClient";
-import { Sparkles, GraduationCap, Users } from "lucide-react";
+import { Sparkles, GraduationCap, Users, Clock } from "lucide-react";
 import { iconesDisciplines } from "@/iconesDisciplines";
 import { urlFor } from "@/sanityImage";
 
@@ -41,121 +41,124 @@ const Disciplines = () => {
     <Layout>
       <section className="py-20">
         <div className="container mx-auto px-4">
-          <h1 className="mb-4 text-center font-serif text-4xl font-black md:text-5xl">
-            Nos <span className="text-primary">Disciplines</span>
-          </h1>
-          <p className="mx-auto mb-16 max-w-2xl text-center text-muted-foreground">
-            Découvrez les {disciplines.length} disciplines enseignées au sein
-            de l'Association d'Arts Martiaux St Pierrois.
-          </p>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="mb-16 text-center"
+          >
+            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary/60">
+              Arts pratiqués
+            </p>
+            <h1 className="mb-4 font-serif text-4xl font-black md:text-5xl">
+              Nos <span className="text-primary">Disciplines</span>
+            </h1>
+            <p className="mx-auto max-w-xl text-muted-foreground">
+              Découvrez les {disciplines.length} disciplines enseignées au sein
+              de l'Association d'Arts Martiaux St Pierrois.
+            </p>
+          </motion.div>
 
           {loading ? (
-            <p className="text-center text-muted-foreground">Chargement...</p>
-          ) : (
-            <div className="space-y-16">
-              {disciplines.map((d) => {
-  const IconeComposant = iconesDisciplines[d.icone] || Sparkles;
-
-  return (
-    <motion.article
-  key={d._id}
-  initial={{ opacity: 0, y: 20 }}
-  whileInView={{ opacity: 1, y: 0 }}
-  viewport={{ once: true }}
-  transition={{ delay: 0.1 }}
-  className="scroll-mt-24 rounded-lg border border-border/50 bg-card"
-  style={{
-    transition: 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-  }}
-  whileHover={{ 
-    scale: 1.02,
-    boxShadow: '0 10px 30px rgba(0,0,0,0.15)'
-  }}
->
-  <div className="overflow-hidden rounded-lg">
-        <div className="flex flex-col md:flex-row">
-
-          {/* Colonne gauche — texte */}
-          <div className="flex-1 p-8">
-            {/* Icône + Titre */}
-            <div className="flex items-center gap-4 mb-4">
-              <IconeComposant
-                size={40}
-                className="shrink-0 text-primary"
-              />
-              <h2 className="font-serif text-2xl font-bold">{d.nom}</h2>
-            </div>
-
-            {/* Description */}
-            <p className="mb-6 text-muted-foreground leading-relaxed">
-              {d.description}
-            </p>
-
-            {/* Horaires + Professeurs */}
-            <div className="flex flex-wrap gap-3 text-sm mb-4">
-              {d.horaires && (
-                <span className="rounded bg-secondary px-3 py-1 text-foreground">
-                  📅 {d.horaires}
-                </span>
-              )}
-            </div>
-
-            {d.professeurs?.length > 0 && (
-              <div className="mb-3 flex flex-wrap gap-2 text-sm">
-                {d.professeurs.map((prof) => (
-                  <span key={prof} className="rounded bg-secondary px-3 py-1 text-foreground">
-                    👤 {prof}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* Niveaux */}
-            {d.niveaux?.length > 0 && (
-              <div className="mb-3 flex flex-wrap gap-2 text-sm">
-                {d.niveaux.map((niveau) => (
-                  <span key={niveau} className="flex items-center gap-1.5 rounded bg-secondary px-3 py-1 text-foreground">
-                    <GraduationCap size={14} className="text-primary" />
-                    {niveau}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* Âges */}
-            {d.ages?.length > 0 && (
-              <div className="flex flex-wrap gap-2 text-sm">
-                {d.ages.map((age) => (
-                  <span key={age} className="flex items-center gap-1.5 rounded bg-secondary px-3 py-1 text-foreground">
-                    <Users size={14} className="text-primary" />
-                    {age}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Colonne droite — photo */}
-          {d.image ? (
-            <div className="md:w-2/5 shrink-0">
-              <img
-                src={urlFor(d.image).width(600).height(500).fit('crop').url()}
-                alt={d.nom}
-                className="w-full h-64 md:h-full object-cover"
-              />
+            <div className="flex items-center justify-center py-20">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
           ) : (
-            // Placeholder si pas de photo
-            <div className="md:w-2/5 shrink-0 bg-secondary/30 flex items-center justify-center min-h-48">
-              <IconeComposant size={64} className="text-primary/20" />
-            </div>
-          )}
+            <div className="space-y-4">
+              {disciplines.map((d, i) => {
+                const IconeComposant = iconesDisciplines[d.icone] || Sparkles;
+                const imageLeft = i % 2 !== 0;
 
-        </div>
-      </div>
-    </motion.article>
-  );
-})}
+                return (
+                  <motion.article
+                    key={d._id}
+                    initial={{ opacity: 0, y: 24 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.4, delay: 0.05 }}
+                    className="overflow-hidden rounded-2xl border border-border/40 bg-card"
+                  >
+                    <div className={`flex flex-col ${imageLeft ? 'md:flex-row-reverse' : 'md:flex-row'}`}>
+
+                      {/* Zone image / placeholder */}
+                      <div className="relative md:w-1/3 shrink-0 overflow-hidden">
+                        {d.image ? (
+                          <img
+                            src={urlFor(d.image).width(500).height(360).fit('crop').url()}
+                            alt={d.nom}
+                            className="h-40 md:h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="h-40 md:h-full w-full flex items-center justify-center bg-gradient-to-br from-primary/15 via-primary/8 to-transparent">
+                            <IconeComposant size={52} className="text-primary/20" />
+                          </div>
+                        )}
+                        <div className={`absolute inset-0 hidden md:block ${
+                          imageLeft
+                            ? 'bg-gradient-to-l from-card via-transparent to-transparent'
+                            : 'bg-gradient-to-r from-card via-transparent to-transparent'
+                        }`} />
+                      </div>
+
+                      {/* Contenu texte */}
+                      <div className="flex flex-1 flex-col justify-center p-5 md:p-7">
+                        {/* Icone + Nom */}
+                        <div className="mb-3 flex items-center gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/12 ring-1 ring-primary/20">
+                            <IconeComposant size={20} className="text-primary" />
+                          </div>
+                          <h2 className="font-serif text-xl font-black leading-tight md:text-2xl">
+                            {d.nom}
+                          </h2>
+                        </div>
+
+                        {/* Description */}
+                        <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
+                          {d.description}
+                        </p>
+
+                        {/* Tags */}
+                        <div className="flex flex-wrap gap-1.5">
+                          {d.horaires && (
+                            <span className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium text-foreground">
+                              <Clock size={12} className="text-primary" />
+                              {d.horaires}
+                            </span>
+                          )}
+                          {d.professeurs?.map((prof) => (
+                            <span
+                              key={prof}
+                              className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium text-foreground"
+                            >
+                              <Users size={12} className="text-primary" />
+                              {prof}
+                            </span>
+                          ))}
+                          {d.niveaux?.map((niveau) => (
+                            <span
+                              key={niveau}
+                              className="flex items-center gap-1.5 rounded-lg border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary"
+                            >
+                              <GraduationCap size={12} />
+                              {niveau}
+                            </span>
+                          ))}
+                          {d.ages?.map((age) => (
+                            <span
+                              key={age}
+                              className="flex items-center gap-1.5 rounded-lg border border-border/40 px-3 py-1.5 text-xs font-medium text-muted-foreground"
+                            >
+                              <Users size={12} />
+                              {age}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                    </div>
+                  </motion.article>
+                );
+              })}
             </div>
           )}
         </div>
