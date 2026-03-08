@@ -479,6 +479,7 @@ const [downloading, setDownloading] = useState(false);
               {/* Tarifs */}
               {tarifs.length > 0 && (
                 <motion.div
+                  id="tarifs"
                   className="mt-8"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
