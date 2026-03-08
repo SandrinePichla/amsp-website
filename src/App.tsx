@@ -12,6 +12,8 @@ const Inscription = lazy(() => import("./pages/Inscription"));
 const Galerie = lazy(() => import("./pages/Galerie"));
 const Contact = lazy(() => import("./pages/Contact"));
 const Connexion = lazy(() => import("./pages/Connexion"));
+const Lasso = lazy(() => import("./pages/Lasso"));
+const Instructeurs = lazy(() => import("./pages/Instructeurs"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -37,6 +39,8 @@ const App = () => (
             <Route path="/galerie" element={<Galerie />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/connexion" element={<Connexion />} />
+            <Route path="/lasso" element={<Lasso />} />
+            <Route path="/instructeurs" element={<Instructeurs />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
