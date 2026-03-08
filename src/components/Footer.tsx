@@ -32,10 +32,16 @@ const Footer = () => (
         </div>
         <div>
           <h4 className="mb-3 font-serif text-sm font-bold text-foreground">Contact</h4>
+          <div className="flex flex-col gap-2">
           <p className="text-sm text-muted-foreground">
-            Saint-Pierre<br />
-            contact@amsp.fr
+            Email :<br />
+            artsmartiauxstpierrois@gmail.com <br />
+            </p>
+            <p className="text-sm text-muted-foreground">
+            Téléphone : <br />
+            06.82.16.22.66
           </p>
+        </div>
         </div>
       </div>
       <div className="mt-8 border-t border-border/50 pt-6 text-center text-xs text-muted-foreground">

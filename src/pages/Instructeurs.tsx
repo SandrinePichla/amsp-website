@@ -5,6 +5,9 @@ import Layout from "@/components/Layout";
 import { client } from "@/sanityClient";
 import { urlFor } from "@/sanityImage";
 
+const toAnchor = (name: string) =>
+  name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+
 interface Instructeur {
   _id: string;
   nom: string;
@@ -28,6 +31,12 @@ const Instructeurs = () => {
       .then((data) => {
         setInstructeurs(data);
         setLoading(false);
+        if (window.location.hash) {
+          const id = window.location.hash.slice(1);
+          setTimeout(() => {
+            document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+          }, 100);
+        }
       });
   }, []);
 
@@ -96,11 +105,12 @@ const Instructeurs = () => {
                     {membres.map((inst, i) => (
                       <motion.div
                         key={inst._id}
+                        id={toAnchor(inst.nom)}
                         initial={{ opacity: 0, y: 16 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
                         transition={{ delay: i * 0.06 }}
-                        className="flex items-center gap-4 rounded-xl border border-border/40 bg-card p-4"
+                        className="flex items-center gap-4 rounded-xl border border-border/40 bg-card p-4 scroll-mt-24"
                       >
                         {/* Avatar */}
                         <div className="shrink-0">

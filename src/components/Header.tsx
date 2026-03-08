@@ -17,18 +17,12 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: "Accueil", path: "/" },
+  { label: "L'Asso", path: "/lasso" },
   { label: "Disciplines", path: "/disciplines" },
-  {
-    label: "Planning & Tarifs",
-    children: [
-      { label: "Planning", path: "/planning" },
-      { label: "Tarifs", path: "/planning#tarifs" },
-    ],
-  },
+  { label: "Instructeurs", path: "/instructeurs" },
+  { label: "Planning & Tarifs", path: "/planning" },
   { label: "Galerie", path: "/galerie" },
   { label: "Inscription", path: "/inscription" },
-  { label: "L'Asso", path: "/lasso" },
-  { label: "Instructeurs", path: "/instructeurs" },
   { label: "Contact", path: "/contact" },
 ];
 

@@ -1,10 +1,14 @@
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { useEffect, useState } from "react";
 import { client } from "@/sanityClient";
 import { Sparkles, GraduationCap, Users, Clock } from "lucide-react";
 import { iconesDisciplines } from "@/iconesDisciplines";
 import { urlFor } from "@/sanityImage";
+
+const toAnchor = (name: string) =>
+  name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
 
 interface Discipline {
   _id: string;
@@ -126,13 +130,14 @@ const Disciplines = () => {
                             </span>
                           )}
                           {d.professeurs?.map((prof) => (
-                            <span
+                            <Link
                               key={prof}
-                              className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium text-foreground"
+                              to={`/instructeurs#${toAnchor(prof)}`}
+                              className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-primary/10 hover:text-primary"
                             >
                               <Users size={12} className="text-primary" />
                               {prof}
-                            </span>
+                            </Link>
                           ))}
                           {d.niveaux?.map((niveau) => (
                             <span
