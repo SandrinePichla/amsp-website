@@ -355,6 +355,11 @@ const [downloading, setDownloading] = useState(false);
       .then((data) => {
         setCours(data);
         setLoading(false);
+        if (window.location.hash === "#tarifs") {
+          setTimeout(() => {
+            document.getElementById("tarifs")?.scrollIntoView({ behavior: "smooth" });
+          }, 100);
+        }
       });
 
     client
@@ -480,7 +485,7 @@ const [downloading, setDownloading] = useState(false);
               {tarifs.length > 0 && (
                 <motion.div
                   id="tarifs"
-                  className="mt-8"
+                  className="mt-8 scroll-mt-20"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, delay: 0.2 }}
