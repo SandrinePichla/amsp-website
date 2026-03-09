@@ -18,7 +18,7 @@ const Connexion = () => {
     const { error } = await signIn(email, password);
     setLoading(false);
     if (error) {
-      setError("Email ou mot de passe incorrect.");
+      setError(error.message === "Invalid login credentials" ? "Email ou mot de passe incorrect." : error.message);
     } else {
       navigate("/");
     }

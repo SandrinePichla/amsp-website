@@ -7,7 +7,7 @@ interface AuthContextType {
   prenom: string | null
   role: string | null
   loading: boolean
-  signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>
+  signIn: (email: string, password: string) => Promise<{ error: AuthError | Error | null }>
   signOut: () => Promise<void>
 }
 
@@ -47,9 +47,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => subscription.unsubscribe()
   }, [])
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    return { error }
+  const signIn = async (email: string, password: string): Promise<{ error: AuthError | Error | null }> => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) return { error }
+
+    // Vérifier le rôle avant d'autoriser l'accès
+    const { data: profil } = await supabase
+      .from('profils')
+      .select('role')
+      .eq('id', data.user.id)
+      .single()
+
+    if (profil?.role === 'en_attente') {
+      await supabase.auth.signOut()
+      return { error: new Error("Votre compte est en attente de validation par l'administrateur.") }
+    }
+    if (profil?.role === 'refuse') {
+      await supabase.auth.signOut()
+      return { error: new Error("Votre demande d'adhésion a été refusée. Contactez-nous pour plus d'informations.") }
+    }
+
+    return { error: null }
   }
 
   const signOut = async () => {
