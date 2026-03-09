@@ -55,9 +55,13 @@ const Footer = () => (
         </div>
         </div>
       </div>
-      <div className="mt-8 border-t border-border/50 pt-6 text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} Association d'Arts Martiaux St Pierrois. Tous droits réservés.
-      </div>
+     <div className="mt-8 border-t border-border/50 pt-6 text-center text-xs text-muted-foreground">
+      © {new Date().getFullYear()} Association d'Arts Martiaux St Pierrois. Tous droits réservés.
+      <span className="mx-2">—</span>
+      <Link to="/mentions-legales" className="hover:text-primary transition-colors">
+        Mentions légales
+      </Link>
+    </div>
     </div>
   </footer>
 );

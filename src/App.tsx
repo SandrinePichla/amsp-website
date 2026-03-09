@@ -15,6 +15,7 @@ const Connexion = lazy(() => import("./pages/Connexion"));
 const Lasso = lazy(() => import("./pages/Lasso"));
 const Instructeurs = lazy(() => import("./pages/Instructeurs"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const MentionsLegales = lazy(() => import("./pages/MentionsLegales"));
 
 const queryClient = new QueryClient();
 
@@ -42,6 +43,7 @@ const App = () => (
             <Route path="/lasso" element={<Lasso />} />
             <Route path="/instructeurs" element={<Instructeurs />} />
             <Route path="*" element={<NotFound />} />
+            <Route path="/mentions-legales" element={<MentionsLegales />} />
           </Routes>
         </Suspense>
       </BrowserRouter>
