@@ -310,6 +310,153 @@ const PrintableCalendar = ({
   );
 };
 
+// ─── Version imprimable Tarifs ───────────────────────────────────────────────
+
+const PrintableTarifs = ({
+  tarifs,
+  tarifsSpeciaux,
+  colorMap,
+}: {
+  tarifs: Tarif[];
+  tarifsSpeciaux: TarifSpecial[];
+  colorMap: Record<string, (typeof PALETTE)[number]>;
+}) => {
+  const disciplines = Array.from(new Set(tarifs.map((t) => t.discipline?.nom).filter(Boolean)));
+
+  return (
+    <div style={{ width: 900, backgroundColor: "#ffffff", fontFamily: "Arial, 'Helvetica Neue', sans-serif", boxSizing: "border-box" }}>
+
+      {/* Header */}
+      <div style={{ backgroundColor: "#4a1515", padding: "26px 40px 22px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <div style={{ width: 50, height: 50, borderRadius: "50%", border: "1.5px solid rgba(212,160,23,0.55)", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(212,160,23,0.10)" }}>
+            <span style={{ fontSize: 17, fontWeight: 900, color: "#d4a017", letterSpacing: -0.5 }}>AM</span>
+          </div>
+          <div>
+            <p style={{ margin: 0, fontSize: 8.5, fontWeight: 600, color: "rgba(255,255,255,0.45)", letterSpacing: 3, textTransform: "uppercase" }}>
+              Arts Martiaux &amp; Sports de Paix
+            </p>
+            <p style={{ margin: 0, fontSize: 22, fontWeight: 900, color: "#ffffff", letterSpacing: 0.5, lineHeight: 1.15 }}>
+              AMSP
+            </p>
+          </div>
+        </div>
+        <div style={{ textAlign: "center" }}>
+          <p style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "#ffffff", letterSpacing: 0.5 }}>
+            Tarifs &amp; Cotisations
+          </p>
+          <p style={{ margin: "6px 0 0", fontSize: 9.5, color: "rgba(255,255,255,0.45)", letterSpacing: 2, textTransform: "uppercase" }}>
+            Saison en cours · Adhésion fédération incluse
+          </p>
+        </div>
+        <div style={{ width: 190 }} />
+      </div>
+
+      {/* Ligne or */}
+      <div style={{ height: 3, background: "linear-gradient(90deg, #4a1515 0%, #d4a017 25%, #d4a017 75%, #4a1515 100%)" }} />
+
+      {/* Badge 2 séances gratuites */}
+      <div style={{ textAlign: "center", padding: "18px 40px 0" }}>
+        <span style={{ display: "inline-block", border: "1.5px solid #b45309", borderRadius: 8, padding: "6px 20px", fontSize: 11, fontWeight: 700, color: "#b45309", letterSpacing: 1.5, textTransform: "uppercase" }}>
+          2 séances gratuites avant inscription définitive
+        </span>
+      </div>
+
+      {/* Tarifs par discipline */}
+      <div style={{ padding: "18px 40px 0" }}>
+        {disciplines.map((disc) => {
+          const tarifsDisc = tarifs.filter((t) => t.discipline?.nom === disc);
+          const color = colorMap[disc] || PALETTE[0];
+          return (
+            <div key={disc} style={{ marginBottom: 20 }}>
+              {/* En-tête discipline */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                <div style={{ width: 24, height: 2, borderRadius: 2, backgroundColor: color.bg }} />
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: color.bg, letterSpacing: 0.5 }}>{disc}</p>
+                <div style={{ flex: 1, height: 1, backgroundColor: "#ede5e3" }} />
+              </div>
+              {/* Cartes tarifs */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                {tarifsDisc.map((t) => (
+                  <div key={t._id} style={{ flex: "1 1 220px", display: "flex", overflow: "hidden", borderRadius: 8, border: "1px solid #ede8e5", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
+                    <div style={{ width: 4, flexShrink: 0, backgroundColor: color.bg }} />
+                    <div style={{ flex: 1, padding: "10px 14px", backgroundColor: "#ffffff", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div style={{ flex: 1 }}>
+                        {t.categorie && <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#1a1a1a" }}>{t.categorie}</p>}
+                        {t.jours?.length > 0 && <p style={{ margin: "3px 0 0", fontSize: 9.5, color: "#7a7068" }}>📅 {t.jours.join(", ")}</p>}
+                        {t.echeancier && <p style={{ margin: "4px 0 0", fontSize: 9, color: "#9ca3af" }}>Chèques : {t.echeancier}</p>}
+                      </div>
+                      <div style={{ textAlign: "right", marginLeft: 12, flexShrink: 0 }}>
+                        <span style={{ fontSize: 24, fontWeight: 900, color: color.bg, lineHeight: 1 }}>{t.prixAnnuel ?? "—"}</span>
+                        {t.prixAnnuel && <span style={{ fontSize: 12, color: "#6b7280", marginLeft: 2 }}>€</span>}
+                        <p style={{ margin: "2px 0 0", fontSize: 9, color: "#9ca3af" }}>/an</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Réductions */}
+      <div style={{ margin: "4px 40px 0", borderRadius: 10, border: "1px solid #ede5e3", overflow: "hidden" }}>
+        <div style={{ backgroundColor: "#f7f4f3", borderBottom: "1px solid #ede5e3", padding: "10px 18px" }}>
+          <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: "#1a1a1a" }}>Réductions</p>
+        </div>
+        <div style={{ display: "flex" }}>
+          <div style={{ flex: 1, padding: "12px 18px", borderRight: "1px solid #ede5e3" }}>
+            <p style={{ margin: "0 0 6px", fontSize: 9, fontWeight: 700, color: "#7a7068", textTransform: "uppercase", letterSpacing: 1.5 }}>Multi-cours</p>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+              <p style={{ margin: 0, fontSize: 11, color: "#374151" }}>Pour 2 cours au choix</p>
+              <p style={{ margin: 0, fontSize: 16, fontWeight: 900, color: "#4a1515" }}>−10%</p>
+            </div>
+            <p style={{ margin: "2px 0 0", fontSize: 9, color: "#9ca3af" }}>du tarif total</p>
+          </div>
+          <div style={{ flex: 1, padding: "12px 18px" }}>
+            <p style={{ margin: "0 0 6px", fontSize: 9, fontWeight: 700, color: "#7a7068", textTransform: "uppercase", letterSpacing: 1.5 }}>Tarifs famille</p>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+              <p style={{ margin: 0, fontSize: 11, color: "#374151" }}>Pour 2 personnes</p>
+              <p style={{ margin: 0, fontSize: 16, fontWeight: 900, color: "#4a1515" }}>−10%</p>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+              <p style={{ margin: 0, fontSize: 11, color: "#374151" }}>Pour 3 personnes</p>
+              <p style={{ margin: 0, fontSize: 16, fontWeight: 900, color: "#4a1515" }}>−20€</p>
+            </div>
+            <p style={{ margin: "2px 0 0", fontSize: 9, color: "#9ca3af" }}>du tarif total</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Tarifs spéciaux */}
+      {tarifsSpeciaux.length > 0 && (
+        <div style={{ margin: "14px 40px 0", borderRadius: 10, border: "1px solid #e8d5b7", backgroundColor: "#fffbf0", padding: "14px 18px" }}>
+          <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 800, color: "#b45309" }}>✦ Tarifs spéciaux</p>
+          <div style={{ display: "flex", gap: 24 }}>
+            {tarifsSpeciaux.map((ts) => (
+              <div key={ts._id} style={{ flex: 1 }}>
+                <p style={{ margin: "0 0 6px", fontSize: 11, fontWeight: 700, color: "#1a1a1a" }}>{ts.titre}</p>
+                {ts.lignes?.map((ligne, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 4 }}>
+                    <span style={{ marginTop: 4, width: 5, height: 5, borderRadius: "50%", backgroundColor: "#b45309", flexShrink: 0, display: "inline-block" }} />
+                    <p style={{ margin: 0, fontSize: 10.5, color: "#6b7280" }}>{ligne}</p>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Disclaimer */}
+      <p style={{ margin: "14px 40px 0", paddingBottom: 24, fontSize: 8.5, color: "#9ca3af", textAlign: "center", fontStyle: "italic", lineHeight: 1.65 }}>
+        Tarifs donnés à titre indicatif pour la saison en cours. Sous réserve de modifications.
+      </p>
+    </div>
+  );
+};
+
 // ─── Page Planning ────────────────────────────────────────────────────────────
 
 const Planning = () => {
@@ -319,7 +466,9 @@ const Planning = () => {
   const [filter, setFilter] = useState("Toutes");
   const [loading, setLoading] = useState(true);
 const [downloading, setDownloading] = useState(false);
+  const [downloadingTarifs, setDownloadingTarifs] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
+  const tarifsRef = useRef<HTMLDivElement>(null);
 
   const handleDownload = async () => {
     if (!printRef.current) return;
@@ -343,6 +492,31 @@ const [downloading, setDownloading] = useState(false);
       link.click();
     } finally {
       setDownloading(false);
+    }
+  };
+
+  const handleDownloadTarifs = async () => {
+    if (!tarifsRef.current) return;
+    setDownloadingTarifs(true);
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const el = tarifsRef.current;
+      const canvas = await html2canvas(el, {
+        backgroundColor: "#ffffff",
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        width: 900,
+        height: el.scrollHeight,
+        windowWidth: 900,
+        windowHeight: el.scrollHeight,
+      });
+      const link = document.createElement("a");
+      link.download = "tarifs-amsp.png";
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    } finally {
+      setDownloadingTarifs(false);
     }
   };
 
@@ -490,11 +664,29 @@ const [downloading, setDownloading] = useState(false);
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, delay: 0.2 }}
                 >
+                  <div className="mb-4 flex justify-end">
+                    <button
+                      onClick={handleDownloadTarifs}
+                      disabled={downloadingTarifs}
+                      className="flex items-center gap-2 rounded-lg border border-border/50 bg-secondary/50 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground disabled:opacity-50"
+                    >
+                      {downloadingTarifs
+                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        : <Download className="h-3.5 w-3.5" />
+                      }
+                      {downloadingTarifs ? "Génération…" : "Télécharger les tarifs"}
+                    </button>
+                  </div>
                   <h2 className="mb-2 text-center font-serif text-3xl font-bold">
                     <span className="text-primary">Tarifs</span> saison
                   </h2>
-                  <p className="mb-10 text-center text-sm text-muted-foreground">
+                  <p className="mb-4 text-center text-sm text-muted-foreground">
                     Cotisations annuelles — adhésion à la Fédération incluse
+                  </p>
+                  <p className="mb-10 text-center">
+                    <span className="inline-block rounded-lg border border-primary/30 bg-primary/8 px-4 py-2 text-sm font-bold uppercase tracking-wide text-primary">
+                      2 séances gratuites avant inscription définitive
+                    </span>
                   </p>
 
                   {/* Cartes tarifs groupées par discipline */}
@@ -664,6 +856,9 @@ const [downloading, setDownloading] = useState(false);
       <div style={{ position: "fixed", left: "-9999px", top: 0, pointerEvents: "none" }}>
         <div ref={printRef}>
           <PrintableCalendar cours={cours} colorMap={colorMap} />
+        </div>
+        <div ref={tarifsRef}>
+          <PrintableTarifs tarifs={tarifs} tarifsSpeciaux={tarifsSpeciaux} colorMap={colorMap} />
         </div>
       </div>
     </Layout>

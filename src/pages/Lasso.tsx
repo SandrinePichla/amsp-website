@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Heart, GraduationCap, Users, Star, Shield, Handshake, Sparkles } from "lucide-react";
+import { Heart, GraduationCap, Users, Star, Shield, Handshake, Sparkles, ExternalLink } from "lucide-react";
 import Layout from "@/components/Layout";
 import { client } from "@/sanityClient";
 import { urlFor } from "@/sanityImage";
@@ -197,6 +197,28 @@ const Lasso = () => {
                 </span>
               ))}
             </div>
+          </motion.div>
+
+          {/* Référent Karaté */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="mx-auto mt-6 max-w-2xl rounded-2xl border border-border/40 bg-card p-6 text-center"
+          >
+            <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-primary/60">Référent club</p>
+            <p className="font-serif text-lg font-bold">
+              Karaté · Steve Piazza — 5<sup>e</sup> Dan
+            </p>
+            <a
+              href="https://www.stevepiazza.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-flex items-center gap-1.5 text-sm text-primary transition-colors hover:text-primary/70"
+            >
+              <ExternalLink size={13} />
+              www.stevepiazza.com
+            </a>
           </motion.div>
 
         </div>
