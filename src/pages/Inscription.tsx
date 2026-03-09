@@ -13,6 +13,7 @@ import {
   buildColorMap,
   PrintableCalendar, PrintableTarifs,
 } from "@/components/PrintablePlanning";
+import { supabase } from "@/supabaseClient";
 import type { Cours, Tarif, TarifSpecial } from "@/components/PrintablePlanning";
 
 const SERVICE_ID = "service_hvx0rnw";
@@ -67,6 +68,7 @@ const Inscription = () => {
   const [downloadingTarifs, setDownloadingTarifs] = useState(false);
   const planningRef = useRef<HTMLDivElement>(null);
   const tarifsRef = useRef<HTMLDivElement>(null);
+  const [autorisationParentale, setAutorisationParentale] = useState(false);
   const [form, setForm] = useState({
     nom: "", prenom: "", adresse: "",
     telFixe: "", telMobile: "", email: "",
@@ -127,57 +129,83 @@ const Inscription = () => {
     );
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (selectedDisciplines.length === 0) {
-      toast.error("Veuillez sélectionner au moins une discipline.");
-      return;
-    }
-    if (!reglementAccepte) {
-      toast.error("Veuillez accepter le règlement intérieur.");
-      return;
-    }
+const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+  if (selectedDisciplines.length === 0) {
+    toast.error("Veuillez sélectionner au moins une discipline.");
+    return;
+  }
+  if (!reglementAccepte) {
+    toast.error("Veuillez accepter le règlement intérieur.");
+    return;
+  }
 
-    setSending(true);
+  setSending(true);
 
-    const disciplinesChoisies = selectedDisciplines
-      .map((id) => disciplines.find((d) => d._id === id)?.nom)
-      .filter(Boolean)
-      .join(", ");
+  const disciplinesChoisies = selectedDisciplines
+    .map((id) => disciplines.find((d) => d._id === id)?.nom)
+    .filter(Boolean)
+    .join(", ");
 
-    try {
-      await emailjs.send(SERVICE_ID, TEMPLATE_ID, {
-        nom: form.nom,
-        prenom: form.prenom,
-        adresse: form.adresse,
-        tel_fixe: form.telFixe,
-        tel_mobile: form.telMobile,
-        email: form.email,
-        date_naissance: form.dateNaissance,
-        groupe_sanguin: form.groupeSanguin,
-        allergie: form.allergie || "Aucune",
-        niveau: form.niveau || "Non précisé",
-        urgence_contact: form.urgenceContact,
-        disciplines: disciplinesChoisies,
-        droit_image: droitImage ? "Oui" : "Non",
-      }, PUBLIC_KEY);
+  try {
+    // 1 — Enregistrement dans Supabase
+    const { error } = await supabase.from("inscriptions").insert({
+      nom: form.nom,
+      prenom: form.prenom,
+      adresse: form.adresse,
+      date_naissance: form.dateNaissance || null,
+      groupe_sanguin: form.groupeSanguin || null,
+      allergie: form.allergie || null,
+      tel_fixe: form.telFixe || null,
+      tel_mobile: form.telMobile,
+      email: form.email,
+      urgence_contact: form.urgenceContact,
+      disciplines: disciplinesChoisies,
+      niveau: form.niveau || null,
+      autorisation_parentale: autorisationParentale,
+      droit_image: droitImage,
+      saison: "2025-2026",
+      statut: "en_attente",
+    });
 
-      toast.success("Inscription envoyée ! Nous vous contacterons bientôt.");
-      setForm({
-        nom: "", prenom: "", adresse: "",
-        telFixe: "", telMobile: "", email: "",
-        dateNaissance: "", groupeSanguin: "", allergie: "",
-        niveau: "", urgenceContact: "",
-      });
-      setSelectedDisciplines([]);
-      setReglementAccepte(false);
-      setDroitImage(false);
-    } catch {
-      toast.error("Erreur lors de l'envoi. Veuillez réessayer ou nous contacter par email.");
-    } finally {
-      setSending(false);
-    }
-  };
+    if (error) throw error;
+
+    // 2 — Envoi email via EmailJS
+    await emailjs.send(SERVICE_ID, TEMPLATE_ID, {
+      nom: form.nom,
+      prenom: form.prenom,
+      adresse: form.adresse,
+      tel_fixe: form.telFixe,
+      tel_mobile: form.telMobile,
+      email: form.email,
+      date_naissance: form.dateNaissance,
+      groupe_sanguin: form.groupeSanguin,
+      allergie: form.allergie || "Aucune",
+      niveau: form.niveau || "Non précisé",
+      urgence_contact: form.urgenceContact,
+      disciplines: disciplinesChoisies,
+      autorisation_parentale: autorisationParentale ? "Oui" : "Non / Non concerné",
+      droit_image: droitImage ? "Oui" : "Non",
+    }, PUBLIC_KEY);
+
+    toast.success("Inscription envoyée ! Nous vous contacterons bientôt.");
+    setForm({
+      nom: "", prenom: "", adresse: "",
+      telFixe: "", telMobile: "", email: "",
+      dateNaissance: "", groupeSanguin: "", allergie: "",
+      niveau: "", urgenceContact: "",
+    });
+    setSelectedDisciplines([]);
+    setReglementAccepte(false);
+    setDroitImage(false);
+
+  } catch (err) {
+    console.error(err);
+    toast.error("Erreur lors de l'envoi. Veuillez réessayer ou nous contacter par email.");
+  } finally {
+    setSending(false);
+  }
+};
 
   return (
     <Layout>
@@ -305,18 +333,46 @@ const Inscription = () => {
                 </label>
               </div>
 
-              {/* Droit à l'image */}
+              {/* Autorisation parentale */}
               <div>
-                <h2 className="mb-4 font-serif text-lg font-bold border-b border-border/50 pb-2">Droit à l'image</h2>
+                <h2 className="mb-4 font-serif text-lg font-bold border-b border-border/50 pb-2">
+                  Autorisation parentale <span className="text-sm font-normal text-muted-foreground">(pour les mineurs uniquement)</span>
+                </h2>
+                <div className="mb-4 rounded-md border border-border/50 bg-secondary/30 p-4 text-xs text-muted-foreground">
+                  <p>Je soussigné(e) autorise mon enfant à pratiquer les arts martiaux dans le cadre de l'Association Les Arts Martiaux St Pierrois (entraînements, compétitions, démonstrations).</p>
+                  <p className="mt-2">J'autorise le professeur et les dirigeants à prendre, en cas de nécessité, les mesures qui s'imposent concernant le transport à l'hôpital.</p>
+                  <p className="mt-2">Je dégage de toute responsabilité les personnes qui prendront mon enfant en charge dans leur véhicule lors des déplacements.</p>
+                  <p className="mt-2">J'autorise mon enfant à suivre les entraînements destinés à manipuler les armes en bois et les armes articulées (l'autorisation parentale est obligatoire suite à un texte de loi sur « l'incitation des mineurs à la violence »).</p>
+                </div>
                 <label className="flex cursor-pointer items-start gap-3">
                   <Checkbox
-                    checked={droitImage}
-                    onCheckedChange={(v) => setDroitImage(v as boolean)}
+                    checked={autorisationParentale}
+                    onCheckedChange={(v) => setAutorisationParentale(v as boolean)}
                     className="mt-0.5"
                   />
-                  <span className="text-sm">{texteAutorisationImage}</span>
+                  <span className="text-sm">
+                    Je soussigné(e) accepte les termes de l'autorisation parentale ci-dessus
+                  </span>
                 </label>
               </div>
+
+              {/* Droit à l'image */}
+<div>
+  <h2 className="mb-4 font-serif text-lg font-bold border-b border-border/50 pb-2">Droit à l'image</h2>
+  <label className="flex cursor-pointer items-start gap-3">
+    <Checkbox
+      checked={droitImage}
+      onCheckedChange={(v) => setDroitImage(v as boolean)}
+      className="mt-0.5"
+    />
+    <span className="text-sm">
+      J'autorise l'association Arts Martiaux St Pierrois à utiliser mon image ou celle de mes enfants pour les besoins du club (articles, internet...)
+    </span>
+  </label>
+  <p className="mt-3 text-xs text-muted-foreground italic">
+    Le certificat médical n'est plus obligatoire — une attestation sur l'honneur sera à remplir.
+  </p>
+</div>
 
               {/* Infos paiement */}
               <div className="rounded-md border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">
