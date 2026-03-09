@@ -19,7 +19,14 @@ interface Discipline {
   nomCourt?: string;
 }
 
-const REGLEMENT = `LES PRATIQUANTS DOIVENT :
+interface InscriptionData {
+  reglementInterieur?: string;
+  titreInfosPaiement?: string;
+  infosPaiement?: string;
+  texteAutorisationImage?: string;
+}
+
+const REGLEMENT_DEFAULT = `LES PRATIQUANTS DOIVENT :
 - Assister régulièrement aux cours et arriver à l'heure (5 min avant le cours)
 - Garder toujours une tenue et une attitude correcte : courtoisie, politesse, respect
 - LA VIOLENCE, LA VULGARITÉ, LES COMPORTEMENTS DANGEREUX NE SERONT PAS TOLÉRÉS
@@ -42,6 +49,7 @@ L'INSTRUCTEUR DOIT :
 
 const Inscription = () => {
   const [disciplines, setDisciplines] = useState<Discipline[]>([]);
+  const [inscriptionData, setInscriptionData] = useState<InscriptionData>({});
   const [selectedDisciplines, setSelectedDisciplines] = useState<string[]>([]);
   const [reglementAccepte, setReglementAccepte] = useState(false);
   const [droitImage, setDroitImage] = useState(false);
@@ -57,7 +65,15 @@ const Inscription = () => {
     client
       .fetch(`*[_type == "discipline"] | order(ordre asc) { _id, nom, nomCourt }`)
       .then(setDisciplines);
+    client
+      .fetch(`*[_type == "inscription"][0] { reglementInterieur, titreInfosPaiement, infosPaiement, texteAutorisationImage }`)
+      .then((d) => { if (d) setInscriptionData(d); });
   }, []);
+
+  const reglement = inscriptionData.reglementInterieur || REGLEMENT_DEFAULT;
+  const titreInfosPaiement = inscriptionData.titreInfosPaiement || "Règlement des cotisations";
+  const infosPaiement = inscriptionData.infosPaiement || "1 chèque de 60€ encaissé à l'inscription (non remboursable) + le solde en 3 chèques encaissables en décembre 2025, mars 2026 et juin 2026. Chèques à l'ordre des Arts Martiaux St Pierrois.";
+  const texteAutorisationImage = inscriptionData.texteAutorisationImage || "J'autorise l'association Arts Martiaux St Pierrois à utiliser mon image ou celle de mes enfants pour les besoins du club (articles, internet...)";
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.id]: e.target.value });
@@ -227,7 +243,7 @@ const Inscription = () => {
               <div>
                 <h2 className="mb-4 font-serif text-lg font-bold border-b border-border/50 pb-2">Règlement intérieur</h2>
                 <div className="mb-4 max-h-48 overflow-y-auto rounded-md border border-border/50 bg-secondary/30 p-4 text-xs text-muted-foreground whitespace-pre-line">
-                  {REGLEMENT}
+                  {reglement}
                 </div>
                 <label className="flex cursor-pointer items-start gap-3">
                   <Checkbox
@@ -250,16 +266,14 @@ const Inscription = () => {
                     onCheckedChange={(v) => setDroitImage(v as boolean)}
                     className="mt-0.5"
                   />
-                  <span className="text-sm">
-                    J'autorise l'association Arts Martiaux St Pierrois à utiliser mon image ou celle de mes enfants pour les besoins du club (articles, internet...)
-                  </span>
+                  <span className="text-sm">{texteAutorisationImage}</span>
                 </label>
               </div>
 
               {/* Infos paiement */}
               <div className="rounded-md border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">
-                <p className="font-medium text-foreground mb-1">Règlement des cotisations</p>
-                <p>1 chèque de 60€ encaissé à l'inscription (non remboursable) + le solde en 3 chèques encaissables en décembre 2025, mars 2026 et juin 2026. Chèques à l'ordre des <strong>Arts Martiaux St Pierrois</strong>.</p>
+                <p className="font-medium text-foreground mb-1">{titreInfosPaiement}</p>
+                <p>{infosPaiement}</p>
               </div>
 
               <Button type="submit" className="w-full" size="lg" disabled={sending}>
