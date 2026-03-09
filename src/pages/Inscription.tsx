@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,13 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import emailjs from "@emailjs/browser";
+import { Download, Loader2 } from "lucide-react";
 import { client } from "@/sanityClient";
+import {
+  buildColorMap,
+  PrintableCalendar, PrintableTarifs,
+} from "@/components/PrintablePlanning";
+import type { Cours, Tarif, TarifSpecial } from "@/components/PrintablePlanning";
 
 const SERVICE_ID = "COLLE_TON_SERVICE_ID";
 const TEMPLATE_ID = "COLLE_TON_TEMPLATE_INSCRIPTION_ID";
@@ -50,10 +56,17 @@ L'INSTRUCTEUR DOIT :
 const Inscription = () => {
   const [disciplines, setDisciplines] = useState<Discipline[]>([]);
   const [inscriptionData, setInscriptionData] = useState<InscriptionData>({});
+  const [cours, setCours] = useState<Cours[]>([]);
+  const [tarifs, setTarifs] = useState<Tarif[]>([]);
+  const [tarifsSpeciaux, setTarifsSpeciaux] = useState<TarifSpecial[]>([]);
   const [selectedDisciplines, setSelectedDisciplines] = useState<string[]>([]);
   const [reglementAccepte, setReglementAccepte] = useState(false);
   const [droitImage, setDroitImage] = useState(false);
   const [sending, setSending] = useState(false);
+  const [downloadingPlanning, setDownloadingPlanning] = useState(false);
+  const [downloadingTarifs, setDownloadingTarifs] = useState(false);
+  const planningRef = useRef<HTMLDivElement>(null);
+  const tarifsRef = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState({
     nom: "", prenom: "", adresse: "",
     telFixe: "", telMobile: "", email: "",
@@ -62,13 +75,42 @@ const Inscription = () => {
   });
 
   useEffect(() => {
-    client
-      .fetch(`*[_type == "discipline"] | order(ordre asc) { _id, nom, nomCourt }`)
-      .then(setDisciplines);
-    client
-      .fetch(`*[_type == "inscription"][0] { reglementInterieur, titreInfosPaiement, infosPaiement, texteAutorisationImage }`)
-      .then((d) => { if (d) setInscriptionData(d); });
+    client.fetch(`*[_type == "discipline"] | order(ordre asc) { _id, nom, nomCourt }`).then(setDisciplines);
+    client.fetch(`*[_type == "inscription"][0] { reglementInterieur, titreInfosPaiement, infosPaiement, texteAutorisationImage }`).then((d) => { if (d) setInscriptionData(d); });
+    client.fetch(`*[_type == "cours"] | order(jour asc, heureDebut asc) { _id, jour, heureDebut, heureFin, lieu, niveau, ages, discipline-> { nom, nomCourt } }`).then(setCours);
+    client.fetch(`*[_type == "tarif"] | order(ordre asc) { _id, categorie, jours, prixAnnuel, echeancier, ordre, discipline-> { nom } }`).then(setTarifs);
+    client.fetch(`*[_type == "tarifSpecial"] | order(ordre asc)`).then(setTarifsSpeciaux);
   }, []);
+
+  const colorMap = useMemo(() => buildColorMap(cours), [cours]);
+
+  const handleDownloadPlanning = async () => {
+    if (!planningRef.current) return;
+    setDownloadingPlanning(true);
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const el = planningRef.current;
+      const canvas = await html2canvas(el, { backgroundColor: "#ffffff", scale: 2, useCORS: true, logging: false, width: el.scrollWidth, height: el.scrollHeight, windowWidth: el.scrollWidth, windowHeight: el.scrollHeight });
+      const link = document.createElement("a");
+      link.download = "planning-amsp.png";
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    } finally { setDownloadingPlanning(false); }
+  };
+
+  const handleDownloadTarifs = async () => {
+    if (!tarifsRef.current) return;
+    setDownloadingTarifs(true);
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const el = tarifsRef.current;
+      const canvas = await html2canvas(el, { backgroundColor: "#ffffff", scale: 2, useCORS: true, logging: false, width: 900, height: el.scrollHeight, windowWidth: 900, windowHeight: el.scrollHeight });
+      const link = document.createElement("a");
+      link.download = "tarifs-amsp.png";
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    } finally { setDownloadingTarifs(false); }
+  };
 
   const reglement = inscriptionData.reglementInterieur || REGLEMENT_DEFAULT;
   const titreInfosPaiement = inscriptionData.titreInfosPaiement || "Règlement des cotisations";
@@ -213,7 +255,13 @@ const Inscription = () => {
 
               {/* Discipline(s) */}
               <div>
-                <h2 className="mb-4 font-serif text-lg font-bold border-b border-border/50 pb-2">Discipline(s) souhaitée(s) *</h2>
+                <div className="mb-4 flex items-center justify-between border-b border-border/50 pb-2">
+                  <h2 className="font-serif text-lg font-bold">Discipline(s) souhaitée(s) *</h2>
+                  <button type="button" onClick={handleDownloadPlanning} disabled={downloadingPlanning} className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10 disabled:opacity-50">
+                    {downloadingPlanning ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                    Voir planning
+                  </button>
+                </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {disciplines.map((d) => (
                     <label
@@ -272,7 +320,13 @@ const Inscription = () => {
 
               {/* Infos paiement */}
               <div className="rounded-md border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">
-                <p className="font-medium text-foreground mb-1">{titreInfosPaiement}</p>
+                <div className="mb-1 flex items-center justify-between">
+                  <p className="font-medium text-foreground">{titreInfosPaiement}</p>
+                  <button type="button" onClick={handleDownloadTarifs} disabled={downloadingTarifs} className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10 disabled:opacity-50">
+                    {downloadingTarifs ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                    Voir tarifs
+                  </button>
+                </div>
                 <p>{infosPaiement}</p>
               </div>
 
@@ -283,6 +337,16 @@ const Inscription = () => {
           </motion.div>
         </div>
       </section>
+
+      {/* Composants hors-écran pour html2canvas */}
+      <div style={{ position: "fixed", left: "-9999px", top: 0, pointerEvents: "none" }}>
+        <div ref={planningRef}>
+          <PrintableCalendar cours={cours} colorMap={colorMap} />
+        </div>
+        <div ref={tarifsRef}>
+          <PrintableTarifs tarifs={tarifs} tarifsSpeciaux={tarifsSpeciaux} colorMap={colorMap} />
+        </div>
+      </div>
     </Layout>
   );
 };
