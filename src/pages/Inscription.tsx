@@ -14,6 +14,7 @@ import {
   PrintableCalendar, PrintableTarifs,
 } from "@/components/PrintablePlanning";
 import { supabase } from "@/supabaseClient";
+import { useAuth } from "@/contexts/AuthContext";
 import type { Cours, Tarif, TarifSpecial } from "@/components/PrintablePlanning";
 
 const SERVICE_ID = "service_hvx0rnw";
@@ -58,6 +59,7 @@ L'INSTRUCTEUR DOIT :
 - Les instructeurs étant bénévoles, ils peuvent être dans l'impossibilité de faire les cours et doivent prévenir les adhérents de leur absence`;
 
 const Inscription = () => {
+  const { user } = useAuth();
   const [disciplines, setDisciplines] = useState<Discipline[]>([]);
   const [inscriptionData, setInscriptionData] = useState<InscriptionData>({});
   const [cours, setCours] = useState<Cours[]>([]);
@@ -73,11 +75,13 @@ const Inscription = () => {
   const tarifsRef = useRef<HTMLDivElement>(null);
   const [autorisationParentale, setAutorisationParentale] = useState(false);
   const [form, setForm] = useState({
-    nom: "", prenom: "", adresse: "",
+    nom: "", prenom: "", adresse: "", codePostal: "", ville: "",
     telFixe: "", telMobile: "", email: "",
     dateNaissance: "", groupeSanguin: "", allergie: "",
-    niveau: "", urgenceContact: "",
+    niveau: "", urgenceContact: "", urgenceTel: "",
   });
+  const [villes, setVilles] = useState<string[]>([]);
+  const [loadingVilles, setLoadingVilles] = useState(false);
 
   useEffect(() => {
     client.fetch(`*[_type == "discipline"] | order(ordre asc) { _id, nom, nomCourt }`).then(setDisciplines);
@@ -85,7 +89,27 @@ const Inscription = () => {
     client.fetch(`*[_type == "cours"] | order(jour asc, heureDebut asc) { _id, jour, heureDebut, heureFin, lieu, niveau, ages, discipline-> { nom, nomCourt } }`).then(setCours);
     client.fetch(`*[_type == "tarif"] | order(ordre asc) { _id, categorie, jours, prixAnnuel, echeancier, ordre, discipline-> { nom } }`).then(setTarifs);
     client.fetch(`*[_type == "tarifSpecial"] | order(ordre asc)`).then(setTarifsSpeciaux);
-  }, []);
+
+    if (user) {
+      supabase
+        .from("profils")
+        .select("prenom, nom, adresse, telephone, email")
+        .eq("id", user.id)
+        .single()
+        .then(({ data }) => {
+          if (data) {
+            setForm((prev) => ({
+              ...prev,
+              prenom: data.prenom || prev.prenom,
+              nom: data.nom || prev.nom,
+              adresse: data.adresse || prev.adresse,
+              telMobile: data.telephone || prev.telMobile,
+              email: data.email || user.email || prev.email,
+            }));
+          }
+        });
+    }
+  }, [user]);
 
   const colorMap = useMemo(() => buildColorMap(cours), [cours]);
 
@@ -120,13 +144,32 @@ const Inscription = () => {
   const saison = inscriptionData.saison || "2025-2026";
   const reglement = inscriptionData.reglementInterieur || REGLEMENT_DEFAULT;
   const titreInfosPaiement = inscriptionData.titreInfosPaiement || "Règlement des cotisations";
-  const infosPaiement = inscriptionData.infosPaiement || "Modalités de paiement à définir. Chèques à l'ordre des Arts Martiaux St Pierrois.";
+  const infosPaiement = inscriptionData.infosPaiement || "1 chèque de 60€ encaissé à l'inscription (non remboursable) + le solde en 3 chèques encaissables en décembre 2025, mars 2026 et juin 2026. Chèques à l'ordre des Arts Martiaux St Pierrois.";
   const texteAutorisationImage = inscriptionData.texteAutorisationImage || "J'autorise l'association Arts Martiaux St Pierrois à utiliser mon image ou celle de mes enfants pour les besoins du club (articles, internet...)";
   const texteAutorisationParentale = inscriptionData.texteAutorisationParentale || "Je soussigné(e) autorise mon enfant à pratiquer les arts martiaux dans le cadre de l'Association Les Arts Martiaux St Pierrois (entraînements, compétitions, démonstrations).\n\nJ'autorise le professeur et les dirigeants à prendre, en cas de nécessité, les mesures qui s'imposent concernant le transport à l'hôpital.\n\nJe dégage de toute responsabilité les personnes qui prendront mon enfant en charge dans leur véhicule lors des déplacements.\n\nJ'autorise mon enfant à suivre les entraînements destinés à manipuler les armes en bois et les armes articulées (l'autorisation parentale est obligatoire suite à un texte de loi sur « l'incitation des mineurs à la violence »).";
   const texteInfosCertificatMedical = inscriptionData.texteInfosCertificatMedical || "Le certificat médical n'est plus obligatoire — une attestation sur l'honneur sera à remplir.";
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm({ ...form, [e.target.id]: e.target.value });
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { id, value } = e.target;
+    setForm((prev) => ({ ...prev, [id]: value }));
+
+    if (id === "codePostal") {
+      const cp = value.replace(/\D/g, "").slice(0, 5);
+      setForm((prev) => ({ ...prev, codePostal: cp, ville: "" }));
+      setVilles([]);
+      if (cp.length === 5) {
+        setLoadingVilles(true);
+        fetch(`https://geo.api.gouv.fr/communes?codePostal=${cp}&fields=nom&format=json`)
+          .then((r) => r.json())
+          .then((data: { nom: string }[]) => {
+            const noms = data.map((c) => c.nom).sort();
+            setVilles(noms);
+            if (noms.length === 1) setForm((prev) => ({ ...prev, ville: noms[0] }));
+          })
+          .catch(() => setVilles([]))
+          .finally(() => setLoadingVilles(false));
+      }
+    }
   };
 
   const toggleDiscipline = (id: string) => {
@@ -155,23 +198,25 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 
   try {
     // 1 — Enregistrement dans Supabase
+    const adresseComplete = [form.adresse, form.codePostal, form.ville].filter(Boolean).join(" ");
     const { error } = await supabase.from("inscriptions").insert({
       nom: form.nom,
       prenom: form.prenom,
-      adresse: form.adresse,
+      adresse: adresseComplete,
       date_naissance: form.dateNaissance || null,
       groupe_sanguin: form.groupeSanguin || null,
       allergie: form.allergie || null,
       tel_fixe: form.telFixe || null,
       tel_mobile: form.telMobile,
       email: form.email,
-      urgence_contact: form.urgenceContact,
+      urgence_contact: [form.urgenceContact, form.urgenceTel].filter(Boolean).join(" — "),
       disciplines: disciplinesChoisies,
       niveau: form.niveau || null,
       autorisation_parentale: autorisationParentale,
       droit_image: droitImage,
       saison,
       statut: "en_attente",
+      user_id: user?.id || null,
     });
 
     if (error) throw error;
@@ -180,7 +225,7 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     await emailjs.send(SERVICE_ID, TEMPLATE_ID, {
       nom: form.nom,
       prenom: form.prenom,
-      adresse: form.adresse,
+      adresse: adresseComplete,
       tel_fixe: form.telFixe,
       tel_mobile: form.telMobile,
       email: form.email,
@@ -188,7 +233,7 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
       groupe_sanguin: form.groupeSanguin,
       allergie: form.allergie || "Aucune",
       niveau: form.niveau || "Non précisé",
-      urgence_contact: form.urgenceContact,
+      urgence_contact: [form.urgenceContact, form.urgenceTel].filter(Boolean).join(" — "),
       disciplines: disciplinesChoisies,
       autorisation_parentale: autorisationParentale ? "Oui" : "Non / Non concerné",
       droit_image: droitImage ? "Oui" : "Non",
@@ -196,11 +241,12 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 
     toast.success("Inscription envoyée ! Nous vous contacterons bientôt.");
     setForm({
-      nom: "", prenom: "", adresse: "",
+      nom: "", prenom: "", adresse: "", codePostal: "", ville: "",
       telFixe: "", telMobile: "", email: "",
       dateNaissance: "", groupeSanguin: "", allergie: "",
-      niveau: "", urgenceContact: "",
+      niveau: "", urgenceContact: "", urgenceTel: "",
     });
+    setVilles([]);
     setSelectedDisciplines([]);
     setReglementAccepte(false);
     setDroitImage(false);
@@ -243,7 +289,40 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="adresse">Adresse *</Label>
-                    <Input id="adresse" required maxLength={255} placeholder="Votre adresse complète" value={form.adresse} onChange={handleChange} />
+                    <Input id="adresse" required maxLength={255} placeholder="Numéro et nom de rue" value={form.adresse} onChange={handleChange} />
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="codePostal">Code postal *</Label>
+                      <Input id="codePostal" required maxLength={5} placeholder="Ex: 97410" value={form.codePostal} onChange={handleChange} inputMode="numeric" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="ville">Ville *</Label>
+                      {villes.length > 1 ? (
+                        <select
+                          id="ville"
+                          required
+                          value={form.ville}
+                          onChange={handleChange}
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        >
+                          <option value="">Sélectionner une ville</option>
+                          {villes.map((v) => (
+                            <option key={v} value={v}>{v}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <Input
+                          id="ville"
+                          required
+                          maxLength={100}
+                          placeholder={loadingVilles ? "Chargement…" : "Ex: Saint-Pierre"}
+                          value={form.ville}
+                          onChange={handleChange}
+                          disabled={loadingVilles}
+                        />
+                      )}
+                    </div>
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
@@ -280,9 +359,18 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
                     <Label htmlFor="email">Email *</Label>
                     <Input id="email" type="email" required maxLength={255} placeholder="votre@email.com" value={form.email} onChange={handleChange} />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="urgenceContact">Personne à contacter en cas d'urgence *</Label>
-                    <Input id="urgenceContact" required maxLength={255} placeholder="Nom, prénom et téléphone" value={form.urgenceContact} onChange={handleChange} />
+                  <div>
+                    <p className="mb-2 text-sm font-medium">Personne à contacter en cas d'urgence *</p>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="urgenceContact">Nom et prénom</Label>
+                        <Input id="urgenceContact" required maxLength={100} placeholder="Nom, prénom" value={form.urgenceContact} onChange={handleChange} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="urgenceTel">Téléphone</Label>
+                        <Input id="urgenceTel" type="tel" required maxLength={20} placeholder="06 00 00 00 00" value={form.urgenceTel} onChange={handleChange} />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
