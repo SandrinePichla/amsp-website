@@ -15,9 +15,9 @@ import {
 } from "@/components/PrintablePlanning";
 import type { Cours, Tarif, TarifSpecial } from "@/components/PrintablePlanning";
 
-const SERVICE_ID = "COLLE_TON_SERVICE_ID";
-const TEMPLATE_ID = "COLLE_TON_TEMPLATE_INSCRIPTION_ID";
-const PUBLIC_KEY = "COLLE_TA_PUBLIC_KEY";
+const SERVICE_ID = "service_hvx0rnw";
+const TEMPLATE_ID = "template_sbgtitc";
+const PUBLIC_KEY = "r044e90XA84E6Ua5B";
 
 interface Discipline {
   _id: string;
