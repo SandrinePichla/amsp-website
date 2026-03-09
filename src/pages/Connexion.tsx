@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
@@ -78,10 +78,10 @@ const Connexion = () => {
           </div>
 
           <p className="mt-6 text-center text-xs text-muted-foreground">
-            Pas encore membre ? Contactez-nous à{" "}
-            <a href="mailto:artsmartiauxstpierrois@gmail.com" className="text-primary hover:underline">
-              artsmartiauxstpierrois@gmail.com
-            </a>
+            Pas encore membre ?{" "}
+            <Link to="/rejoindre" className="text-primary hover:underline">
+              Faire une demande d'accès
+            </Link>
           </p>
         </motion.div>
       </section>

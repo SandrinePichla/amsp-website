@@ -27,10 +27,13 @@ interface Discipline {
 }
 
 interface InscriptionData {
+  saison?: string;
   reglementInterieur?: string;
   titreInfosPaiement?: string;
   infosPaiement?: string;
   texteAutorisationImage?: string;
+  texteAutorisationParentale?: string;
+  texteInfosCertificatMedical?: string;
 }
 
 const REGLEMENT_DEFAULT = `LES PRATIQUANTS DOIVENT :
@@ -78,7 +81,7 @@ const Inscription = () => {
 
   useEffect(() => {
     client.fetch(`*[_type == "discipline"] | order(ordre asc) { _id, nom, nomCourt }`).then(setDisciplines);
-    client.fetch(`*[_type == "inscription"][0] { reglementInterieur, titreInfosPaiement, infosPaiement, texteAutorisationImage }`).then((d) => { if (d) setInscriptionData(d); });
+    client.fetch(`*[_type == "inscription"][0] { saison, reglementInterieur, titreInfosPaiement, infosPaiement, texteAutorisationImage, texteAutorisationParentale, texteInfosCertificatMedical }`).then((d) => { if (d) setInscriptionData(d); });
     client.fetch(`*[_type == "cours"] | order(jour asc, heureDebut asc) { _id, jour, heureDebut, heureFin, lieu, niveau, ages, discipline-> { nom, nomCourt } }`).then(setCours);
     client.fetch(`*[_type == "tarif"] | order(ordre asc) { _id, categorie, jours, prixAnnuel, echeancier, ordre, discipline-> { nom } }`).then(setTarifs);
     client.fetch(`*[_type == "tarifSpecial"] | order(ordre asc)`).then(setTarifsSpeciaux);
@@ -114,10 +117,13 @@ const Inscription = () => {
     } finally { setDownloadingTarifs(false); }
   };
 
+  const saison = inscriptionData.saison || "2025-2026";
   const reglement = inscriptionData.reglementInterieur || REGLEMENT_DEFAULT;
   const titreInfosPaiement = inscriptionData.titreInfosPaiement || "Règlement des cotisations";
-  const infosPaiement = inscriptionData.infosPaiement || "1 chèque de 60€ encaissé à l'inscription (non remboursable) + le solde en 3 chèques encaissables en décembre 2025, mars 2026 et juin 2026. Chèques à l'ordre des Arts Martiaux St Pierrois.";
+  const infosPaiement = inscriptionData.infosPaiement || "Modalités de paiement à définir. Chèques à l'ordre des Arts Martiaux St Pierrois.";
   const texteAutorisationImage = inscriptionData.texteAutorisationImage || "J'autorise l'association Arts Martiaux St Pierrois à utiliser mon image ou celle de mes enfants pour les besoins du club (articles, internet...)";
+  const texteAutorisationParentale = inscriptionData.texteAutorisationParentale || "Je soussigné(e) autorise mon enfant à pratiquer les arts martiaux dans le cadre de l'Association Les Arts Martiaux St Pierrois (entraînements, compétitions, démonstrations).\n\nJ'autorise le professeur et les dirigeants à prendre, en cas de nécessité, les mesures qui s'imposent concernant le transport à l'hôpital.\n\nJe dégage de toute responsabilité les personnes qui prendront mon enfant en charge dans leur véhicule lors des déplacements.\n\nJ'autorise mon enfant à suivre les entraînements destinés à manipuler les armes en bois et les armes articulées (l'autorisation parentale est obligatoire suite à un texte de loi sur « l'incitation des mineurs à la violence »).";
+  const texteInfosCertificatMedical = inscriptionData.texteInfosCertificatMedical || "Le certificat médical n'est plus obligatoire — une attestation sur l'honneur sera à remplir.";
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.id]: e.target.value });
@@ -164,7 +170,7 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
       niveau: form.niveau || null,
       autorisation_parentale: autorisationParentale,
       droit_image: droitImage,
-      saison: "2025-2026",
+      saison,
       statut: "en_attente",
     });
 
@@ -338,11 +344,8 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
                 <h2 className="mb-4 font-serif text-lg font-bold border-b border-border/50 pb-2">
                   Autorisation parentale <span className="text-sm font-normal text-muted-foreground">(pour les mineurs uniquement)</span>
                 </h2>
-                <div className="mb-4 rounded-md border border-border/50 bg-secondary/30 p-4 text-xs text-muted-foreground">
-                  <p>Je soussigné(e) autorise mon enfant à pratiquer les arts martiaux dans le cadre de l'Association Les Arts Martiaux St Pierrois (entraînements, compétitions, démonstrations).</p>
-                  <p className="mt-2">J'autorise le professeur et les dirigeants à prendre, en cas de nécessité, les mesures qui s'imposent concernant le transport à l'hôpital.</p>
-                  <p className="mt-2">Je dégage de toute responsabilité les personnes qui prendront mon enfant en charge dans leur véhicule lors des déplacements.</p>
-                  <p className="mt-2">J'autorise mon enfant à suivre les entraînements destinés à manipuler les armes en bois et les armes articulées (l'autorisation parentale est obligatoire suite à un texte de loi sur « l'incitation des mineurs à la violence »).</p>
+                <div className="mb-4 rounded-md border border-border/50 bg-secondary/30 p-4 text-xs text-muted-foreground whitespace-pre-line">
+                  {texteAutorisationParentale}
                 </div>
                 <label className="flex cursor-pointer items-start gap-3">
                   <Checkbox
@@ -357,22 +360,18 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
               </div>
 
               {/* Droit à l'image */}
-<div>
-  <h2 className="mb-4 font-serif text-lg font-bold border-b border-border/50 pb-2">Droit à l'image</h2>
-  <label className="flex cursor-pointer items-start gap-3">
-    <Checkbox
-      checked={droitImage}
-      onCheckedChange={(v) => setDroitImage(v as boolean)}
-      className="mt-0.5"
-    />
-    <span className="text-sm">
-      J'autorise l'association Arts Martiaux St Pierrois à utiliser mon image ou celle de mes enfants pour les besoins du club (articles, internet...)
-    </span>
-  </label>
-  <p className="mt-3 text-xs text-muted-foreground italic">
-    Le certificat médical n'est plus obligatoire — une attestation sur l'honneur sera à remplir.
-  </p>
-</div>
+              <div>
+                <h2 className="mb-4 font-serif text-lg font-bold border-b border-border/50 pb-2">Droit à l'image</h2>
+                <label className="flex cursor-pointer items-start gap-3">
+                  <Checkbox
+                    checked={droitImage}
+                    onCheckedChange={(v) => setDroitImage(v as boolean)}
+                    className="mt-0.5"
+                  />
+                  <span className="text-sm">{texteAutorisationImage}</span>
+                </label>
+                <p className="mt-3 text-xs text-muted-foreground italic">{texteInfosCertificatMedical}</p>
+              </div>
 
               {/* Infos paiement */}
               <div className="rounded-md border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">

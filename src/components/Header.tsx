@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, LogOut, User, ChevronDown } from "lucide-react";
+import { Menu, X, LogOut, User, ChevronDown, ShieldCheck } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -94,11 +94,16 @@ const DropdownMenu = ({
 
 const UserMenu = ({
   email,
+  prenom,
+  role,
   onSignOut,
 }: {
   email: string;
+  prenom: string | null;
+  role: string | null;
   onSignOut: () => void;
 }) => {
+
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -114,12 +119,14 @@ const UserMenu = ({
 
   return (
     <div ref={ref} className="relative ml-2">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/20 transition-colors hover:bg-primary/20"
-      >
-        <User size={15} />
-      </button>
+<button
+  onClick={() => setOpen(!open)}
+  className="flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5 text-primary ring-1 ring-primary/20 transition-colors hover:bg-primary/20"
+>
+  <User size={14} />
+  <span className="text-sm font-medium">{prenom || email.split('@')[0]}</span>
+  <ChevronDown size={12} className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+</button>
       <AnimatePresence>
         {open && (
           <motion.div
@@ -128,13 +135,43 @@ const UserMenu = ({
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.15 }}
             className="absolute right-0 top-full mt-1 min-w-[200px] rounded-lg border border-border/60 bg-background shadow-lg"
-          >
-            <div className="border-b border-border/40 px-4 py-2.5">
-              <p className="text-[11px] text-muted-foreground truncate">{email}</p>
-            </div>
+          >            
+            {/* Admin */}
+            {role === "admin" && (
+              <Link
+                to="/admin/membres"
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-primary transition-colors hover:bg-secondary"
+              >
+                <ShieldCheck size={14} />
+                Gestion des membres
+              </Link>
+            )}
+
+            {/* Mon profil */}
+            <Link
+              to="/profil"
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <User size={14} />
+              Mon profil
+            </Link>
+
+            {/* Galerie membres */}
+            <Link
+              to="/galerie"
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <span className="text-sm">🖼️</span>
+              Galerie membres
+            </Link>
+
+            {/* Déconnexion */}
             <button
               onClick={() => { setOpen(false); onSignOut(); }}
-              className="flex w-full items-center gap-2 rounded-b-lg px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              className="flex w-full items-center gap-2 rounded-b-lg px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground border-t border-border/40"
             >
               <LogOut size={14} />
               Se déconnecter
@@ -151,7 +188,7 @@ const Header = () => {
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, prenom, role, signOut } = useAuth();
 
   const handleSignOut = async () => {
     await signOut();
@@ -196,7 +233,7 @@ const Header = () => {
           )}
 
           {user ? (
-            <UserMenu email={user.email!} onSignOut={handleSignOut} />
+            <UserMenu email={user.email!} prenom={prenom} role={role} onSignOut={handleSignOut} />
           ) : (
             <Link
               to="/connexion"
@@ -281,21 +318,47 @@ const Header = () => {
                 )
               )}
 
-              {user ? (
-                <>
-                  <div className="mt-1 border-t border-border/40 pt-2">
-                    <p className="px-3 py-1 text-[11px] text-muted-foreground truncate">
-                      {user.email}
-                    </p>
-                    <button
-                      onClick={handleSignOut}
-                      className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary"
-                    >
-                      <LogOut size={14} />
-                      Se déconnecter
-                    </button>
-                  </div>
-                </>
+{user ? (
+  <>
+    <div className="mt-1 border-t border-border/40 pt-2">
+      <p className="px-3 py-1 text-[11px] text-muted-foreground truncate">
+        {user.email}
+      </p>
+      {role === "admin" && (
+        <Link
+          to="/admin/membres"
+          onClick={() => setMobileOpen(false)}
+          className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-primary hover:bg-secondary"
+        >
+          <ShieldCheck size={14} />
+          Gestion des membres
+        </Link>
+      )}
+      <Link
+        to="/profil"
+        onClick={() => setMobileOpen(false)}
+        className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary"
+      >
+        <User size={14} />
+        Mon profil
+      </Link>
+      <Link
+        to="/galerie"
+        onClick={() => setMobileOpen(false)}
+        className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary"
+      >
+        <span className="text-sm">🖼️</span>
+        Galerie membres
+      </Link>
+      <button
+        onClick={handleSignOut}
+        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary"
+      >
+        <LogOut size={14} />
+        Se déconnecter
+      </button>
+    </div>
+  </>
               ) : (
                 <Link
                   to="/connexion"

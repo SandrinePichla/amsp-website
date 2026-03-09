@@ -16,6 +16,9 @@ const Lasso = lazy(() => import("./pages/Lasso"));
 const Instructeurs = lazy(() => import("./pages/Instructeurs"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const MentionsLegales = lazy(() => import("./pages/MentionsLegales"));
+const Profil = lazy(() => import("./pages/Profil"));
+const AdminMembres = lazy(() => import("./pages/AdminMembres"));
+const Rejoindre = lazy(() => import("./pages/Rejoindre"));
 
 const queryClient = new QueryClient();
 
@@ -44,6 +47,9 @@ const App = () => (
             <Route path="/instructeurs" element={<Instructeurs />} />
             <Route path="*" element={<NotFound />} />
             <Route path="/mentions-legales" element={<MentionsLegales />} />
+            <Route path="/profil" element={<Profil />} />
+            <Route path="/admin/membres" element={<AdminMembres />} />
+            <Route path="/rejoindre" element={<Rejoindre />} />
           </Routes>
         </Suspense>
       </BrowserRouter>
