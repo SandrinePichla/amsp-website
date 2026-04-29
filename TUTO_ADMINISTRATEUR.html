@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Guide de l'administrateur — Site AMSP</title>
+  <style>
+    body {
+      font-family: Calibri, Arial, sans-serif;
+      font-size: 11pt;
+      color: #222;
+      margin: 2.5cm 2.5cm 2.5cm 2.5cm;
+      line-height: 1.5;
+    }
+    h1 {
+      font-size: 20pt;
+      color: #1a3c5e;
+      border-bottom: 3px solid #1a3c5e;
+      padding-bottom: 6px;
+      margin-top: 0;
+    }
+    h2 {
+      font-size: 14pt;
+      color: #1a3c5e;
+      border-left: 4px solid #e63946;
+      padding-left: 10px;
+      margin-top: 28px;
+    }
+    h3 {
+      font-size: 12pt;
+      color: #333;
+      margin-top: 18px;
+    }
+    .subtitle {
+      font-size: 11pt;
+      color: #666;
+      margin-top: -8px;
+      margin-bottom: 24px;
+      font-style: italic;
+    }
+    .sommaire {
+      background: #f0f4f8;
+      border: 1px solid #c8d6e5;
+      border-radius: 4px;
+      padding: 14px 20px;
+      margin-bottom: 28px;
+    }
+    .sommaire p {
+      margin: 0 0 6px 0;
+      font-weight: bold;
+      font-size: 11pt;
+    }
+    .sommaire ol {
+      margin: 0;
+      padding-left: 20px;
+    }
+    .sommaire li {
+      margin: 3px 0;
+    }
+    .etapes {
+      background: #f8f9fa;
+      border-left: 3px solid #1a3c5e;
+      padding: 10px 16px;
+      margin: 12px 0;
+    }
+    .attention {
+      background: #fff8e1;
+      border-left: 3px solid #f59e0b;
+      padding: 10px 16px;
+      margin: 12px 0;
+      font-size: 10.5pt;
+    }
+    .conseil {
+      background: #e8f5e9;
+      border-left: 3px solid #4caf50;
+      padding: 10px 16px;
+      margin: 12px 0;
+      font-size: 10.5pt;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 10.5pt;
+    }
+    th {
+      background: #1a3c5e;
+      color: white;
+      padding: 8px 12px;
+      text-align: left;
+    }
+    td {
+      padding: 7px 12px;
+      border: 1px solid #d0d7de;
+    }
+    tr:nth-child(even) td {
+      background: #f6f8fa;
+    }
+    ol, ul {
+      margin: 8px 0;
+      padding-left: 22px;
+    }
+    li {
+      margin: 4px 0;
+    }
+    code {
+      background: #eef;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-family: Consolas, monospace;
+      font-size: 10pt;
+    }
+    .url {
+      color: #1a73e8;
+      font-weight: bold;
+    }
+    .page-break {
+      page-break-before: always;
+    }
+    .footer {
+      margin-top: 40px;
+      border-top: 1px solid #ccc;
+      padding-top: 10px;
+      font-size: 9pt;
+      color: #999;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Guide de l'administrateur<br>Site AMSP</h1>
+  <p class="subtitle">À destination de l'administrateur du site — aucune connaissance technique requise</p>
+
+  <div class="sommaire">
+    <p>Sommaire</p>
+    <ol>
+      <li>Se connecter à l'espace admin du site</li>
+      <li>Valider ou refuser une demande de membre</li>
+      <li>Promouvoir un membre en administrateur</li>
+      <li>Modifier le contenu du site avec Sanity</li>
+      <li>Vérifier que les modifications sont bien en ligne</li>
+      <li>Modifier les emails automatiques avec EmailJS</li>
+    </ol>
+  </div>
+
+  <!-- SECTION 1 -->
+  <h2>1. Se connecter à l'espace admin du site</h2>
+
+  <p>Le site est accessible à l'adresse : <span class="url">https://sandrinepichla.github.io/amsp-website</span></p>
+
+  <div class="etapes">
+    <strong>Étapes :</strong>
+    <ol>
+      <li>Aller sur le site</li>
+      <li>Cliquer sur l'icône de personne en haut à droite → <strong>"Se connecter"</strong></li>
+      <li>Entrer votre adresse email et votre mot de passe administrateur</li>
+      <li>Cliquer sur <strong>"Se connecter"</strong></li>
+    </ol>
+  </div>
+
+  <p>Une fois connecté, votre prénom apparaît en haut à droite. Vous verrez dans le menu un icône bouclier → <strong>"Gestion des membres"</strong>.</p>
+
+  <div class="attention">
+    ⚠️ Si vous ne voyez pas <strong>"Gestion des membres"</strong>, votre compte n'a pas les droits administrateur. Contactez le développeur.
+  </div>
+
+  <!-- SECTION 2 -->
+  <h2>2. Valider ou refuser une demande de membre</h2>
+
+  <p>Lorsqu'une personne s'inscrit via la page <em>"Rejoindre l'espace membre"</em>, vous recevez un email de notification et son compte est mis <strong>en attente</strong>.</p>
+
+  <div class="etapes">
+    <strong>Étapes :</strong>
+    <ol>
+      <li>Connectez-vous à votre compte admin (voir section 1)</li>
+      <li>Cliquer sur l'icône bouclier en haut à droite → <strong>"Gestion des membres"</strong></li>
+      <li>Dans la section <strong>"En attente"</strong>, vous voyez les demandes à traiter</li>
+      <li>Pour chaque demande, cliquer sur :
+        <ul>
+          <li>✅ <strong>Approuver</strong> → la personne pourra se connecter à l'espace membre</li>
+          <li>❌ <strong>Refuser</strong> → la personne ne pourra pas se connecter</li>
+        </ul>
+      </li>
+    </ol>
+  </div>
+
+  <p><strong>Ce que voit le membre selon votre décision :</strong></p>
+  <table>
+    <tr>
+      <th>Décision</th>
+      <th>Message affiché au membre lors de sa connexion</th>
+    </tr>
+    <tr>
+      <td>✅ Approuvé</td>
+      <td>Il se connecte normalement à l'espace membre</td>
+    </tr>
+    <tr>
+      <td>⏳ En attente</td>
+      <td>"Votre compte est en attente de validation par l'administrateur"</td>
+    </tr>
+    <tr>
+      <td>❌ Refusé</td>
+      <td>"Votre demande d'adhésion a été refusée"</td>
+    </tr>
+  </table>
+
+  <div class="conseil">
+    💡 Le badge orange sur "En attente" indique le nombre de demandes à traiter.
+  </div>
+
+  <!-- SECTION 3 -->
+  <h2>3. Promouvoir un membre en administrateur</h2>
+
+  <p>Pour donner les droits administrateur à un membre (il pourra gérer les autres membres) :</p>
+
+  <div class="etapes">
+    <strong>Étapes :</strong>
+    <ol>
+      <li>Aller dans <strong>"Gestion des membres"</strong></li>
+      <li>Dans la section <strong>"Membres actifs"</strong>, cliquer sur le nom du membre pour dérouler sa fiche</li>
+      <li>Cliquer sur <strong>"Promouvoir en admin"</strong> (bouton bleu)</li>
+      <li>Une fenêtre de confirmation s'ouvre avec le nom et l'email du membre</li>
+      <li>Cliquer sur <strong>"Confirmer"</strong> pour valider</li>
+    </ol>
+  </div>
+
+  <div class="attention">
+    ⚠️ Un administrateur peut gérer tous les membres du site. Ne donnez ce rôle qu'à des personnes de confiance.
+  </div>
+
+  <p>Pour <strong>retirer les droits admin</strong>, même procédure → bouton <strong>"Retirer les droits admin"</strong> (en rouge).</p>
+
+  <!-- SECTION 4 -->
+  <div class="page-break"></div>
+  <h2>4. Modifier le contenu du site avec Sanity</h2>
+
+  <p>Sanity est l'outil qui permet de modifier le contenu du site (textes, photos, actualités, disciplines…) <strong>sans toucher au code</strong>. Les modifications sont visibles sur le site en moins d'une minute.</p>
+
+  <h3>Se connecter à Sanity</h3>
+
+  <div class="etapes">
+    <ol>
+      <li>Aller sur <span class="url">https://www.sanity.io</span></li>
+      <li>Cliquer sur <strong>"Log in"</strong> en haut à droite</li>
+      <li>Se connecter avec le compte Google ou email associé au projet AMSP</li>
+      <li>Une fois connecté, accéder au studio AMSP</li>
+    </ol>
+  </div>
+
+  <h3>Ce que vous pouvez modifier</h3>
+
+  <table>
+    <tr>
+      <th>Rubrique dans Sanity</th>
+      <th>Ce que vous pouvez faire</th>
+    </tr>
+    <tr>
+      <td><strong>Disciplines</strong></td>
+      <td>Modifier descriptions, photos, noms des disciplines</td>
+    </tr>
+    <tr>
+      <td><strong>Actualités</strong></td>
+      <td>Créer, modifier, supprimer des articles</td>
+    </tr>
+    <tr>
+      <td><strong>Galerie</strong></td>
+      <td>Ajouter des albums photos, les rendre privés ou publics</td>
+    </tr>
+    <tr>
+      <td><strong>Inscription</strong></td>
+      <td>Modifier le règlement intérieur, les infos de paiement, l'autorisation parentale…</td>
+    </tr>
+    <tr>
+      <td><strong>Paramètres</strong></td>
+      <td>Modifier l'adresse, le téléphone, l'email de contact, les horaires</td>
+    </tr>
+  </table>
+
+  <h3>Comment modifier un contenu</h3>
+
+  <p><strong>Exemple : modifier le texte du règlement intérieur</strong></p>
+  <div class="etapes">
+    <ol>
+      <li>Dans Sanity Studio, cliquer sur <strong>"Inscription"</strong> dans le menu gauche</li>
+      <li>Cliquer sur le document existant</li>
+      <li>Trouver le champ <strong>"Règlement intérieur"</strong> et cliquer dessus</li>
+      <li>Modifier le texte directement</li>
+      <li>Cliquer sur <strong>"Publish"</strong> (bouton vert)</li>
+    </ol>
+  </div>
+
+  <p><strong>Exemple : ajouter une actualité</strong></p>
+  <div class="etapes">
+    <ol>
+      <li>Cliquer sur <strong>"Actualités"</strong> dans le menu gauche</li>
+      <li>Cliquer sur le bouton <strong>"+"</strong> ou <strong>"New"</strong></li>
+      <li>Remplir le titre, le texte, ajouter une image</li>
+      <li>Cliquer sur <strong>"Publish"</strong></li>
+    </ol>
+  </div>
+
+  <p><strong>Exemple : ajouter des photos dans la galerie</strong></p>
+  <div class="etapes">
+    <ol>
+      <li>Cliquer sur <strong>"Galerie"</strong> dans le menu gauche</li>
+      <li>Ouvrir l'album concerné (ou créer un nouveau avec "+")</li>
+      <li>Cliquer sur le champ images → <strong>"Add item"</strong></li>
+      <li>Glisser-déposer ou sélectionner les photos depuis votre ordinateur</li>
+      <li>Cliquer sur <strong>"Publish"</strong></li>
+    </ol>
+  </div>
+
+  <div class="attention">
+    ⚠️ <strong>Important :</strong> toujours cliquer sur <strong>"Publish"</strong> après une modification. Tant que vous ne publiez pas, les changements ne sont pas visibles sur le site.
+  </div>
+
+  <!-- SECTION 5 -->
+  <h2>5. Vérifier que les modifications sont bien en ligne</h2>
+
+  <h3>Après une modification dans Sanity</h3>
+
+  <div class="etapes">
+    <ol>
+      <li>Après avoir cliqué sur "Publish", attendre <strong>30 secondes à 1 minute</strong></li>
+      <li>Aller sur le site : <span class="url">https://sandrinepichla.github.io/amsp-website</span></li>
+      <li>Appuyer sur <strong>Ctrl + Maj + R</strong> (Windows) pour forcer le rechargement</li>
+      <li>Naviguer vers la page modifiée pour vérifier</li>
+    </ol>
+  </div>
+
+  <div class="conseil">
+    💡 Le contenu Sanity se met à jour automatiquement sur le site. Pas besoin de faire un redéploiement.
+  </div>
+
+  <h3>Si la mise à jour ne s'affiche pas</h3>
+
+  <p>Vider complètement le cache du navigateur :</p>
+  <div class="etapes">
+    <strong>Sur Chrome :</strong>
+    <ol>
+      <li>Appuyer sur <strong>Ctrl + Maj + Suppr</strong></li>
+      <li>Cocher <strong>"Images et fichiers en cache"</strong></li>
+      <li>Cliquer sur <strong>"Effacer les données"</strong></li>
+      <li>Recharger la page</li>
+    </ol>
+  </div>
+
+  <h3>Vérifier un déploiement de code (fait par le développeur)</h3>
+
+  <div class="etapes">
+    <ol>
+      <li>Aller sur <span class="url">https://github.com/SandrinePichla/amsp-website</span></li>
+      <li>Cliquer sur l'onglet <strong>"Actions"</strong></li>
+      <li>La dernière ligne indique le statut du déploiement :</li>
+    </ol>
+  </div>
+
+  <table>
+    <tr>
+      <th>Icône</th>
+      <th>Signification</th>
+    </tr>
+    <tr>
+      <td>✅ Cercle vert</td>
+      <td>Déploiement réussi — le site est à jour</td>
+    </tr>
+    <tr>
+      <td>🟡 Cercle orange</td>
+      <td>Déploiement en cours — attendre 2 à 3 minutes</td>
+    </tr>
+    <tr>
+      <td>❌ Croix rouge</td>
+      <td>Erreur lors du déploiement — contacter le développeur</td>
+    </tr>
+  </table>
+
+  <!-- SECTION 6 -->
+  <div class="page-break"></div>
+  <h2>6. Modifier les emails automatiques avec EmailJS</h2>
+
+  <p>EmailJS gère les emails envoyés automatiquement par le site :</p>
+  <ul>
+    <li>Email reçu lorsqu'un membre remplit le formulaire d'<strong>inscription en ligne</strong></li>
+    <li>Email reçu lorsqu'une personne crée un <strong>compte membre</strong></li>
+    <li>Emails envoyés depuis le formulaire de <strong>contact</strong></li>
+  </ul>
+
+  <h3>Se connecter à EmailJS</h3>
+
+  <div class="etapes">
+    <ol>
+      <li>Aller sur <span class="url">https://www.emailjs.com</span></li>
+      <li>Cliquer sur <strong>"Sign In"</strong> en haut à droite</li>
+      <li>Se connecter avec le compte associé au projet AMSP</li>
+    </ol>
+  </div>
+
+  <h3>Modifier le contenu d'un email</h3>
+
+  <div class="etapes">
+    <ol>
+      <li>Dans le menu gauche, cliquer sur <strong>"Email Templates"</strong></li>
+      <li>Cliquer sur le template à modifier</li>
+      <li>Modifier le <strong>sujet</strong> (Subject) et le <strong>corps du message</strong></li>
+      <li>Cliquer sur <strong>"Save"</strong> pour enregistrer</li>
+    </ol>
+  </div>
+
+  <div class="attention">
+    ⚠️ Les mots entre doubles accolades sont des variables automatiques — <strong>ne pas les modifier ni les supprimer</strong> :<br><br>
+    <code>{{nom}}</code> → sera remplacé par le nom de la personne<br>
+    <code>{{email}}</code> → sera remplacé par son adresse email<br>
+    <code>{{disciplines}}</code> → sera remplacé par les disciplines choisies<br>
+    <code>{{prenom}}</code>, <code>{{tel_mobile}}</code>, etc.
+  </div>
+
+  <h3>Tester un email avant de l'envoyer</h3>
+
+  <p>Dans un template EmailJS, cliquer sur <strong>"Test It"</strong> pour envoyer un email de test et vérifier le rendu avant qu'il parte à de vrais destinataires.</p>
+
+  <h3>Vérifier le quota d'emails</h3>
+
+  <p>La version gratuite d'EmailJS permet <strong>200 emails par mois</strong>.</p>
+  <div class="etapes">
+    Pour vérifier le nombre d'emails envoyés :
+    <ol>
+      <li>Menu gauche → <strong>"Dashboard"</strong></li>
+      <li>Section <strong>"Email Sent"</strong> — affiche le compteur du mois en cours</li>
+    </ol>
+  </div>
+
+  <div class="conseil">
+    💡 Si vous dépassez 200 emails/mois, les emails ne seront plus envoyés. Il faudra passer à un abonnement payant sur emailjs.com ou contacter le développeur.
+  </div>
+
+  <!-- RECAP -->
+  <h2>Récapitulatif — Qui fait quoi</h2>
+
+  <table>
+    <tr>
+      <th>Tâche</th>
+      <th>Outil</th>
+      <th>Compétences requises</th>
+    </tr>
+    <tr>
+      <td>Valider / refuser des membres</td>
+      <td>Site AMSP</td>
+      <td>Aucune</td>
+    </tr>
+    <tr>
+      <td>Promouvoir un administrateur</td>
+      <td>Site AMSP</td>
+      <td>Aucune</td>
+    </tr>
+    <tr>
+      <td>Modifier textes et photos</td>
+      <td>Sanity Studio</td>
+      <td>Aucune</td>
+    </tr>
+    <tr>
+      <td>Modifier les emails automatiques</td>
+      <td>EmailJS</td>
+      <td>Aucune</td>
+    </tr>
+    <tr>
+      <td>Modifier le code du site</td>
+      <td>VSCode + GitHub</td>
+      <td>Développeur</td>
+    </tr>
+    <tr>
+      <td>Déployer une mise à jour</td>
+      <td>Terminal</td>
+      <td>Développeur</td>
+    </tr>
+  </table>
+
+  <div class="footer">
+    Guide de l'administrateur — Site AMSP &nbsp;|&nbsp; Document confidentiel &nbsp;|&nbsp; À conserver précieusement
+  </div>
+
+</body>
+</html>

@@ -10,9 +10,9 @@ import { toast } from "sonner";
 import emailjs from "@emailjs/browser";
 import { client } from "@/sanityClient";
 
-const SERVICE_ID = "service_hvx0rnw";
-const TEMPLATE_ID = "template_konhz3s";
-const PUBLIC_KEY = "r044e90XA84E6Ua5B";
+const SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+const TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_NOTIFICATION;
+const PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
 
 interface Parametres {
   adresse: string;

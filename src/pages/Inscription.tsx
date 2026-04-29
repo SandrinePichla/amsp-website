@@ -17,9 +17,9 @@ import { supabase } from "@/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Cours, Tarif, TarifSpecial } from "@/components/PrintablePlanning";
 
-const SERVICE_ID = "service_hvx0rnw";
-const TEMPLATE_ID = "template_sbgtitc";
-const PUBLIC_KEY = "r044e90XA84E6Ua5B";
+const SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+const TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_INSCRIPTION;
+const PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
 
 interface Discipline {
   _id: string;

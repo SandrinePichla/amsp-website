@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Guide de déploiement — Site AMSP</title>
+  <style>
+    body {
+      font-family: Calibri, Arial, sans-serif;
+      font-size: 11pt;
+      color: #222;
+      margin: 2.5cm 2.5cm 2.5cm 2.5cm;
+      line-height: 1.5;
+    }
+    h1 {
+      font-size: 20pt;
+      color: #1a3c5e;
+      border-bottom: 3px solid #1a3c5e;
+      padding-bottom: 6px;
+      margin-top: 0;
+    }
+    h2 {
+      font-size: 14pt;
+      color: #1a3c5e;
+      border-left: 4px solid #e63946;
+      padding-left: 10px;
+      margin-top: 28px;
+    }
+    h3 {
+      font-size: 12pt;
+      color: #333;
+      margin-top: 18px;
+    }
+    .subtitle {
+      font-size: 11pt;
+      color: #666;
+      margin-top: -8px;
+      margin-bottom: 24px;
+      font-style: italic;
+    }
+    .sommaire {
+      background: #f0f4f8;
+      border: 1px solid #c8d6e5;
+      border-radius: 4px;
+      padding: 14px 20px;
+      margin-bottom: 28px;
+    }
+    .sommaire p {
+      margin: 0 0 6px 0;
+      font-weight: bold;
+      font-size: 11pt;
+    }
+    .sommaire ol {
+      margin: 0;
+      padding-left: 20px;
+    }
+    .sommaire li {
+      margin: 3px 0;
+    }
+    .etapes {
+      background: #f8f9fa;
+      border-left: 3px solid #1a3c5e;
+      padding: 10px 16px;
+      margin: 12px 0;
+    }
+    .attention {
+      background: #fff8e1;
+      border-left: 3px solid #f59e0b;
+      padding: 10px 16px;
+      margin: 12px 0;
+      font-size: 10.5pt;
+    }
+    .conseil {
+      background: #e8f5e9;
+      border-left: 3px solid #4caf50;
+      padding: 10px 16px;
+      margin: 12px 0;
+      font-size: 10.5pt;
+    }
+    .commande {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      font-family: Consolas, monospace;
+      font-size: 10.5pt;
+      padding: 12px 16px;
+      border-radius: 4px;
+      margin: 10px 0;
+      white-space: pre;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 10.5pt;
+    }
+    th {
+      background: #1a3c5e;
+      color: white;
+      padding: 8px 12px;
+      text-align: left;
+    }
+    td {
+      padding: 7px 12px;
+      border: 1px solid #d0d7de;
+      vertical-align: top;
+    }
+    tr:nth-child(even) td {
+      background: #f6f8fa;
+    }
+    ol, ul {
+      margin: 8px 0;
+      padding-left: 22px;
+    }
+    li {
+      margin: 4px 0;
+    }
+    code {
+      background: #eef;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-family: Consolas, monospace;
+      font-size: 10pt;
+    }
+    .url {
+      color: #1a73e8;
+      font-weight: bold;
+    }
+    .page-break {
+      page-break-before: always;
+    }
+    .workflow {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      font-family: Consolas, monospace;
+      font-size: 10.5pt;
+      padding: 16px 20px;
+      border-radius: 4px;
+      margin: 12px 0;
+      white-space: pre;
+      line-height: 1.8;
+    }
+    .footer {
+      margin-top: 40px;
+      border-top: 1px solid #ccc;
+      padding-top: 10px;
+      font-size: 9pt;
+      color: #999;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Guide de déploiement — Site AMSP</h1>
+  <p class="subtitle">À destination du développeur — procédure complète du développement à la mise en ligne</p>
+
+  <div class="sommaire">
+    <p>Sommaire</p>
+    <ol>
+      <li>Prérequis (à installer une seule fois)</li>
+      <li>Ouvrir le projet dans VSCode</li>
+      <li>Lancer le serveur de développement</li>
+      <li>Modifier le code</li>
+      <li>Déployer sur le site en ligne (GitHub Pages)</li>
+      <li>Mises à jour Supabase</li>
+      <li>EmailJS</li>
+      <li>Contenu du site (Sanity CMS)</li>
+      <li>Résumé rapide — Workflow type</li>
+      <li>En cas de problème</li>
+    </ol>
+  </div>
+
+  <!-- SECTION 1 -->
+  <h2>1. Prérequis (à installer une seule fois)</h2>
+
+  <ul>
+    <li><strong>Node.js</strong> (version 18 ou supérieure) — <span class="url">https://nodejs.org</span></li>
+    <li><strong>Git</strong> — <span class="url">https://git-scm.com</span></li>
+    <li><strong>VSCode</strong> — <span class="url">https://code.visualstudio.com</span></li>
+    <li>Un compte <strong>GitHub</strong> avec accès au dépôt <code>sandrinepichla/amsp-website</code></li>
+  </ul>
+
+  <!-- SECTION 2 -->
+  <h2>2. Ouvrir le projet dans VSCode</h2>
+
+  <div class="etapes">
+    <ol>
+      <li>Ouvrir VSCode</li>
+      <li><strong>Fichier</strong> → <strong>Ouvrir le dossier</strong> → sélectionner <code>C:\Dev\AMSP\amsp-project\amsp-website</code></li>
+      <li>Ouvrir le terminal intégré : <code>Ctrl + ù</code> (ou menu <strong>Terminal</strong> → <strong>Nouveau terminal</strong>)</li>
+    </ol>
+  </div>
+
+  <!-- SECTION 3 -->
+  <h2>3. Lancer le serveur de développement (pour tester en local)</h2>
+
+  <p>Dans le terminal, taper la commande suivante et appuyer sur Entrée :</p>
+  <div class="commande">npm run dev</div>
+
+  <p>Puis ouvrir dans le navigateur : <span class="url">http://localhost:8080</span></p>
+
+  <div class="conseil">
+    💡 Le serveur se met à jour automatiquement à chaque modification de fichier — pas besoin de le relancer.<br>
+    Pour l'arrêter : appuyer sur <code>Ctrl + C</code> dans le terminal.
+  </div>
+
+  <!-- SECTION 4 -->
+  <h2>4. Modifier le code</h2>
+
+  <ul>
+    <li>Modifier les fichiers dans le dossier <code>src/</code></li>
+    <li>Le navigateur se recharge automatiquement</li>
+    <li>Vérifier le résultat sur <span class="url">http://localhost:8080</span> avant de déployer</li>
+  </ul>
+
+  <!-- SECTION 5 -->
+  <h2>5. Déployer sur le site en ligne (GitHub Pages)</h2>
+
+  <p>Le site est hébergé sur GitHub Pages à l'adresse :<br>
+  <span class="url">https://sandrinepichla.github.io/amsp-website</span></p>
+
+  <h3>Étape 1 — Enregistrer les modifications dans Git</h3>
+
+  <p>Dans le terminal VSCode, taper ces deux commandes l'une après l'autre :</p>
+  <div class="commande">git add .</div>
+  <div class="commande">git commit -m "Description de ce que vous avez modifié"</div>
+
+  <p>Exemples de messages de commit :</p>
+  <ul>
+    <li><code>"Ajout du champ code postal dans le formulaire d'inscription"</code></li>
+    <li><code>"Correction affichage mobile du header"</code></li>
+  </ul>
+
+  <h3>Étape 2 — Déployer</h3>
+
+  <div class="commande">npm run deploy</div>
+
+  <p>Cette commande :</p>
+  <ol>
+    <li>Compile le projet (<code>npm run build</code>)</li>
+    <li>Publie automatiquement le résultat sur GitHub Pages</li>
+  </ol>
+
+  <p>Attendre <strong>1 à 2 minutes</strong> puis actualiser le site pour vérifier.</p>
+
+  <h3>Étape 3 — Sauvegarder le code source sur GitHub (recommandé)</h3>
+
+  <div class="commande">git push origin main</div>
+
+  <div class="conseil">
+    💡 Cette commande sauvegarde le code source sur GitHub en plus du site déployé. En cas de problème, vous pourrez toujours récupérer une version précédente.
+  </div>
+
+  <!-- SECTION 6 -->
+  <div class="page-break"></div>
+  <h2>6. Mises à jour Supabase</h2>
+
+  <p>Supabase gère les comptes membres, les inscriptions et les profils.<br>
+  Adresse : <span class="url">https://supabase.com</span> → se connecter → projet AMSP</p>
+
+  <h3>Modifier des données (Table Editor)</h3>
+
+  <div class="etapes">
+    <ol>
+      <li>Menu gauche → <strong>Table Editor</strong></li>
+      <li>Sélectionner la table (<code>profils</code>, <code>inscriptions</code>…)</li>
+      <li>Cliquer sur une cellule pour la modifier directement</li>
+      <li>Valider avec <code>Entrée</code></li>
+    </ol>
+  </div>
+
+  <h3>Cas courants</h3>
+
+  <table>
+    <tr>
+      <th>Action</th>
+      <th>Où</th>
+    </tr>
+    <tr>
+      <td>Changer le rôle d'un membre (<code>membre</code> / <code>admin</code>)</td>
+      <td>Faisable directement depuis le site → Gestion des membres</td>
+    </tr>
+    <tr>
+      <td>Voir les inscriptions</td>
+      <td>Table <code>inscriptions</code></td>
+    </tr>
+    <tr>
+      <td>Supprimer un compte</td>
+      <td>Table <code>profils</code> → sélectionner la ligne → icône poubelle</td>
+    </tr>
+  </table>
+
+  <h3>Modifier la structure des tables (SQL Editor)</h3>
+
+  <div class="etapes">
+    <ol>
+      <li>Menu gauche → <strong>SQL Editor</strong></li>
+      <li>Écrire la commande SQL, par exemple :</li>
+    </ol>
+    <div class="commande">ALTER TABLE profils ADD COLUMN nouvelle_colonne text;</div>
+    <ol start="3">
+      <li>Cliquer sur <strong>Run</strong></li>
+    </ol>
+  </div>
+
+  <h3>Modifier les politiques d'accès (Row Level Security)</h3>
+
+  <div class="etapes">
+    <ol>
+      <li>Menu gauche → <strong>Authentication</strong> → <strong>Policies</strong></li>
+      <li>Sélectionner la table</li>
+      <li>Modifier ou créer une politique</li>
+    </ol>
+  </div>
+
+  <!-- SECTION 7 -->
+  <h2>7. EmailJS</h2>
+
+  <p>EmailJS envoie les emails automatiques (formulaire de contact, inscriptions, notifications admin).<br>
+  Adresse : <span class="url">https://www.emailjs.com</span> → se connecter</p>
+
+  <h3>Modifier un template d'email</h3>
+
+  <div class="etapes">
+    <ol>
+      <li>Menu gauche → <strong>Email Templates</strong></li>
+      <li>Cliquer sur le template à modifier</li>
+      <li>Modifier le contenu HTML/texte</li>
+      <li>Cliquer sur <strong>Save</strong></li>
+    </ol>
+  </div>
+
+  <p>Les variables disponibles dans les templates sont entre doubles accolades : <code>{{nom}}</code>, <code>{{email}}</code>, <code>{{disciplines}}</code>…</p>
+
+  <h3>Identifiants EmailJS</h3>
+
+  <div class="attention">
+    ⚠️ Les identifiants (Service ID, Template ID, Public Key) sont stockés dans le fichier <strong><code>.env</code></strong> à la racine du projet. Ce fichier n'est pas envoyé sur GitHub pour des raisons de sécurité.<br><br>
+    Si vous travaillez sur un nouvel ordinateur, copier le fichier <code>.env.example</code> en <code>.env</code> et remplir les valeurs.
+  </div>
+
+  <!-- SECTION 8 -->
+  <h2>8. Contenu du site (Sanity CMS)</h2>
+
+  <p>Le contenu éditorial (disciplines, actualités, galerie, textes du formulaire…) est géré dans Sanity Studio.</p>
+
+  <h3>Lancer Sanity Studio en local</h3>
+
+  <div class="commande">cd C:\Dev\AMSP\amsp-project\amsp-admin
+npm run dev</div>
+
+  <p>Ouvrir dans le navigateur : <span class="url">http://localhost:3333</span></p>
+
+  <h3>Contenu modifiable</h3>
+
+  <ul>
+    <li><strong>Disciplines</strong> : textes, images, descriptions</li>
+    <li><strong>Actualités</strong> : articles, photos</li>
+    <li><strong>Galerie</strong> : albums photos (privés ou publics)</li>
+    <li><strong>Inscription</strong> : textes du formulaire (règlement intérieur, infos paiement, autorisation parentale…)</li>
+    <li><strong>Paramètres</strong> : informations de contact, horaires</li>
+  </ul>
+
+  <div class="conseil">
+    💡 Les modifications Sanity sont publiées immédiatement sur le site — pas besoin de redéployer.
+  </div>
+
+  <!-- SECTION 9 -->
+  <div class="page-break"></div>
+  <h2>9. Résumé rapide — Workflow type</h2>
+
+  <div class="workflow">1. Ouvrir VSCode + terminal
+2. npm run dev             ← tester en local sur localhost:8080
+3. Modifier les fichiers dans src/
+4. Vérifier dans le navigateur
+5. git add .
+6. git commit -m "description de la modification"
+7. npm run deploy          ← publier sur le site en ligne
+8. git push origin main    ← sauvegarder le code source</div>
+
+  <!-- SECTION 10 -->
+  <h2>10. En cas de problème</h2>
+
+  <table>
+    <tr>
+      <th>Problème</th>
+      <th>Solution</th>
+    </tr>
+    <tr>
+      <td><code>npm run dev</code> ne démarre pas</td>
+      <td>Vérifier que Node.js est installé : taper <code>node -v</code> dans le terminal. Si erreur, réinstaller Node.js.</td>
+    </tr>
+    <tr>
+      <td><code>npm run deploy</code> échoue</td>
+      <td>Vérifier la connexion internet et les droits GitHub (être bien connecté dans VSCode).</td>
+    </tr>
+    <tr>
+      <td>Le site ne se met pas à jour</td>
+      <td>Vider le cache navigateur : <code>Ctrl + Maj + R</code>, attendre 2 min. Si toujours pas à jour : <code>Ctrl + Maj + Suppr</code> → effacer le cache.</td>
+    </tr>
+    <tr>
+      <td>Erreur "permission denied" sur Git</td>
+      <td>Vérifier que vous êtes bien connectée à GitHub dans VSCode (icône de compte en bas à gauche).</td>
+    </tr>
+    <tr>
+      <td>Les emails n'arrivent pas</td>
+      <td>Vérifier le quota EmailJS sur le Dashboard (200 emails/mois en version gratuite).</td>
+    </tr>
+    <tr>
+      <td>Le fichier <code>.env</code> est manquant</td>
+      <td>Copier <code>.env.example</code> en <code>.env</code> et remplir les clés EmailJS.</td>
+    </tr>
+  </table>
+
+  <div class="footer">
+    Guide de déploiement — Site AMSP &nbsp;|&nbsp; Document confidentiel &nbsp;|&nbsp; À conserver précieusement
+  </div>
+
+</body>
+</html>

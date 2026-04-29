@@ -7,6 +7,16 @@ import { supabase } from "@/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { Users, Clock, CheckCircle, XCircle, Shield, Download, ChevronDown } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Membre {
   id: string;
@@ -37,6 +47,7 @@ const AdminMembres = () => {
   const [processing, setProcessing] = useState<string | null>(null);
   const [inscriptions, setInscriptions] = useState<Record<string, Inscription[]>>({});
   const [expandedMembre, setExpandedMembre] = useState<string | null>(null);
+  const [confirmAdmin, setConfirmAdmin] = useState<Membre | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -95,6 +106,21 @@ const AdminMembres = () => {
     } else {
       toast.success("Compte approuvé.");
       setMembres((prev) => prev.map((m) => (m.id === id ? { ...m, role: "membre" } : m)));
+    }
+    setProcessing(null);
+  };
+
+  const handleChangerRole = async (id: string, nouveauRole: "admin" | "membre") => {
+    setProcessing(id);
+    const { error } = await supabase
+      .from("profils")
+      .update({ role: nouveauRole })
+      .eq("id", id);
+    if (error) {
+      toast.error("Erreur : " + error.message);
+    } else {
+      toast.success(nouveauRole === "admin" ? "Membre promu administrateur." : "Droits admin retirés.");
+      setMembres((prev) => prev.map((m) => (m.id === id ? { ...m, role: nouveauRole } : m)));
     }
     setProcessing(null);
   };
@@ -325,6 +351,34 @@ const AdminMembres = () => {
                                   <span>{new Date(m.created_at).toLocaleDateString("fr-FR")}</span>
                                 </div>
 
+                                {m.id !== user?.id && (
+                                  <div className="flex justify-end">
+                                    {m.role === "admin" ? (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleChangerRole(m.id, "membre")}
+                                        disabled={processing === m.id}
+                                        className="gap-1 text-xs text-destructive hover:text-destructive"
+                                      >
+                                        <Shield size={12} />
+                                        Retirer les droits admin
+                                      </Button>
+                                    ) : (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => setConfirmAdmin(m)}
+                                        disabled={processing === m.id}
+                                        className="gap-1 text-xs text-primary hover:text-primary"
+                                      >
+                                        <Shield size={12} />
+                                        Promouvoir en admin
+                                      </Button>
+                                    )}
+                                  </div>
+                                )}
+
                                 {membreInscriptions.length > 0 ? (
                                   <div>
                                     <p className="text-xs font-medium text-muted-foreground mb-2">Inscriptions</p>
@@ -399,6 +453,30 @@ const AdminMembres = () => {
           </motion.div>
         </div>
       </section>
+      <AlertDialog open={!!confirmAdmin} onOpenChange={(open) => { if (!open) setConfirmAdmin(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Promouvoir en administrateur ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Vous allez donner les droits administrateur à{" "}
+              <strong>{confirmAdmin?.prenom} {confirmAdmin?.nom}</strong> ({confirmAdmin?.email}).
+              <br /><br />
+              Cette personne pourra gérer les membres et accéder à toutes les fonctions d'administration du site.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmAdmin) handleChangerRole(confirmAdmin.id, "admin");
+                setConfirmAdmin(null);
+              }}
+            >
+              Confirmer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 };
