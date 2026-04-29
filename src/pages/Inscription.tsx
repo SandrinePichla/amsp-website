@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import emailjs from "@emailjs/browser";
 import { Download, Loader2 } from "lucide-react";
 import { client } from "@/sanityClient";
 import {
@@ -17,9 +16,7 @@ import { supabase } from "@/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Cours, Tarif, TarifSpecial } from "@/components/PrintablePlanning";
 
-const SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-const TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_INSCRIPTION;
-const PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+import { sendBrevoEmail, TEMPLATES } from "@/lib/brevo";
 
 interface Discipline {
   _id: string;
@@ -221,23 +218,24 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 
     if (error) throw error;
 
-    // 2 — Envoi email via EmailJS
-    await emailjs.send(SERVICE_ID, TEMPLATE_ID, {
+    // 2 — Envoi email via Brevo
+    await sendBrevoEmail(TEMPLATES.INSCRIPTION, { email: form.email, name: `${form.prenom} ${form.nom}` }, {
       nom: form.nom,
       prenom: form.prenom,
       adresse: adresseComplete,
-      tel_fixe: form.telFixe,
+      tel_fixe: form.telFixe || "",
       tel_mobile: form.telMobile,
       email: form.email,
-      date_naissance: form.dateNaissance,
-      groupe_sanguin: form.groupeSanguin,
+      date_naissance: form.dateNaissance || "",
+      groupe_sanguin: form.groupeSanguin || "",
       allergie: form.allergie || "Aucune",
       niveau: form.niveau || "Non précisé",
       urgence_contact: [form.urgenceContact, form.urgenceTel].filter(Boolean).join(" — "),
       disciplines: disciplinesChoisies,
       autorisation_parentale: autorisationParentale ? "Oui" : "Non / Non concerné",
       droit_image: droitImage ? "Oui" : "Non",
-    }, PUBLIC_KEY);
+      saison,
+    });
 
     toast.success("Inscription envoyée ! Nous vous contacterons bientôt.");
     setForm({

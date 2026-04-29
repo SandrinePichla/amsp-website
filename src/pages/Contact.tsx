@@ -7,12 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { MapPin, Mail, Clock, Phone } from "lucide-react";
 import { toast } from "sonner";
-import emailjs from "@emailjs/browser";
 import { client } from "@/sanityClient";
-
-const SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-const TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_NOTIFICATION;
-const PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+import { sendBrevoEmail, TEMPLATES } from "@/lib/brevo";
 
 interface Parametres {
   adresse: string;
@@ -46,12 +42,13 @@ const Contact = () => {
     setSending(true);
 
     try {
-      await emailjs.send(SERVICE_ID, TEMPLATE_ID, {
+      const adminEmail = parametres?.email || import.meta.env.VITE_BREVO_ADMIN_EMAIL;
+      await sendBrevoEmail(TEMPLATES.CONTACT, { email: adminEmail, name: "AMSP" }, {
         from_name: form.from_name,
         from_email: form.from_email,
         subject: form.subject,
         message: form.message,
-      }, PUBLIC_KEY);
+      });
 
       toast.success("Message envoyé ! Nous vous répondrons dans les meilleurs délais.");
       setForm({ from_name: "", from_email: "", subject: "", message: "" });

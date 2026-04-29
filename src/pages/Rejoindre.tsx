@@ -7,12 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { supabase } from "@/supabaseClient";
-import emailjs from "@emailjs/browser";
 import { CheckCircle } from "lucide-react";
-
-const SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-const TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_NOTIFICATION;
-const PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
 
 const Rejoindre = () => {
   const [form, setForm] = useState({ prenom: "", nom: "", email: "", password: "", confirm: "" });
@@ -53,24 +48,6 @@ const Rejoindre = () => {
         nom: form.nom || null,
         role: "en_attente",
       });
-    }
-
-    // 3. Notifier l'administratrice par email
-    try {
-      const fullName = [form.prenom, form.nom].filter(Boolean).join(" ") || form.email;
-      await emailjs.send(
-        SERVICE_ID,
-        TEMPLATE_ID,
-        {
-          from_name: fullName,
-          from_email: form.email,
-          subject: "Demande d'accès espace membres",
-          message: `${fullName} (${form.email}) souhaite rejoindre l'espace membres.\n\nPour approuver ou refuser cette demande, connectez-vous sur le site avec votre compte administrateur et rendez-vous dans "Gestion des membres".`,
-        },
-        PUBLIC_KEY
-      );
-    } catch {
-      // L'email est optionnel — ne pas bloquer si ça échoue
     }
 
     setDone(true);
