@@ -162,7 +162,7 @@
       <li>Modifier le code</li>
       <li>Déployer sur le site en ligne (GitHub Pages)</li>
       <li>Mises à jour Supabase</li>
-      <li>EmailJS</li>
+      <li>Brevo (emails automatiques)</li>
       <li>Contenu du site (Sanity CMS)</li>
       <li>Résumé rapide — Workflow type</li>
       <li>En cas de problème</li>
@@ -312,21 +312,50 @@
     </ol>
   </div>
 
+  <h3>Politiques RLS requises</h3>
+
+  <p>Les politiques suivantes doivent exister sur la table <code>inscriptions</code> pour que les admins puissent valider/refuser les dossiers. Si jamais les boutons Valider/Refuser semblent fonctionner mais que le statut revient en attente au refresh, c'est qu'une politique est manquante.</p>
+
+  <p>Exécuter dans le <strong>SQL Editor</strong> :</p>
+  <div class="commande">-- Permettre aux admins de modifier les inscriptions
+CREATE POLICY "Admins peuvent modifier les inscriptions"
+ON inscriptions FOR UPDATE
+USING (
+  EXISTS (
+    SELECT 1 FROM profils
+    WHERE profils.id = auth.uid()
+    AND profils.role = 'admin'
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM profils
+    WHERE profils.id = auth.uid()
+    AND profils.role = 'admin'
+  )
+);</div>
+
+  <div class="attention">
+    ⚠️ Sans cette politique, Supabase bloque silencieusement les UPDATE (aucune erreur retournée, 0 lignes modifiées). L'interface semble fonctionner mais la base de données n'est pas mise à jour.
+  </div>
+
   <!-- SECTION 7 -->
   <h2>7. Brevo (emails automatiques)</h2>
 
-  <p>Brevo envoie les 5 emails automatiques du site (inscriptions, validations, notifications admin).<br>
+  <p>Brevo envoie les 7 emails automatiques du site (inscriptions, validations, notifications admin).<br>
   Adresse : <span class="url">https://www.brevo.com</span> → se connecter</p>
 
-  <h3>Les 5 templates d'email</h3>
+  <h3>Les 7 templates d'email</h3>
 
   <table>
     <tr><th>#</th><th>Nom</th><th>Rôle</th></tr>
-    <tr><td>1</td><td>demande d'inscription</td><td>Confirmation au membre à la soumission du formulaire</td></tr>
-    <tr><td>2</td><td>validation inscription</td><td>Confirmation au membre quand l'admin valide son inscription</td></tr>
-    <tr><td>3</td><td>validation espace membre</td><td>Email au membre quand son compte est approuvé (avec lien de connexion)</td></tr>
+    <tr><td>1</td><td>demande d'inscription</td><td>Confirmation au membre à la soumission du formulaire d'inscription</td></tr>
+    <tr><td>2</td><td>validation inscription</td><td>Confirmation au membre quand l'admin valide son inscription aux disciplines</td></tr>
+    <tr><td>3</td><td>validation espace membre</td><td>Email au membre quand son compte espace membre est approuvé</td></tr>
     <tr><td>4</td><td>Formulaire de contact</td><td>Notification à l'admin quand quelqu'un remplit le formulaire de contact</td></tr>
     <tr><td>5</td><td>Demande accès espace membre</td><td>Notification à l'admin quand quelqu'un demande un accès membre</td></tr>
+    <tr><td>6</td><td>Refus inscription</td><td>Email au membre quand l'admin refuse son inscription aux disciplines</td></tr>
+    <tr><td>7</td><td>Nouvelle demande d'inscription (admin)</td><td>Notification à l'admin quand un nouveau formulaire d'inscription est soumis</td></tr>
   </table>
 
   <h3>Modifier un template</h3>

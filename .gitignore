@@ -19,6 +19,9 @@ dist-ssr
 
 .vite
 
+# Sanity backups
+*.tar.gz
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

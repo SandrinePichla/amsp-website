@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Présentation du site AMSP</title>
+  <style>
+    body {
+      font-family: Calibri, Arial, sans-serif;
+      font-size: 11pt;
+      color: #222;
+      margin: 2.5cm 2.5cm 2.5cm 2.5cm;
+      line-height: 1.6;
+    }
+    h1 {
+      font-size: 22pt;
+      color: #1a3c5e;
+      border-bottom: 3px solid #1a3c5e;
+      padding-bottom: 8px;
+      margin-top: 0;
+    }
+    h2 {
+      font-size: 14pt;
+      color: #1a3c5e;
+      border-left: 4px solid #e63946;
+      padding-left: 10px;
+      margin-top: 32px;
+    }
+    h3 {
+      font-size: 12pt;
+      color: #333;
+      margin-top: 20px;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      font-size: 11pt;
+      color: #666;
+      margin-top: -6px;
+      margin-bottom: 28px;
+      font-style: italic;
+    }
+    .intro {
+      background: #f0f4f8;
+      border: 1px solid #c8d6e5;
+      border-radius: 4px;
+      padding: 16px 20px;
+      margin-bottom: 28px;
+      font-size: 11pt;
+    }
+    .etapes {
+      background: #f8f9fa;
+      border-left: 3px solid #1a3c5e;
+      padding: 10px 16px;
+      margin: 12px 0;
+    }
+    .attention {
+      background: #fff8e1;
+      border-left: 3px solid #f59e0b;
+      padding: 10px 16px;
+      margin: 12px 0;
+      font-size: 10.5pt;
+    }
+    .conseil {
+      background: #e8f5e9;
+      border-left: 3px solid #4caf50;
+      padding: 10px 16px;
+      margin: 12px 0;
+      font-size: 10.5pt;
+    }
+    .demo {
+      background: #ede9fe;
+      border-left: 3px solid #7c3aed;
+      padding: 10px 16px;
+      margin: 12px 0;
+      font-size: 10.5pt;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 10.5pt;
+    }
+    th {
+      background: #1a3c5e;
+      color: white;
+      padding: 8px 12px;
+      text-align: left;
+    }
+    td {
+      padding: 7px 12px;
+      border: 1px solid #d0d7de;
+      vertical-align: top;
+    }
+    tr:nth-child(even) td {
+      background: #f6f8fa;
+    }
+    .url {
+      color: #1a73e8;
+      font-weight: bold;
+    }
+    code {
+      background: #eef;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-family: Consolas, monospace;
+      font-size: 10pt;
+    }
+    .page-break {
+      page-break-before: always;
+    }
+    .badge {
+      display: inline-block;
+      background: #1a3c5e;
+      color: white;
+      border-radius: 3px;
+      padding: 2px 8px;
+      font-size: 9pt;
+      font-weight: bold;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+    .badge-rouge {
+      background: #e63946;
+    }
+    .badge-vert {
+      background: #2d6a4f;
+    }
+    .schema {
+      background: #f8f9fa;
+      border: 1px solid #d0d7de;
+      border-radius: 4px;
+      padding: 14px 18px;
+      margin: 14px 0;
+      font-size: 10.5pt;
+    }
+    .schema .fleche {
+      color: #999;
+      margin: 0 6px;
+    }
+    .footer {
+      margin-top: 40px;
+      border-top: 1px solid #ccc;
+      padding-top: 10px;
+      font-size: 9pt;
+      color: #999;
+      text-align: center;
+    }
+    ol, ul {
+      margin: 8px 0;
+      padding-left: 22px;
+    }
+    li {
+      margin: 5px 0;
+    }
+
+    @page {
+      margin: 1.8cm 2cm;
+    }
+
+    @media print {
+      * {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      body {
+        margin: 0;
+        font-size: 10pt;
+        line-height: 1.5;
+        widows: 3;
+        orphans: 3;
+      }
+      h1 { font-size: 18pt; }
+      h2 { font-size: 13pt; margin-top: 16px; page-break-after: avoid; break-after: avoid; }
+      h3 { font-size: 11pt; margin-top: 12px; page-break-after: avoid; break-after: avoid; }
+
+      /* Supprimer les sauts forcés — laisser le navigateur paginer naturellement */
+      .page-break {
+        page-break-before: auto;
+        break-before: auto;
+      }
+
+      /* Garder les petits blocs solidaires */
+      .etapes, .attention, .conseil, .demo, .schema {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+
+      /* Éviter qu'un titre se retrouve seul en bas de page */
+      h2 + *, h3 + * {
+        page-break-before: avoid;
+        break-before: avoid;
+      }
+
+      /* Éviter les coupures au milieu d'une ligne de tableau */
+      tr {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+
+      /* Ne pas afficher les URLs en double sous les liens */
+      a[href]::after {
+        content: none !important;
+      }
+
+      .footer {
+        margin-top: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Présentation du site AMSP</h1>
+  <p class="subtitle">Réunion de passation — mai 2026</p>
+
+  <div class="intro">
+    <strong>Objectif de cette réunion :</strong> présenter le site dans son ensemble — les pages, le fonctionnement pour les adhérents, les outils de gestion du contenu, et le rôle de l'administrateur au quotidien.<br><br>
+    <strong>URL du site :</strong> <span class="url">https://sandrinepichla.github.io/amsp-website</span>
+  </div>
+
+  <div class="intro" style="background:#fff3cd; border-color:#ffc107;">
+    <strong>Ordre du jour</strong>
+    <ol style="margin:8px 0 0 0; padding-left:20px;">
+      <li>Vue d'ensemble — à quoi sert le site</li>
+      <li>Tour des pages</li>
+      <li>La charte graphique</li>
+      <li>Parcours d'un adhérent — inscription aux disciplines</li>
+      <li>Parcours d'un adhérent — espace membre</li>
+      <li>L'espace administrateur</li>
+      <li>Les emails automatiques</li>
+      <li>Questions et accès</li>
+      <li>L'outil de contenu Sanity</li>
+    </ol>
+  </div>
+
+  <!-- 1. VUE D'ENSEMBLE -->
+  <h2>1. Vue d'ensemble — à quoi sert le site</h2>
+
+  <p>Le site AMSP est le site vitrine et de gestion de l'association. Il remplit trois fonctions :</p>
+
+  <table>
+    <tr>
+      <th>Fonction</th>
+      <th>Pour qui</th>
+      <th>Ce que ça fait</th>
+    </tr>
+    <tr>
+      <td><strong>Vitrine</strong></td>
+      <td>Grand public</td>
+      <td>Présenter le club, les disciplines, les instructeurs, les horaires, les actualités</td>
+    </tr>
+    <tr>
+      <td><strong>Inscription</strong></td>
+      <td>Futur adhérent</td>
+      <td>Remplir un formulaire d'inscription aux disciplines en ligne</td>
+    </tr>
+    <tr>
+      <td><strong>Espace membre</strong></td>
+      <td>Adhérent</td>
+      <td>Accéder à la galerie photos privée du club</td>
+    </tr>
+  </table>
+
+  <p>L'administrateur intervient pour <strong>valider les inscriptions</strong> et <strong>maintenir le contenu à jour</strong> (textes, photos, actualités).</p>
+
+  <!-- 2. TOUR DES PAGES -->
+  <div class="page-break"></div>
+  <h2>2. Tour des pages</h2>
+
+  <div class="demo">
+    🖥️ <strong>À montrer en live</strong> — ouvrir le site et naviguer dans chaque section pendant la présentation.
+  </div>
+
+  <table>
+    <tr>
+      <th>Page</th>
+      <th>Ce qu'on y trouve</th>
+      <th>Modifiable par l'admin</th>
+    </tr>
+    <tr>
+      <td><strong>Accueil</strong></td>
+      <td>Photo d'en-tête, présentation du club, aperçu des disciplines, actualités récentes, infos pratiques (adresse, horaires, tarifs)</td>
+      <td>Oui — via Sanity</td>
+    </tr>
+    <tr>
+      <td><strong>Disciplines</strong></td>
+      <td>Fiche détaillée de chaque discipline (description, photo, horaires)</td>
+      <td>Oui — via Sanity</td>
+    </tr>
+    <tr>
+      <td><strong>Planning</strong></td>
+      <td>Tableau des horaires de toutes les disciplines</td>
+      <td>Oui — via Sanity</td>
+    </tr>
+    <tr>
+      <td><strong>Inscription</strong></td>
+      <td>Formulaire d'inscription aux disciplines, règlement intérieur, infos de paiement, autorisation parentale</td>
+      <td>Oui — documents via Sanity</td>
+    </tr>
+    <tr>
+      <td><strong>Galerie</strong></td>
+      <td>Albums photos publics et albums privés (réservés aux membres connectés)</td>
+      <td>Oui — via Sanity</td>
+    </tr>
+    <tr>
+      <td><strong>Instructeurs</strong></td>
+      <td>Fiches des instructeurs</td>
+      <td>Oui — via Sanity</td>
+    </tr>
+    <tr>
+      <td><strong>Contact</strong></td>
+      <td>Formulaire de contact → envoie un email à l'administrateur</td>
+      <td>Non</td>
+    </tr>
+    <tr>
+      <td><strong>Connexion</strong></td>
+      <td>Page de connexion / création de compte pour l'espace membre</td>
+      <td>Non</td>
+    </tr>
+    <tr>
+      <td><strong>Gestion des membres</strong></td>
+      <td>Interface admin — visible uniquement quand connecté en tant qu'administrateur</td>
+      <td>—</td>
+    </tr>
+  </table>
+
+  <!-- 3. CHARTE GRAPHIQUE -->
+  <h2>3. La charte graphique</h2>
+
+  <p>Le site a une identité visuelle cohérente :</p>
+
+  <table>
+    <tr>
+      <th>Élément</th>
+      <th>Détail</th>
+    </tr>
+    <tr>
+      <td><strong>Couleur principale</strong></td>
+      <td>Bleu foncé <code>#1a3c5e</code> — utilisé pour les titres, le header, les éléments forts</td>
+    </tr>
+    <tr>
+      <td><strong>Couleur d'accent</strong></td>
+      <td>Rouge <code>#e63946</code> — pour les boutons d'action, les badges, les alertes</td>
+    </tr>
+    <tr>
+      <td><strong>Typographie</strong></td>
+      <td>Police système, texte lisible sur fond clair</td>
+    </tr>
+    <tr>
+      <td><strong>Style général</strong></td>
+      <td>Sobre, professionnel, adapté aux arts martiaux — pas de fioritures</td>
+    </tr>
+    <tr>
+      <td><strong>Responsive</strong></td>
+      <td>Le site s'adapte automatiquement aux mobiles, tablettes et ordinateurs</td>
+    </tr>
+    <tr>
+      <td><strong>Animations</strong></td>
+      <td>Légères animations d'apparition au scroll pour dynamiser sans surcharger</td>
+    </tr>
+  </table>
+
+  <div class="conseil">
+    💡 La charte est intégrée dans le code — elle est automatiquement appliquée sur tout le site. L'admin n'a pas à s'en occuper.
+  </div>
+
+  <!-- 4. PARCOURS INSCRIPTION -->
+  <div class="page-break"></div>
+  <h2>4. Parcours d'un adhérent — inscription aux disciplines</h2>
+
+  <div class="demo">
+    🖥️ <strong>À montrer en live</strong> — ouvrir la page Inscription et parcourir le formulaire.
+  </div>
+
+  <h3>Ce que voit l'adhérent</h3>
+  <div class="schema">
+    <strong>1. Formulaire en ligne</strong> — l'adhérent remplit ses informations personnelles, choisit ses disciplines et accepte le règlement intérieur.<br><br>
+    <strong>2. Email de confirmation immédiat</strong> — il reçoit un email résumant sa demande et l'informant qu'elle est en cours de traitement.<br><br>
+    <strong>3. Décision de l'admin</strong> — une fois que l'administrateur a traité sa demande :<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;✅ <strong>Validée</strong> → il reçoit un email de confirmation avec le récapitulatif complet de son dossier<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;❌ <strong>Refusée</strong> → il reçoit un email l'informant du refus
+  </div>
+
+  <h3>Ce que reçoit l'administrateur</h3>
+  <p>Dès qu'une demande est soumise, vous recevez un email de notification avec les informations de l'adhérent (nom, prénom, disciplines choisies, contact).</p>
+
+  <h3>Ce que fait l'administrateur</h3>
+  <div class="etapes">
+    <ol>
+      <li>Se connecter au site avec son compte admin</li>
+      <li>Aller dans <strong>"Gestion des membres"</strong> (icône bouclier en haut à droite)</li>
+      <li>Dans la section <strong>"Inscriptions aux disciplines en attente"</strong>, voir les dossiers à traiter</li>
+      <li>Cliquer sur ✅ <strong>Valider</strong> ou ❌ <strong>Refuser</strong></li>
+    </ol>
+  </div>
+
+  <div class="conseil">
+    💡 Le formulaire récupère automatiquement les disciplines disponibles depuis Sanity. Si vous ajoutez une discipline dans Sanity, elle apparaît automatiquement dans le formulaire.
+  </div>
+
+  <!-- 5. ESPACE MEMBRE -->
+  <h2>5. Parcours d'un adhérent — espace membre</h2>
+
+  <div class="demo">
+    🖥️ <strong>À montrer en live</strong> — démontrer la connexion et la galerie privée.
+  </div>
+
+  <p>L'espace membre permet aux adhérents d'accéder à la <strong>galerie photos privée</strong> du club.</p>
+
+  <h3>Créer un compte et demander l'accès</h3>
+  <div class="schema">
+    <strong>1. Créer un compte</strong> — sur la page Connexion, l'adhérent clique sur "Créer un compte", entre son email et un mot de passe.<br><br>
+    <strong>2. Demander l'accès</strong> — une fois connecté, il voit un message "Accès en attente". Il peut cliquer sur <strong>"Rejoindre l'espace membre"</strong> pour soumettre sa demande.<br><br>
+    <strong>3. Notification à l'admin</strong> — vous recevez un email de notification.<br><br>
+    <strong>4. Décision de l'admin</strong> :<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;✅ <strong>Approuvé</strong> → il reçoit un email et peut accéder à la galerie privée<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;❌ <strong>Refusé</strong> → son accès est bloqué
+  </div>
+
+  <h3>Galerie privée vs publique</h3>
+  <table>
+    <tr>
+      <th>Type d'album</th>
+      <th>Visible par</th>
+    </tr>
+    <tr>
+      <td>Album public</td>
+      <td>Tout visiteur du site</td>
+    </tr>
+    <tr>
+      <td>Album privé 🔒</td>
+      <td>Uniquement les membres dont l'accès a été approuvé par l'admin</td>
+    </tr>
+  </table>
+
+  <!-- 6. ESPACE ADMIN -->
+  <div class="page-break"></div>
+  <h2>6. L'espace administrateur</h2>
+
+  <div class="demo">
+    🖥️ <strong>À montrer en live</strong> — se connecter avec le compte admin et ouvrir "Gestion des membres".
+  </div>
+
+  <p>L'espace admin est accessible depuis le site, une fois connecté avec un compte ayant les droits administrateur. Il apparaît sous forme d'<strong>icône bouclier</strong> en haut à droite.</p>
+
+  <h3>Ce que contient la page "Gestion des membres"</h3>
+
+  <table>
+    <tr>
+      <th>Section</th>
+      <th>Ce qu'on y voit</th>
+      <th>Actions disponibles</th>
+    </tr>
+    <tr>
+      <td><strong>Inscriptions aux disciplines en attente</strong></td>
+      <td>Dossiers soumis via le formulaire d'inscription, non encore traités</td>
+      <td>✅ Valider &nbsp; ❌ Refuser</td>
+    </tr>
+    <tr>
+      <td><strong>Demandes d'accès espace membre</strong></td>
+      <td>Comptes membres en attente d'approbation</td>
+      <td>✅ Approuver &nbsp; ❌ Refuser</td>
+    </tr>
+    <tr>
+      <td><strong>Tous les membres</strong></td>
+      <td>Liste complète des comptes créés sur le site</td>
+      <td>Promouvoir en admin / Retirer les droits</td>
+    </tr>
+  </table>
+
+  <h3>Promouvoir un administrateur</h3>
+  <p>Si un autre membre doit aussi avoir les droits admin (pour vous remplacer ou vous seconder) :</p>
+  <div class="etapes">
+    <ol>
+      <li>Dans "Tous les membres", cliquer sur le nom du membre pour dérouler sa fiche</li>
+      <li>Cliquer sur <strong>"Promouvoir en admin"</strong> (bouton bleu)</li>
+      <li>Confirmer dans la fenêtre qui s'ouvre</li>
+    </ol>
+  </div>
+  <div class="attention">
+    ⚠️ Un administrateur peut gérer tous les membres du site. Ne donnez ce rôle qu'à des personnes de confiance.
+  </div>
+
+  <!-- 7. EMAILS AUTOMATIQUES -->
+  <h2>7. Les emails automatiques</h2>
+
+  <p>Le site envoie automatiquement des emails à chaque étape clé. Vous n'avez rien à faire — ils partent tout seuls.</p>
+
+  <table>
+    <tr>
+      <th>Déclencheur</th>
+      <th>Email envoyé à l'adhérent</th>
+      <th>Email envoyé à l'admin</th>
+    </tr>
+    <tr>
+      <td>Soumission du formulaire d'inscription</td>
+      <td>✅ Accusé de réception</td>
+      <td>✅ Notification nouvelle demande</td>
+    </tr>
+    <tr>
+      <td>Admin valide l'inscription</td>
+      <td>✅ Confirmation avec récapitulatif</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>Admin refuse l'inscription</td>
+      <td>✅ Email de refus</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>Demande d'accès espace membre</td>
+      <td>—</td>
+      <td>✅ Notification nouvelle demande</td>
+    </tr>
+    <tr>
+      <td>Admin approuve l'accès membre</td>
+      <td>✅ Email de bienvenue</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>Message via formulaire de contact</td>
+      <td>—</td>
+      <td>✅ Email avec le message reçu</td>
+    </tr>
+  </table>
+
+  <div class="conseil">
+    💡 Le contenu des emails est modifiable par le développeur. Si vous souhaitez changer les textes des emails automatiques, contacter le développeur.
+  </div>
+
+  <!-- 8. ACCES ET QUESTIONS -->
+  <div class="page-break"></div>
+  <h2>8. Accès remis lors de cette réunion</h2>
+
+  <table>
+    <tr>
+      <th>Service</th>
+      <th>Accès remis</th>
+      <th>Utilisé pour</th>
+    </tr>
+    <tr>
+      <td><strong>Site AMSP</strong></td>
+      <td>Email + mot de passe du compte admin</td>
+      <td>Valider inscriptions et membres</td>
+    </tr>
+    <tr>
+      <td><strong>Sanity</strong></td>
+      <td>Invitation envoyée à votre email</td>
+      <td>Modifier le contenu du site</td>
+    </tr>
+  </table>
+
+  <div class="attention">
+    ⚠️ Ces accès sont personnels. Ne les partagez pas. En cas de perte, contactez le développeur.
+  </div>
+
+  <h2>Récapitulatif — Ce que fait l'admin au quotidien</h2>
+
+  <table>
+    <tr>
+      <th>Situation</th>
+      <th>Action</th>
+      <th>Outil</th>
+    </tr>
+    <tr>
+      <td>Je reçois un email "nouvelle demande d'inscription"</td>
+      <td>Me connecter au site → Gestion des membres → Valider ou Refuser</td>
+      <td>Site AMSP</td>
+    </tr>
+    <tr>
+      <td>Je reçois un email "nouvelle demande d'accès membre"</td>
+      <td>Me connecter au site → Gestion des membres → Approuver ou Refuser</td>
+      <td>Site AMSP</td>
+    </tr>
+    <tr>
+      <td>Je veux publier une actualité (tournoi, stage…)</td>
+      <td>Sanity → Actualités → Créer → Publish</td>
+      <td>Sanity</td>
+    </tr>
+    <tr>
+      <td>Je veux ajouter des photos</td>
+      <td>Sanity → Galerie → Ouvrir l'album → Add item → Publish</td>
+      <td>Sanity</td>
+    </tr>
+    <tr>
+      <td>Je veux modifier les horaires</td>
+      <td>Sanity → Disciplines (ou Paramètres) → Modifier → Publish</td>
+      <td>Sanity</td>
+    </tr>
+    <tr>
+      <td>Je reçois un message de contact</td>
+      <td>Répondre directement par email à l'expéditeur</td>
+      <td>Votre messagerie</td>
+    </tr>
+  </table>
+
+  <!-- 9. SANITY -->
+  <div class="page-break"></div>
+  <h2>9. L'outil de contenu Sanity</h2>
+
+  <div class="demo">
+    🖥️ <strong>À montrer en live</strong> — ouvrir Sanity Studio et naviguer dans les rubriques.
+  </div>
+
+  <p>Sanity est le <strong>tableau de bord du contenu</strong> du site. C'est ici que l'admin modifie textes, photos et actualités <strong>sans toucher au code</strong>.</p>
+
+  <div class="etapes">
+    <strong>Accès :</strong>
+    <ol>
+      <li>Aller sur <span class="url">https://www.sanity.io/manage</span></li>
+      <li>Se connecter avec le compte AMSP (invitation reçue par email)</li>
+      <li>Ouvrir le projet <strong>amsp-admin</strong></li>
+    </ol>
+  </div>
+
+  <h3>Ce que vous pouvez modifier</h3>
+
+  <table>
+    <tr>
+      <th>Rubrique</th>
+      <th>Ce que vous pouvez faire</th>
+      <th>Impact sur le site</th>
+    </tr>
+    <tr>
+      <td><strong>Disciplines</strong></td>
+      <td>Modifier le nom, la description, la photo, les horaires de chaque discipline</td>
+      <td>Page Disciplines + formulaire d'inscription</td>
+    </tr>
+    <tr>
+      <td><strong>Actualités</strong></td>
+      <td>Créer, modifier, supprimer des articles (tournois, stages, événements…)</td>
+      <td>Page Accueil + section Actualités</td>
+    </tr>
+    <tr>
+      <td><strong>Galerie</strong></td>
+      <td>Créer des albums, y ajouter des photos, les rendre publics ou privés</td>
+      <td>Page Galerie</td>
+    </tr>
+    <tr>
+      <td><strong>Instructeurs</strong></td>
+      <td>Ajouter / modifier les fiches des instructeurs</td>
+      <td>Page Instructeurs</td>
+    </tr>
+    <tr>
+      <td><strong>Inscription</strong></td>
+      <td>Mettre à jour le règlement intérieur, les infos de paiement, l'autorisation parentale</td>
+      <td>Page Inscription</td>
+    </tr>
+    <tr>
+      <td><strong>Paramètres</strong></td>
+      <td>Modifier l'adresse, le téléphone, l'email, les horaires du club</td>
+      <td>Page Accueil + pied de page</td>
+    </tr>
+  </table>
+
+  <h3>Règle d'or — publier en deux étapes</h3>
+  <div class="attention">
+    ⚠️ <strong>La publication se fait en deux clics :</strong><br><br>
+    <strong>Étape 1</strong> — Activer le toggle <strong>"Publié"</strong> (en bas à gauche du document) pour marquer le document comme prêt à publier.<br>
+    <strong>Étape 2</strong> — Cliquer sur le bouton <strong>"Publish"</strong> (en bas à droite) pour envoyer les modifications sur le site.<br><br>
+    Tant que ces deux étapes ne sont pas faites, les changements restent en brouillon et ne sont pas visibles sur le site.
+  </div>
+
+  <div class="conseil">
+    💡 La mise à jour est visible sur le site en moins d'une minute après la publication.
+  </div>
+
+  <div class="footer">
+    Présentation du site AMSP — Réunion de passation, mai 2026 &nbsp;|&nbsp; Document à conserver
+  </div>
+
+</body>
+</html>

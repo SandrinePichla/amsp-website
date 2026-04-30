@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -75,19 +75,7 @@ const AdminMembres = () => {
   const [processing, setProcessing] = useState<string | null>(null);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [confirmAdmin, setConfirmAdmin] = useState<Membre | null>(null);
-
-  useEffect(() => {
-    if (!user) { navigate("/connexion"); return; }
-    supabase.from("profils").select("role").eq("id", user.id).single().then(({ data }) => {
-      if (data?.role !== "admin") { navigate("/"); return; }
-      setIsAdmin(true);
-      setCheckingRole(false);
-    });
-  }, [user, navigate]);
-
-  useEffect(() => {
-    if (isAdmin) loadData();
-  }, [isAdmin]);
+  const dataLoadedRef = useRef(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -99,6 +87,19 @@ const AdminMembres = () => {
     if (inscData) setInscriptions(inscData);
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (!user) { navigate("/connexion"); return; }
+    supabase.from("profils").select("role").eq("id", user.id).single().then(({ data }) => {
+      if (data?.role !== "admin") { navigate("/"); return; }
+      setIsAdmin(true);
+      setCheckingRole(false);
+      if (!dataLoadedRef.current) {
+        dataLoadedRef.current = true;
+        loadData();
+      }
+    });
+  }, [user, navigate]);
 
   // --- Actions compte membre ---
   const handleApprouverCompte = async (id: string) => {
@@ -208,34 +209,121 @@ const AdminMembres = () => {
     setProcessing(null);
   };
 
-  // --- Export CSV ---
+  // --- Export Excel ---
   const handleExportCSV = async () => {
-    const { data, error } = await supabase.from("inscriptions").select("*").order("created_at", { ascending: false });
+    const { data, error } = await supabase.from('inscriptions').select('*').order('created_at', { ascending: false });
     if (error || !data) { toast.error("Erreur lors de l'export."); return; }
+
+    const ExcelJS = (await import('exceljs')).default;
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'AMSP';
+    const sheet = workbook.addWorksheet('Inscriptions AMSP', { views: [{ state: 'frozen', ySplit: 4 }] });
+
+    const BLEU = 'FF1a3c5e';
+    const ROUGE = 'FFe63946';
+    const BLANC = 'FFFFFFFF';
+    const GRIS_CLAIR = 'FFf6f8fa';
+    const VERT_BG = 'FFe8f5e9';
+    const VERT_FG = 'FF2d6a4f';
+    const ROUGE_BG = 'FFfce4e4';
+    const ROUGE_FG = 'FFb91c1c';
+    const AMBRE_BG = 'FFfff8e1';
+    const AMBRE_FG = 'FF92400e';
+    const NB_COLS = 18;
+
+    sheet.mergeCells(1, 1, 1, NB_COLS);
+    const titreCell = sheet.getCell(1, 1);
+    titreCell.value = 'AMSP — Liste des inscriptions';
+    titreCell.font = { name: 'Calibri', size: 16, bold: true, color: { argb: BLANC } };
+    titreCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLEU } };
+    titreCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    sheet.getRow(1).height = 30;
+
+    sheet.mergeCells(2, 1, 2, NB_COLS);
+    const dateCell = sheet.getCell(2, 1);
+    dateCell.value = 'Exporté le ' + new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) + ' — ' + data.length + ' inscription(s)';
+    dateCell.font = { name: 'Calibri', size: 10, italic: true, color: { argb: BLANC } };
+    dateCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLEU } };
+    dateCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    sheet.getRow(2).height = 18;
+    sheet.getRow(3).height = 6;
+
     const headers = [
-      "Date", "Saison", "Statut inscription", "Nom", "Prénom", "Naissance", "Groupe sanguin", "Allergie(s)",
-      "Adresse", "Tél. fixe", "Tél. mobile", "Email", "Urgence",
-      "Discipline(s)", "Niveau", "Autorisation parentale", "Droit à l'image", "Compte membre",
+      'Date', 'Saison', 'Statut', 'Nom', 'Prénom', 'Date de naissance',
+      'Groupe sanguin', 'Allergie(s)', 'Adresse', 'Tél. fixe', 'Tél. mobile',
+      'Email', 'Contact urgence', 'Discipline(s)', 'Niveau',
+      'Autorisation parentale', "Droit à l'image", 'Compte membre',
     ];
-    const rows = data.map((i) => {
-      const profil = membres.find((m) => m.id === i.user_id);
-      const compte = profil?.role === "admin" ? "Admin" : profil?.role === "membre" ? "Oui" : profil?.role === "en_attente" ? "En attente" : "Non";
-      const statutInsc = i.statut === "validee" ? "Validée" : i.statut === "refusee" ? "Refusée" : "En attente";
-      return [
-        new Date(i.created_at).toLocaleDateString("fr-FR"), i.saison || "", statutInsc,
-        i.nom || "", i.prenom || "",
-        i.date_naissance ? new Date(i.date_naissance).toLocaleDateString("fr-FR") : "",
-        i.groupe_sanguin || "", i.allergie || "", i.adresse || "",
-        i.tel_fixe || "", i.tel_mobile || "", i.email || "", i.urgence_contact || "",
-        i.disciplines || "", i.niveau || "",
-        i.autorisation_parentale ? "Oui" : "Non", i.droit_image ? "Oui" : "Non", compte,
-      ];
+    const headerRow = sheet.getRow(4);
+    headerRow.height = 22;
+    headers.forEach((h, idx) => {
+      const cell = headerRow.getCell(idx + 1);
+      cell.value = h;
+      cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: BLANC } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ROUGE } };
+      cell.alignment = { vertical: 'middle', horizontal: 'left' };
+      cell.border = { bottom: { style: 'thin', color: { argb: BLANC } } };
     });
-    const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+
+    data.forEach((i, rowIdx) => {
+      const profil = membres.find((m) => m.id === i.user_id);
+      const compte = profil?.role === 'admin' ? 'Admin' : profil?.role === 'membre' ? 'Oui' : profil?.role === 'en_attente' ? 'En attente' : 'Non';
+      const statutInsc = i.statut === 'validee' ? 'Validée' : i.statut === 'refusee' ? 'Refusée' : 'En attente';
+      const rowBg = rowIdx % 2 === 0 ? BLANC : GRIS_CLAIR;
+      const values = [
+        new Date(i.created_at).toLocaleDateString('fr-FR'),
+        i.saison || '',
+        statutInsc,
+        i.nom || '',
+        i.prenom || '',
+        i.date_naissance ? new Date(i.date_naissance).toLocaleDateString('fr-FR') : '',
+        i.groupe_sanguin || '',
+        i.allergie || '',
+        i.adresse || '',
+        i.tel_fixe || '',
+        i.tel_mobile || '',
+        i.email || '',
+        i.urgence_contact || '',
+        i.disciplines || '',
+        i.niveau || '',
+        i.autorisation_parentale ? 'Oui' : 'Non',
+        i.droit_image ? 'Oui' : 'Non',
+        compte,
+      ];
+      const dataRow = sheet.getRow(4 + rowIdx + 1);
+      dataRow.height = 18;
+      values.forEach((val, colIdx) => {
+        const cell = dataRow.getCell(colIdx + 1);
+        cell.value = val;
+        cell.font = { name: 'Calibri', size: 10 };
+        cell.alignment = { vertical: 'middle' };
+        if (colIdx === 2) {
+          if (val === 'Validée') {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: VERT_BG } };
+            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: VERT_FG } };
+          } else if (val === 'Refusée') {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ROUGE_BG } };
+            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: ROUGE_FG } };
+          } else {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AMBRE_BG } };
+            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: AMBRE_FG } };
+          }
+        } else {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBg } };
+        }
+      });
+    });
+
+    [12, 16, 12, 16, 14, 16, 13, 16, 30, 13, 13, 26, 26, 34, 14, 20, 15, 14]
+      .forEach((w, idx) => { sheet.getColumn(idx + 1).width = w; });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `inscriptions_amsp_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'inscriptions_amsp_' + new Date().toISOString().slice(0, 10) + '.xlsx';
+    a.click();
     URL.revokeObjectURL(url);
   };
 

@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Identifiants et accès — Site AMSP</title>
+  <style>
+    body {
+      font-family: Calibri, Arial, sans-serif;
+      font-size: 11pt;
+      color: #222;
+      margin: 2.5cm 2.5cm 2.5cm 2.5cm;
+      line-height: 1.5;
+    }
+    h1 {
+      font-size: 20pt;
+      color: #1a3c5e;
+      border-bottom: 3px solid #1a3c5e;
+      padding-bottom: 6px;
+      margin-top: 0;
+    }
+    h2 {
+      font-size: 14pt;
+      color: #1a3c5e;
+      border-left: 4px solid #e63946;
+      padding-left: 10px;
+      margin-top: 28px;
+    }
+    .subtitle {
+      font-size: 11pt;
+      color: #666;
+      margin-top: -8px;
+      margin-bottom: 24px;
+      font-style: italic;
+    }
+    .bloc {
+      background: #f0f4f8;
+      border: 1px solid #c8d6e5;
+      border-radius: 4px;
+      padding: 14px 20px;
+      margin: 14px 0;
+    }
+    .bloc table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0;
+    }
+    .bloc td {
+      padding: 5px 10px;
+      border: none;
+      vertical-align: top;
+    }
+    .bloc td:first-child {
+      width: 38%;
+      font-weight: bold;
+      color: #444;
+      white-space: nowrap;
+    }
+    .bloc td:last-child {
+      color: #1a3c5e;
+      font-family: Consolas, monospace;
+      font-size: 10.5pt;
+    }
+    .bloc-title {
+      font-size: 12pt;
+      font-weight: bold;
+      color: #1a3c5e;
+      margin-bottom: 10px;
+    }
+    .attention {
+      background: #fff8e1;
+      border-left: 3px solid #f59e0b;
+      padding: 10px 16px;
+      margin: 12px 0;
+      font-size: 10.5pt;
+    }
+    .secret {
+      background: #fce4e4;
+      border-left: 3px solid #e63946;
+      padding: 10px 16px;
+      margin: 12px 0;
+      font-size: 10.5pt;
+    }
+    .url {
+      color: #1a73e8;
+      font-weight: bold;
+    }
+    .vide {
+      color: #999;
+      font-style: italic;
+      font-family: Calibri, Arial, sans-serif;
+    }
+    .footer {
+      margin-top: 40px;
+      border-top: 1px solid #ccc;
+      padding-top: 10px;
+      font-size: 9pt;
+      color: #999;
+      text-align: center;
+    }
+    .page-break {
+      page-break-before: always;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Identifiants et accès<br>Site AMSP</h1>
+  <p class="subtitle">Document confidentiel — À conserver en lieu sûr, ne pas partager</p>
+
+  <div class="secret">
+    🔒 Ce document contient des accès sensibles. Ne pas l'envoyer par email. Le conserver imprimé dans un endroit sécurisé ou dans un gestionnaire de mots de passe.
+  </div>
+
+  <!-- SITE AMSP -->
+  <h2>Site AMSP — Espace administrateur</h2>
+
+  <div class="bloc">
+    <div class="bloc-title">Accès admin du site</div>
+    <table>
+      <tr>
+        <td>URL du site</td>
+        <td><span class="url">https://sandrinepichla.github.io/amsp-website</span></td>
+      </tr>
+      <tr>
+        <td>Email du compte admin</td>
+        <td><span class="vide">à compléter</span></td>
+      </tr>
+      <tr>
+        <td>Mot de passe</td>
+        <td><span class="vide">à compléter</span></td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="attention">
+    ⚠️ Le compte admin est créé via Supabase (voir ci-dessous). Si le mot de passe est oublié, utiliser le lien <strong>"Mot de passe oublié"</strong> sur la page de connexion du site.
+  </div>
+
+  <!-- SANITY -->
+  <h2>Sanity — Gestion du contenu</h2>
+
+  <p>Sanity permet de modifier les textes, photos, actualités et disciplines du site sans toucher au code.</p>
+
+  <div class="bloc">
+    <div class="bloc-title">Accès Sanity Studio</div>
+    <table>
+      <tr>
+        <td>URL</td>
+        <td><span class="url">https://www.sanity.io/manage</span></td>
+      </tr>
+      <tr>
+        <td>Méthode de connexion</td>
+        <td><span class="vide">Google / email — à compléter</span></td>
+      </tr>
+      <tr>
+        <td>Email du compte</td>
+        <td><span class="vide">à compléter</span></td>
+      </tr>
+      <tr>
+        <td>Mot de passe</td>
+        <td><span class="vide">à compléter</span></td>
+      </tr>
+      <tr>
+        <td>Nom du projet Sanity</td>
+        <td>AMSP</td>
+      </tr>
+    </table>
+  </div>
+
+  <h3 style="font-size:12pt; color:#333; margin-top:18px;">Inviter l'administrateur sur Sanity</h3>
+
+  <div style="background:#f8f9fa; border-left:3px solid #1a3c5e; padding:10px 16px; margin:12px 0;">
+    <strong>Étapes :</strong>
+    <ol style="margin:8px 0; padding-left:22px;">
+      <li>Se connecter sur <span class="url">https://www.sanity.io/manage</span></li>
+      <li>Ouvrir le projet <strong>AMSP</strong></li>
+      <li>Cliquer sur <strong>"Members"</strong> dans le menu gauche</li>
+      <li>Cliquer sur <strong>"Invite member"</strong></li>
+      <li>Entrer l'adresse email de l'administrateur</li>
+      <li>Choisir le rôle <strong>"Administrator"</strong></li>
+      <li>Cliquer sur <strong>"Send invite"</strong></li>
+    </ol>
+  </div>
+
+  <div style="background:#fff8e1; border-left:3px solid #f59e0b; padding:10px 16px; margin:12px 0; font-size:10.5pt;">
+    ⚠️ Le plan gratuit Sanity ne propose que deux rôles : <strong>Administrator</strong> (peut tout faire) et <strong>Viewer</strong> (lecture seule). Donner le rôle Administrator est nécessaire pour que l'admin puisse modifier le contenu.<br><br>
+    L'administrateur pourra modifier textes, photos et actualités, mais aussi inviter d'autres personnes ou modifier les paramètres du projet. <strong>Faire une sauvegarde des données avant de lui donner accès</strong> (voir section Sauvegarde ci-dessous).
+  </div>
+
+  <div style="background:#e8f5e9; border-left:3px solid #4caf50; padding:10px 16px; margin:12px 0; font-size:10.5pt;">
+    💡 L'administrateur devra créer son propre compte Sanity (gratuit) à l'adresse <span class="url">https://www.sanity.io</span> avec l'email auquel l'invitation a été envoyée.
+  </div>
+
+  <h3 style="font-size:12pt; color:#333; margin-top:18px;">Sauvegarde du contenu Sanity</h3>
+
+  <p>Avant de donner les accès et en cas d'erreur, exporter le contenu avec cette commande dans le terminal (depuis le dossier du projet) :</p>
+
+  <div style="background:#f8f9fa; border-left:3px solid #1a3c5e; padding:10px 16px; margin:12px 0; font-family:Consolas, monospace; font-size:10pt;">
+    npx sanity dataset export production backup-amsp.tar.gz
+  </div>
+
+  <p>Le fichier <code>backup-amsp.tar.gz</code> contient tout le contenu du site (textes, références images, actualités…). Pour restaurer :</p>
+
+  <div style="background:#f8f9fa; border-left:3px solid #1a3c5e; padding:10px 16px; margin:12px 0; font-family:Consolas, monospace; font-size:10pt;">
+    npx sanity dataset import backup-amsp.tar.gz production --replace
+  </div>
+
+  <div style="background:#fff8e1; border-left:3px solid #f59e0b; padding:10px 16px; margin:12px 0; font-size:10.5pt;">
+    ⚠️ Ces commandes sont à exécuter depuis le dossier <code>amsp-studio</code> (le projet Sanity), pas depuis le dossier du site React. Conserver le fichier de sauvegarde sur votre ordinateur ou dans un cloud (Google Drive, etc.).
+  </div>
+
+  <!-- SUPABASE -->
+  <h2>Supabase — Base de données et authentification</h2>
+
+  <p>Supabase gère les comptes membres, les inscriptions et les droits d'accès. Réservé au développeur pour la configuration technique.</p>
+
+  <div class="bloc">
+    <div class="bloc-title">Accès Supabase</div>
+    <table>
+      <tr>
+        <td>URL</td>
+        <td><span class="url">https://supabase.com/dashboard</span></td>
+      </tr>
+      <tr>
+        <td>Email du compte</td>
+        <td><span class="vide">à compléter</span></td>
+      </tr>
+      <tr>
+        <td>Mot de passe</td>
+        <td><span class="vide">à compléter</span></td>
+      </tr>
+      <tr>
+        <td>Nom du projet</td>
+        <td><span class="vide">à compléter</span></td>
+      </tr>
+      <tr>
+        <td>URL du projet (VITE_SUPABASE_URL)</td>
+        <td><span class="vide">à compléter</span></td>
+      </tr>
+      <tr>
+        <td>Clé publique (VITE_SUPABASE_ANON_KEY)</td>
+        <td><span class="vide">à compléter</span></td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- BREVO -->
+  <div class="page-break"></div>
+  <h2>Brevo — Emails automatiques</h2>
+
+  <p>Brevo envoie les 7 emails automatiques du site (confirmation d'inscription, validation, etc.). Réservé au développeur pour la configuration.</p>
+
+  <div class="bloc">
+    <div class="bloc-title">Accès Brevo</div>
+    <table>
+      <tr>
+        <td>URL</td>
+        <td><span class="url">https://www.brevo.com</span></td>
+      </tr>
+      <tr>
+        <td>Email du compte</td>
+        <td><span class="vide">à compléter</span></td>
+      </tr>
+      <tr>
+        <td>Mot de passe</td>
+        <td><span class="vide">à compléter</span></td>
+      </tr>
+      <tr>
+        <td>Clé API (BREVO_API_KEY)</td>
+        <td><span class="vide">à compléter — dans Brevo → Paramètres → Clés API</span></td>
+      </tr>
+      <tr>
+        <td>Email expéditeur (BREVO_SENDER_EMAIL)</td>
+        <td><span class="vide">à compléter — ex : contact@amsp.fr</span></td>
+      </tr>
+      <tr>
+        <td>Email admin destinataire (VITE_BREVO_ADMIN_EMAIL)</td>
+        <td><span class="vide">à compléter — ex : contact@amsp.fr</span></td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="attention">
+    ⚠️ La clé API Brevo est un secret. Elle est stockée dans les secrets de la fonction Supabase et dans le fichier <code>.env</code> local du développeur — jamais dans le code source.
+  </div>
+
+  <!-- GITHUB -->
+  <h2>GitHub — Hébergement du code et déploiement</h2>
+
+  <p>Le code source du site est hébergé sur GitHub. Le déploiement vers le site public se fait automatiquement depuis GitHub.</p>
+
+  <div class="bloc">
+    <div class="bloc-title">Accès GitHub</div>
+    <table>
+      <tr>
+        <td>URL du dépôt</td>
+        <td><span class="url">https://github.com/SandrinePichla/amsp-website</span></td>
+      </tr>
+      <tr>
+        <td>Nom d'utilisateur GitHub</td>
+        <td>SandrinePichla</td>
+      </tr>
+      <tr>
+        <td>Email du compte</td>
+        <td><span class="vide">à compléter</span></td>
+      </tr>
+      <tr>
+        <td>Mot de passe</td>
+        <td><span class="vide">à compléter</span></td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- RECAP -->
+  <h2>Récapitulatif — Qui a besoin de quoi</h2>
+
+  <table style="width:100%; border-collapse:collapse; margin:12px 0; font-size:10.5pt;">
+    <tr style="background:#1a3c5e; color:white;">
+      <th style="padding:8px 12px; text-align:left;">Service</th>
+      <th style="padding:8px 12px; text-align:left;">Utilisé par</th>
+      <th style="padding:8px 12px; text-align:left;">Pour quoi faire</th>
+    </tr>
+    <tr>
+      <td style="padding:7px 12px; border:1px solid #d0d7de;">Site AMSP</td>
+      <td style="padding:7px 12px; border:1px solid #d0d7de;">Administrateur</td>
+      <td style="padding:7px 12px; border:1px solid #d0d7de;">Valider les inscriptions et les membres</td>
+    </tr>
+    <tr style="background:#f6f8fa;">
+      <td style="padding:7px 12px; border:1px solid #d0d7de;">Sanity</td>
+      <td style="padding:7px 12px; border:1px solid #d0d7de;">Administrateur</td>
+      <td style="padding:7px 12px; border:1px solid #d0d7de;">Modifier les textes, photos, actualités</td>
+    </tr>
+    <tr>
+      <td style="padding:7px 12px; border:1px solid #d0d7de;">Supabase</td>
+      <td style="padding:7px 12px; border:1px solid #d0d7de;">Développeur</td>
+      <td style="padding:7px 12px; border:1px solid #d0d7de;">Gérer la base de données et les comptes</td>
+    </tr>
+    <tr style="background:#f6f8fa;">
+      <td style="padding:7px 12px; border:1px solid #d0d7de;">Brevo</td>
+      <td style="padding:7px 12px; border:1px solid #d0d7de;">Développeur</td>
+      <td style="padding:7px 12px; border:1px solid #d0d7de;">Configurer les emails automatiques</td>
+    </tr>
+    <tr>
+      <td style="padding:7px 12px; border:1px solid #d0d7de;">GitHub</td>
+      <td style="padding:7px 12px; border:1px solid #d0d7de;">Développeur</td>
+      <td style="padding:7px 12px; border:1px solid #d0d7de;">Mettre à jour le code et déployer</td>
+    </tr>
+  </table>
+
+  <div class="footer">
+    Identifiants et accès — Site AMSP &nbsp;|&nbsp; Document strictement confidentiel &nbsp;|&nbsp; Dernière mise à jour : avril 2026
+  </div>
+
+</body>
+</html>
