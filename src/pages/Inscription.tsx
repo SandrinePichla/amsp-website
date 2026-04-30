@@ -237,6 +237,22 @@ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
       saison,
     });
 
+    // 3 — Notifier l'admin
+    try {
+      await sendBrevoEmail(TEMPLATES.INSCRIPTION_ADMIN, { email: import.meta.env.VITE_BREVO_ADMIN_EMAIL, name: "AMSP" }, {
+        nom: form.nom,
+        prenom: form.prenom,
+        email: form.email,
+        tel_mobile: form.telMobile,
+        date_naissance: form.dateNaissance || "",
+        niveau: form.niveau || "Non précisé",
+        disciplines: disciplinesChoisies,
+        saison,
+      });
+    } catch {
+      // Non-bloquant
+    }
+
     toast.success("Inscription envoyée ! Nous vous contacterons bientôt.");
     setForm({
       nom: "", prenom: "", adresse: "", codePostal: "", ville: "",

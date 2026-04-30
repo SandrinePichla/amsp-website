@@ -12,11 +12,20 @@ import { sendBrevoEmail, TEMPLATES } from "@/lib/brevo";
 
 const Rejoindre = () => {
   const [form, setForm] = useState({ prenom: "", nom: "", email: "", password: "", confirm: "" });
+  const [dejaInscrit, setDejaInscrit] = useState(false);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!form.prenom.trim() || !form.nom.trim()) {
+      toast.error("Le prénom et le nom sont obligatoires.");
+      return;
+    }
+    if (!dejaInscrit) {
+      toast.error("L'espace membre est réservé aux adhérents inscrits à une discipline.");
+      return;
+    }
     if (form.password !== form.confirm) {
       toast.error("Les mots de passe ne correspondent pas.");
       return;
@@ -51,7 +60,10 @@ const Rejoindre = () => {
       });
     }
 
-    // 3. Notifier l'administratrice par email
+    // 3. Déconnecter immédiatement — le compte doit être validé par l'admin avant connexion
+    await supabase.auth.signOut();
+
+    // 4. Notifier l'administratrice par email
     try {
       await sendBrevoEmail(TEMPLATES.REJOINDRE,
         { email: import.meta.env.VITE_BREVO_ADMIN_EMAIL, name: "AMSP" },
@@ -100,27 +112,32 @@ const Rejoindre = () => {
           <h1 className="mb-2 text-center font-serif text-3xl font-black">
             Rejoindre l'<span className="text-primary">espace membres</span>
           </h1>
-          <p className="mb-8 text-center text-sm text-muted-foreground">
+          <p className="mb-2 text-center text-sm text-muted-foreground">
             Votre demande sera examinée par l'administratrice avant activation.
           </p>
+          <div className="mb-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            ⚠️ L'espace membre est réservé aux adhérents de l'AMSP inscrits à au moins une discipline.
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="prenom">Prénom</Label>
+                <Label htmlFor="prenom">Prénom <span className="text-destructive">*</span></Label>
                 <Input
                   id="prenom"
                   placeholder="Prénom"
+                  required
                   maxLength={100}
                   value={form.prenom}
                   onChange={(e) => setForm({ ...form, prenom: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="nom">Nom</Label>
+                <Label htmlFor="nom">Nom <span className="text-destructive">*</span></Label>
                 <Input
                   id="nom"
                   placeholder="Nom"
+                  required
                   maxLength={100}
                   value={form.nom}
                   onChange={(e) => setForm({ ...form, nom: e.target.value })}
@@ -171,6 +188,19 @@ const Rejoindre = () => {
                 value={form.confirm}
                 onChange={(e) => setForm({ ...form, confirm: e.target.value })}
               />
+            </div>
+
+            <div className="flex items-start gap-3 rounded-md border border-border p-3">
+              <input
+                id="dejaInscrit"
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 accent-primary cursor-pointer"
+                checked={dejaInscrit}
+                onChange={(e) => setDejaInscrit(e.target.checked)}
+              />
+              <label htmlFor="dejaInscrit" className="text-sm cursor-pointer leading-snug">
+                Je confirme être inscrit(e) à au moins une discipline à l'AMSP. Je comprends que l'espace membre est réservé aux adhérents actifs.
+              </label>
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>

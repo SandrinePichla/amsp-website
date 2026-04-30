@@ -186,8 +186,25 @@ const AdminMembres = () => {
   const handleRefuserInscription = async (id: string) => {
     setProcessing(`insc-${id}`);
     const { error } = await supabase.from("inscriptions").update({ statut: "refusee" }).eq("id", id);
-    if (error) toast.error("Erreur : " + error.message);
-    else { toast.success("Inscription refusée."); setInscriptions((prev) => prev.map((i) => i.id === id ? { ...i, statut: "refusee" } : i)); }
+    if (error) {
+      toast.error("Erreur : " + error.message);
+    } else {
+      toast.success("Inscription refusée.");
+      setInscriptions((prev) => prev.map((i) => i.id === id ? { ...i, statut: "refusee" } : i));
+      const insc = inscriptions.find((i) => i.id === id);
+      if (insc?.email) {
+        try {
+          await sendBrevoEmail(TEMPLATES.REFUS, { email: insc.email, name: [insc.prenom, insc.nom].filter(Boolean).join(" ") || insc.email }, {
+            prenom: insc.prenom || "",
+            nom: insc.nom || "",
+            disciplines: insc.disciplines || "",
+            saison: insc.saison || "",
+          });
+        } catch {
+          // Non-bloquant
+        }
+      }
+    }
     setProcessing(null);
   };
 
