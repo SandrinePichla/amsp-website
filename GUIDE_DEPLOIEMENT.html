@@ -313,28 +313,40 @@
   </div>
 
   <!-- SECTION 7 -->
-  <h2>7. EmailJS</h2>
+  <h2>7. Brevo (emails automatiques)</h2>
 
-  <p>EmailJS envoie les emails automatiques (formulaire de contact, inscriptions, notifications admin).<br>
-  Adresse : <span class="url">https://www.emailjs.com</span> → se connecter</p>
+  <p>Brevo envoie les 5 emails automatiques du site (inscriptions, validations, notifications admin).<br>
+  Adresse : <span class="url">https://www.brevo.com</span> → se connecter</p>
 
-  <h3>Modifier un template d'email</h3>
+  <h3>Les 5 templates d'email</h3>
+
+  <table>
+    <tr><th>#</th><th>Nom</th><th>Rôle</th></tr>
+    <tr><td>1</td><td>demande d'inscription</td><td>Confirmation au membre à la soumission du formulaire</td></tr>
+    <tr><td>2</td><td>validation inscription</td><td>Confirmation au membre quand l'admin valide son inscription</td></tr>
+    <tr><td>3</td><td>validation espace membre</td><td>Email au membre quand son compte est approuvé (avec lien de connexion)</td></tr>
+    <tr><td>4</td><td>Formulaire de contact</td><td>Notification à l'admin quand quelqu'un remplit le formulaire de contact</td></tr>
+    <tr><td>5</td><td>Demande accès espace membre</td><td>Notification à l'admin quand quelqu'un demande un accès membre</td></tr>
+  </table>
+
+  <h3>Modifier un template</h3>
 
   <div class="etapes">
     <ol>
-      <li>Menu gauche → <strong>Email Templates</strong></li>
-      <li>Cliquer sur le template à modifier</li>
-      <li>Modifier le contenu HTML/texte</li>
-      <li>Cliquer sur <strong>Save</strong></li>
+      <li>Menu gauche → <strong>Email</strong> → <strong>Templates</strong></li>
+      <li>Cliquer sur le template à modifier → <strong>Modifier</strong></li>
+      <li>Modifier le contenu HTML</li>
+      <li>Cliquer sur <strong>Enregistrer et quitter</strong></li>
     </ol>
   </div>
 
-  <p>Les variables disponibles dans les templates sont entre doubles accolades : <code>{{nom}}</code>, <code>{{email}}</code>, <code>{{disciplines}}</code>…</p>
+  <p>Les variables dans les templates utilisent la syntaxe : <code>{{ params.nom }}</code>, <code>{{ params.email }}</code>, <code>{{ params.disciplines }}</code>…</p>
 
-  <h3>Identifiants EmailJS</h3>
+  <h3>Clé API et configuration</h3>
 
   <div class="attention">
-    ⚠️ Les identifiants (Service ID, Template ID, Public Key) sont stockés dans le fichier <strong><code>.env</code></strong> à la racine du projet. Ce fichier n'est pas envoyé sur GitHub pour des raisons de sécurité.<br><br>
+    ⚠️ La clé API Brevo et les IDs de templates sont stockés dans le fichier <strong><code>.env</code></strong> à la racine du projet. Ce fichier n'est pas envoyé sur GitHub pour des raisons de sécurité.<br><br>
+    Variables concernées : <code>VITE_BREVO_API_KEY</code>, <code>VITE_BREVO_SENDER_EMAIL</code>, <code>VITE_BREVO_ADMIN_EMAIL</code>, <code>VITE_BREVO_TEMPLATE_*</code><br><br>
     Si vous travaillez sur un nouvel ordinateur, copier le fichier <code>.env.example</code> en <code>.env</code> et remplir les valeurs.
   </div>
 
@@ -403,11 +415,11 @@ npm run dev</div>
     </tr>
     <tr>
       <td>Les emails n'arrivent pas</td>
-      <td>Vérifier le quota EmailJS sur le Dashboard (200 emails/mois en version gratuite).</td>
+      <td>Vérifier sur brevo.com → <strong>Transactionnel</strong> → <strong>Logs</strong> si les envois apparaissent. Vérifier que la clé API dans <code>.env</code> est correcte.</td>
     </tr>
     <tr>
       <td>Le fichier <code>.env</code> est manquant</td>
-      <td>Copier <code>.env.example</code> en <code>.env</code> et remplir les clés EmailJS.</td>
+      <td>Copier <code>.env.example</code> en <code>.env</code> et remplir la clé API Brevo et les IDs de templates.</td>
     </tr>
   </table>
 

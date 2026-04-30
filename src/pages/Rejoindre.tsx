@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { supabase } from "@/supabaseClient";
 import { CheckCircle } from "lucide-react";
+import { sendBrevoEmail, TEMPLATES } from "@/lib/brevo";
 
 const Rejoindre = () => {
   const [form, setForm] = useState({ prenom: "", nom: "", email: "", password: "", confirm: "" });
@@ -48,6 +49,16 @@ const Rejoindre = () => {
         nom: form.nom || null,
         role: "en_attente",
       });
+    }
+
+    // 3. Notifier l'administratrice par email
+    try {
+      await sendBrevoEmail(TEMPLATES.REJOINDRE,
+        { email: import.meta.env.VITE_BREVO_ADMIN_EMAIL, name: "AMSP" },
+        { prenom: form.prenom || "", nom: form.nom || "", email: form.email }
+      );
+    } catch {
+      // Non-bloquant
     }
 
     setDone(true);

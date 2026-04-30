@@ -5,6 +5,7 @@ export const TEMPLATES = {
   VALIDATION:  Number(import.meta.env.VITE_BREVO_TEMPLATE_VALIDATION),
   COMPTE:      Number(import.meta.env.VITE_BREVO_TEMPLATE_COMPTE),
   CONTACT:     Number(import.meta.env.VITE_BREVO_TEMPLATE_CONTACT),
+  REJOINDRE:   Number(import.meta.env.VITE_BREVO_TEMPLATE_REJOINDRE),
 };
 
 export const sendBrevoEmail = async (

@@ -139,7 +139,7 @@
       <li>Promouvoir un membre en administrateur</li>
       <li>Modifier le contenu du site avec Sanity</li>
       <li>Vérifier que les modifications sont bien en ligne</li>
-      <li>Modifier les emails automatiques avec EmailJS</li>
+      <li>Modifier les emails automatiques avec Brevo</li>
     </ol>
   </div>
 
@@ -376,21 +376,54 @@
 
   <!-- SECTION 6 -->
   <div class="page-break"></div>
-  <h2>6. Modifier les emails automatiques avec EmailJS</h2>
+  <h2>6. Modifier les emails automatiques avec Brevo</h2>
 
-  <p>EmailJS gère les emails envoyés automatiquement par le site :</p>
-  <ul>
-    <li>Email reçu lorsqu'un membre remplit le formulaire d'<strong>inscription en ligne</strong></li>
-    <li>Email reçu lorsqu'une personne crée un <strong>compte membre</strong></li>
-    <li>Emails envoyés depuis le formulaire de <strong>contact</strong></li>
-  </ul>
+  <p>Brevo gère les 5 emails envoyés automatiquement par le site :</p>
+  <table>
+    <tr>
+      <th>#</th>
+      <th>Nom du template</th>
+      <th>Envoyé quand</th>
+      <th>Destinataire</th>
+    </tr>
+    <tr>
+      <td>1</td>
+      <td>demande d'inscription</td>
+      <td>Un adhérent soumet le formulaire d'inscription</td>
+      <td>L'adhérent</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>validation inscription</td>
+      <td>L'admin valide une inscription aux disciplines</td>
+      <td>L'adhérent</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>validation espace membre</td>
+      <td>L'admin approuve un compte membre</td>
+      <td>L'adhérent</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>Formulaire de contact</td>
+      <td>Quelqu'un envoie un message via le formulaire de contact</td>
+      <td>L'administrateur</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>Demande accès espace membre</td>
+      <td>Quelqu'un fait une demande d'accès à l'espace membre</td>
+      <td>L'administrateur</td>
+    </tr>
+  </table>
 
-  <h3>Se connecter à EmailJS</h3>
+  <h3>Se connecter à Brevo</h3>
 
   <div class="etapes">
     <ol>
-      <li>Aller sur <span class="url">https://www.emailjs.com</span></li>
-      <li>Cliquer sur <strong>"Sign In"</strong> en haut à droite</li>
+      <li>Aller sur <span class="url">https://www.brevo.com</span></li>
+      <li>Cliquer sur <strong>"Se connecter"</strong> en haut à droite</li>
       <li>Se connecter avec le compte associé au projet AMSP</li>
     </ol>
   </div>
@@ -399,38 +432,28 @@
 
   <div class="etapes">
     <ol>
-      <li>Dans le menu gauche, cliquer sur <strong>"Email Templates"</strong></li>
+      <li>Dans le menu gauche, cliquer sur <strong>"Email"</strong> → <strong>"Templates"</strong></li>
       <li>Cliquer sur le template à modifier</li>
-      <li>Modifier le <strong>sujet</strong> (Subject) et le <strong>corps du message</strong></li>
-      <li>Cliquer sur <strong>"Save"</strong> pour enregistrer</li>
+      <li>Cliquer sur <strong>"Modifier"</strong></li>
+      <li>Modifier le <strong>sujet</strong> et le <strong>corps du message</strong></li>
+      <li>Cliquer sur <strong>"Enregistrer et quitter"</strong></li>
     </ol>
   </div>
 
   <div class="attention">
     ⚠️ Les mots entre doubles accolades sont des variables automatiques — <strong>ne pas les modifier ni les supprimer</strong> :<br><br>
-    <code>{{nom}}</code> → sera remplacé par le nom de la personne<br>
-    <code>{{email}}</code> → sera remplacé par son adresse email<br>
-    <code>{{disciplines}}</code> → sera remplacé par les disciplines choisies<br>
-    <code>{{prenom}}</code>, <code>{{tel_mobile}}</code>, etc.
+    <code>{{ params.nom }}</code> → sera remplacé par le nom de la personne<br>
+    <code>{{ params.prenom }}</code> → sera remplacé par son prénom<br>
+    <code>{{ params.disciplines }}</code> → sera remplacé par les disciplines choisies<br>
+    <code>{{ params.email }}</code>, <code>{{ params.tel_mobile }}</code>, etc.
   </div>
 
-  <h3>Tester un email avant de l'envoyer</h3>
+  <h3>Quota d'emails</h3>
 
-  <p>Dans un template EmailJS, cliquer sur <strong>"Test It"</strong> pour envoyer un email de test et vérifier le rendu avant qu'il parte à de vrais destinataires.</p>
-
-  <h3>Vérifier le quota d'emails</h3>
-
-  <p>La version gratuite d'EmailJS permet <strong>200 emails par mois</strong>.</p>
-  <div class="etapes">
-    Pour vérifier le nombre d'emails envoyés :
-    <ol>
-      <li>Menu gauche → <strong>"Dashboard"</strong></li>
-      <li>Section <strong>"Email Sent"</strong> — affiche le compteur du mois en cours</li>
-    </ol>
-  </div>
+  <p>La version gratuite de Brevo permet <strong>300 emails par jour</strong>, sans limite mensuelle.</p>
 
   <div class="conseil">
-    💡 Si vous dépassez 200 emails/mois, les emails ne seront plus envoyés. Il faudra passer à un abonnement payant sur emailjs.com ou contacter le développeur.
+    💡 Pour un club associatif, ce quota est largement suffisant. Aucune action requise de votre part.
   </div>
 
   <!-- RECAP -->
@@ -459,7 +482,7 @@
     </tr>
     <tr>
       <td>Modifier les emails automatiques</td>
-      <td>EmailJS</td>
+      <td>Brevo</td>
       <td>Aucune</td>
     </tr>
     <tr>
