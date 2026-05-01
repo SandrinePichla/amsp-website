@@ -7,7 +7,7 @@ import { client } from "@/sanityClient";
 import { urlFor } from "@/sanityImage";
 import { Sparkles } from "lucide-react";
 import { iconesDisciplines } from "@/iconesDisciplines";
-import heroImage from "@/assets/hero-martial-banner.webp";
+import heroImage from "@/assets/hero-martial-banner-modif4.webp";
 
 interface Discipline {
   _id: string;
@@ -53,41 +53,38 @@ const Index = () => {
   return (
     <Layout>
       {/* Hero */}
-      <section className="relative flex h-[60vh] items-center justify-center overflow-hidden">
+      <section className="relative flex h-[200px] items-center justify-center overflow-hidden">
         <img
           src={heroImage}
           alt="Arts martiaux AMSP"
-          className="absolute inset-0 h-full w-full object-contain md:object-cover"
+          className="absolute inset-0 h-full w-full object-cover object-[center_80%]"
           loading="eager"
         />
 
-        <div className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/50 to-background" />
+        <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/40 to-background" />
 
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
+          transition={{ duration: 0.6 }}
           className="relative z-10 px-4 text-center"
         >
-          <h1 className="mb-4 font-serif text-5xl font-black tracking-tight md:text-7xl">
+          <h1 className="mb-1 font-serif text-3xl font-black tracking-tight md:text-4xl">
             <span className="text-primary">A.M.S.P</span>
           </h1>
-          <p className="mb-2 text-lg text-foreground/80 md:text-2xl">
+          <p className="mb-4 text-sm text-foreground/80 md:text-base">
             Association d'Arts Martiaux St Pierrois
           </p>
-          <p className="mx-auto mb-8 max-w-xl text-sm text-muted-foreground md:text-base">
-Arts martiaux & sports de paix.
-          </p>
-          <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-center">
             <Link
               to="/inscription"
-              className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
             >
-              S'inscrire <ArrowRight size={16} />
+              S'inscrire <ArrowRight size={14} />
             </Link>
             <Link
               to="/disciplines"
-              className="inline-flex items-center gap-2 rounded-md border border-border px-6 py-3 font-medium text-foreground transition-colors hover:bg-secondary"
+              className="inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
             >
               Découvrir nos disciplines
             </Link>
