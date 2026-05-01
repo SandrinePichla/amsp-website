@@ -1,1 +1,0 @@
-import{s as o}from"./index-Cl7MhkT5.js";const a={INSCRIPTION:1,VALIDATION:2,COMPTE:3,CONTACT:4,REJOINDRE:5,REFUS:6,INSCRIPTION_ADMIN:7},I=async(r,N,s)=>{const{error:e}=await o.functions.invoke("send-email",{body:{templateId:r,to:N,params:s}});if(e)throw e};export{a as T,I as s};
