@@ -27,7 +27,7 @@ const Galerie = () => {
   const [openAlbum, setOpenAlbum] = useState<Album | null>(null);
   const [lightbox, setLightbox] = useState<{ album: Album; index: number } | null>(null);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, role, disciplines } = useAuth();
 
   useEffect(() => {
     client
@@ -42,7 +42,17 @@ const Galerie = () => {
       });
   }, []);
 
-  const albumsVisibles = albums.filter((a) => !a.prive || user);
+  const userDiscs = (disciplines || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+
+  const albumsVisibles = albums.filter((a) => {
+    if (!a.prive) return true;
+    if (!user) return false;
+    if (role === "admin") return true;
+    if (!a.discipline) return true; // album "toute discipline" → tous les membres
+    const albumDisc = a.discipline.nom.toLowerCase();
+    const albumDiscCourt = a.discipline.nomCourt?.toLowerCase() ?? "";
+    return userDiscs.some(d => d === albumDisc || d === albumDiscCourt);
+  });
 
   const disciplinesFiltres = [
     "Toutes",

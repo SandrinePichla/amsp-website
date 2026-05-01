@@ -6,6 +6,7 @@ interface AuthContextType {
   user: User | null
   prenom: string | null
   role: string | null
+  disciplines: string | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<{ error: AuthError | Error | null }>
   signOut: () => Promise<void>
@@ -17,16 +18,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null)
   const [prenom, setPrenom] = useState<string | null>(null)
   const [role, setRole] = useState<string | null>(null)
+  const [disciplines, setDisciplines] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   const fetchProfil = async (userId: string) => {
     const { data } = await supabase
       .from('profils')
-      .select('prenom, role')
+      .select('prenom, role, disciplines')
       .eq('id', userId)
       .single()
     setPrenom(data?.prenom || null)
     setRole(data?.role || null)
+    setDisciplines(data?.disciplines || null)
   }
 
   useEffect(() => {
@@ -41,7 +44,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const u = session?.user ?? null
       setUser(u)
       if (u) fetchProfil(u.id)
-      else { setPrenom(null); setRole(null) }
+      else { setPrenom(null); setRole(null); setDisciplines(null) }
     })
 
     return () => subscription.unsubscribe()
@@ -74,10 +77,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     await supabase.auth.signOut()
     setPrenom(null)
     setRole(null)
+    setDisciplines(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, prenom, role, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, prenom, role, disciplines, loading, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   )

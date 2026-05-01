@@ -21,6 +21,7 @@ interface Membre {
   adresse: string | null;
   telephone: string | null;
   role: string;
+  disciplines: string | null;
   created_at: string;
 }
 
@@ -75,12 +76,13 @@ const AdminMembres = () => {
   const [processing, setProcessing] = useState<string | null>(null);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [confirmAdmin, setConfirmAdmin] = useState<Membre | null>(null);
+  const [editingDisciplines, setEditingDisciplines] = useState<{ id: string; value: string } | null>(null);
   const dataLoadedRef = useRef(false);
 
   const loadData = async () => {
     setLoading(true);
     const [{ data: profilsData }, { data: inscData }] = await Promise.all([
-      supabase.from("profils").select("id, email, prenom, nom, adresse, telephone, role, created_at").order("created_at", { ascending: false }),
+      supabase.from("profils").select("id, email, prenom, nom, adresse, telephone, role, disciplines, created_at").order("created_at", { ascending: false }),
       supabase.from("inscriptions").select("*").order("created_at", { ascending: false }),
     ]);
     if (profilsData) setMembres(profilsData);
@@ -100,6 +102,14 @@ const AdminMembres = () => {
       }
     });
   }, [user, navigate]);
+
+  const handleSaveDisciplines = async (id: string, value: string) => {
+    const { error } = await supabase.from("profils").update({ disciplines: value || null }).eq("id", id);
+    if (error) { toast.error("Erreur : " + error.message); return; }
+    setMembres((prev) => prev.map((m) => m.id === id ? { ...m, disciplines: value || null } : m));
+    setEditingDisciplines(null);
+    toast.success("Disciplines mises à jour.");
+  };
 
   // --- Actions compte membre ---
   const handleApprouverCompte = async (id: string) => {
@@ -488,6 +498,34 @@ const AdminMembres = () => {
                                         {profil.telephone && <div><span className="text-muted-foreground">Téléphone </span>{profil.telephone}</div>}
                                         {profil.adresse && <div><span className="text-muted-foreground">Adresse </span>{profil.adresse}</div>}
                                         <div><span className="text-muted-foreground">Compte créé le </span>{new Date(profil.created_at).toLocaleDateString("fr-FR")}</div>
+                                      </div>
+
+                                      {/* Accès galerie — disciplines */}
+                                      <div className="mb-4 rounded border border-border/30 bg-background px-3 py-2.5">
+                                        <p className="text-xs font-medium text-muted-foreground mb-2">Accès galerie — discipline(s)</p>
+                                        {editingDisciplines?.id === profil.id ? (
+                                          <div className="flex items-center gap-2">
+                                            <input
+                                              autoFocus
+                                              className="flex-1 rounded border border-border bg-card px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                                              placeholder="ex: Karaté Shotokan, Tai Chi Chuan Main Nue"
+                                              value={editingDisciplines.value}
+                                              onChange={(e) => setEditingDisciplines({ id: profil.id, value: e.target.value })}
+                                              onKeyDown={(e) => {
+                                                if (e.key === "Enter") handleSaveDisciplines(profil.id, editingDisciplines.value);
+                                                if (e.key === "Escape") setEditingDisciplines(null);
+                                              }}
+                                            />
+                                            <Button size="sm" className="h-6 px-2 text-xs" onClick={() => handleSaveDisciplines(profil.id, editingDisciplines.value)}>Enregistrer</Button>
+                                            <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => setEditingDisciplines(null)}>Annuler</Button>
+                                          </div>
+                                        ) : (
+                                          <div className="flex items-center justify-between gap-2">
+                                            <p className="text-xs text-foreground">{profil.disciplines || <span className="italic text-muted-foreground">Non défini — accès aux albums "toute discipline" uniquement</span>}</p>
+                                            <Button size="sm" variant="outline" className="h-6 px-2 text-xs shrink-0" onClick={() => setEditingDisciplines({ id: profil.id, value: profil.disciplines || "" })}>Modifier</Button>
+                                          </div>
+                                        )}
+                                        <p className="mt-1.5 text-[10px] text-muted-foreground/60">Noms exacts des disciplines, séparés par des virgules. Vide = accès albums "toute discipline" seulement.</p>
                                       </div>
 
                                       {/* Inscriptions liées */}
