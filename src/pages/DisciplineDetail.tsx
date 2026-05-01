@@ -6,7 +6,7 @@ import { client } from "@/sanityClient";
 import { urlFor } from "@/sanityImage";
 import {
   Sparkles, GraduationCap, Users, Clock, Phone, Mail, User,
-  CalendarDays, ArrowRight, ChevronLeft,
+  CalendarDays, ArrowRight, ChevronLeft, ExternalLink,
 } from "lucide-react";
 import { iconesDisciplines } from "@/iconesDisciplines";
 import { PALETTE, buildColorMap, timeToMinutes, DAYS } from "@/components/PrintablePlanning";
@@ -14,6 +14,22 @@ import type { Cours, Tarif, TarifSpecial } from "@/components/PrintablePlanning"
 
 const toSlug = (name: string) =>
   name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+
+const LIENS_UTILES: Record<string, { label: string; url: string; description?: string }[]> = {
+  "karate-shotokan": [
+    { label: "Fédération Française de Karaté", url: "https://www.ffkarate.fr/", description: "Site officiel de la FFKaraté" },
+    { label: "Site de Steve Piazza", url: "https://stevepiazza.com/arimoto-sensei-a-tassin/", description: "Arimoto Sensei à Tassin" },
+    { label: "Groupe Facebook Karaté Shotokan", url: "https://www.facebook.com/groups/178854439724135", description: "Communauté Karaté Shotokan" },
+  ],
+  "tai-chi-chuan-main-nue": [
+    { label: "I.R.A.P – Institut de Recherche des Arts du Poing", url: "https://wangxian.com/", description: "Maître WANG Xi An – Taiji Quan Style Chen" },
+    { label: "Site d'Alex Houze", url: "https://taichimontslyonnais.fr/", description: "Tai Chi Monts Lyonnais" },
+  ],
+  "tai-chi-chuan-epee": [
+    { label: "I.R.A.P – Institut de Recherche des Arts du Poing", url: "https://wangxian.com/", description: "Maître WANG Xi An – Taiji Quan Style Chen" },
+    { label: "Site d'Alex Houze", url: "https://taichimontslyonnais.fr/", description: "Tai Chi Monts Lyonnais" },
+  ],
+};
 
 interface Discipline {
   _id: string;
@@ -388,6 +404,48 @@ const DisciplineDetail = () => {
             )}
           </motion.section>
         )}
+
+        {/* Liens utiles */}
+        {(() => {
+          const liensKey = Object.keys(LIENS_UTILES).find(k => slug!.includes(k) || k.includes(slug!));
+          const liens = liensKey ? LIENS_UTILES[liensKey] : null;
+          if (!liens) return null;
+          return (
+          <motion.section
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4 }}
+          >
+            <h2 className="mb-6 font-serif text-2xl font-bold">
+              <span style={{ color: color.bg }}>Liens utiles</span>
+            </h2>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {liens.map((lien) => (
+                <a
+                  key={lien.url}
+                  href={lien.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex items-start gap-3 rounded-xl border border-border/40 bg-card p-4 transition-all hover:border-primary/40 hover:shadow-md hover:shadow-primary/5"
+                >
+                  <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 transition-colors group-hover:bg-primary/20">
+                    <ExternalLink size={15} className="text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold leading-snug text-foreground transition-colors group-hover:text-primary">
+                      {lien.label}
+                    </p>
+                    {lien.description && (
+                      <p className="mt-0.5 text-xs text-muted-foreground">{lien.description}</p>
+                    )}
+                  </div>
+                </a>
+              ))}
+            </div>
+          </motion.section>
+          );
+        })()}
 
         {/* CTA inscription */}
         <motion.section

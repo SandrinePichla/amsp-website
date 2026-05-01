@@ -80,8 +80,14 @@ const Disciplines = () => {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ duration: 0.4, delay: 0.05 }}
-                    className="overflow-hidden rounded-2xl border border-border/40 bg-card"
+                    className="group relative overflow-hidden rounded-2xl border border-border/40 bg-card transition-all duration-300 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10"
                   >
+                    {/* Lien overlay couvrant toute la carte */}
+                    <Link
+                      to={`/disciplines/${toAnchor(d.nom)}`}
+                      className="absolute inset-0 z-0"
+                      aria-label={`Voir la page ${d.nom}`}
+                    />
                     <div className={`flex flex-col ${imageLeft ? 'md:flex-row-reverse' : 'md:flex-row'}`}>
 
                       {/* Zone image / placeholder */}
@@ -122,12 +128,9 @@ const Disciplines = () => {
                         </p>
 
                         {/* Lien détail */}
-                        <Link
-                          to={`/disciplines/${toAnchor(d.nom)}`}
-                          className="mb-3 inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
-                        >
+                        <span className="mb-3 inline-flex items-center gap-1.5 text-xs font-semibold text-primary group-hover:underline">
                           En savoir plus →
-                        </Link>
+                        </span>
 
                         {/* Tags */}
                         <div className="flex flex-wrap gap-1.5">
@@ -141,7 +144,7 @@ const Disciplines = () => {
                             <Link
                               key={prof}
                               to={`/instructeurs#${toAnchor(prof)}`}
-                              className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                              className="relative z-10 flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-primary/10 hover:text-primary"
                             >
                               <Users size={12} className="text-primary" />
                               {prof}
