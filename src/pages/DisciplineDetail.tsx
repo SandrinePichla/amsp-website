@@ -5,7 +5,7 @@ import Layout from "@/components/Layout";
 import { client } from "@/sanityClient";
 import { urlFor } from "@/sanityImage";
 import {
-  Sparkles, GraduationCap, Users, Clock, Phone, Mail, User,
+  Sparkles, GraduationCap, Users, Clock, Phone, Mail, User, Award,
   CalendarDays, ArrowRight, ChevronLeft, ExternalLink,
 } from "lucide-react";
 import { iconesDisciplines } from "@/iconesDisciplines";
@@ -44,12 +44,19 @@ interface Discipline {
   image?: { asset: { _ref: string } };
 }
 
+interface Lien {
+  label: string;
+  url: string;
+}
+
 interface Instructeur {
   _id: string;
   nom: string;
+  grade?: string;
   telephone?: string;
   email?: string;
   bio?: string;
+  liens?: Lien[];
   photo?: { asset: { _ref: string } };
 }
 
@@ -73,8 +80,8 @@ const DisciplineDetail = () => {
 
         return Promise.all([
           client.fetch(
-            `*[_type == "instructeur" && discipline->_id == "${found._id}"] | order(ordre asc) {
-              _id, nom, telephone, email, bio, photo
+            `*[_type == "instructeur" && "${found._id}" in disciplines[]->_id] | order(ordre asc) {
+              _id, nom, grade, telephone, email, bio, liens, photo
             }`
           ),
           client.fetch(
@@ -203,22 +210,28 @@ const DisciplineDetail = () => {
             </h2>
             <div className="grid gap-4 sm:grid-cols-2">
               {instructeurs.map((inst) => (
-                <div key={inst._id} className="flex items-center gap-4 rounded-xl border border-border/40 bg-card p-4">
+                <div key={inst._id} className="flex flex-col gap-4 rounded-xl border border-border/40 bg-card p-4 sm:flex-row sm:items-start">
                   {inst.photo ? (
                     <img
-                      src={urlFor(inst.photo).width(80).height(80).fit("crop").url()}
+                      src={urlFor(inst.photo).width(120).height(120).fit("crop").url()}
                       alt={inst.nom}
-                      className="h-16 w-16 shrink-0 rounded-full object-cover ring-2 ring-primary/20"
+                      className="h-20 w-20 shrink-0 rounded-xl object-cover ring-2 ring-primary/20"
                     />
                   ) : (
-                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary/10 ring-2 ring-primary/20">
-                      <User size={28} className="text-primary/50" />
+                    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-primary/10 ring-2 ring-primary/20">
+                      <User size={32} className="text-primary/50" />
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="font-serif text-base font-bold">{inst.nom}</p>
+                    {inst.grade && (
+                      <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-primary">
+                        <Award size={12} className="shrink-0" />
+                        {inst.grade}
+                      </p>
+                    )}
                     {inst.bio && (
-                      <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2 leading-relaxed">{inst.bio}</p>
+                      <p className="mt-2 text-xs text-muted-foreground leading-relaxed whitespace-pre-line">{inst.bio}</p>
                     )}
                     <div className="mt-2 flex flex-col gap-1">
                       {inst.telephone && (
@@ -231,6 +244,17 @@ const DisciplineDetail = () => {
                           <Mail size={11} className="text-primary" />{inst.email}
                         </a>
                       )}
+                      {inst.liens?.map((lien) => (
+                        <a
+                          key={lien.url}
+                          href={lien.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+                        >
+                          <ExternalLink size={11} className="text-primary" />{lien.label}
+                        </a>
+                      ))}
                     </div>
                   </div>
                 </div>
