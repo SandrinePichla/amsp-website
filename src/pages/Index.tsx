@@ -39,6 +39,7 @@ const Index = () => {
   const [disciplines, setDisciplines] = useState<Discipline[]>([]);
   const [actualites, setActualites] = useState<Actualite[]>([]);
   const [selectedActu, setSelectedActu] = useState<Actualite | null>(null);
+  const [flyerZoom, setFlyerZoom] = useState(false);
 
   useEffect(() => {
     client
@@ -205,7 +206,8 @@ const Index = () => {
                 <img
                   src={urlFor(selectedActu.image).width(800).url()}
                   alt={selectedActu.titre}
-                  className="w-full object-contain max-h-80"
+                  className="w-full object-contain max-h-80 cursor-zoom-in"
+                  onClick={(e) => { e.stopPropagation(); setFlyerZoom(true); }}
                 />
               )}
 
@@ -284,6 +286,36 @@ const Index = () => {
                 </div>
               </div>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Lightbox flyer */}
+      <AnimatePresence>
+        {flyerZoom && selectedActu?.image && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4 cursor-zoom-out"
+            onClick={() => setFlyerZoom(false)}
+          >
+            <button
+              onClick={() => setFlyerZoom(false)}
+              className="absolute top-4 right-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20 transition-colors"
+            >
+              <X size={24} />
+            </button>
+            <motion.img
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              src={urlFor(selectedActu.image).width(1200).url()}
+              alt={selectedActu.titre}
+              className="max-h-[90vh] max-w-full object-contain rounded-lg shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
           </motion.div>
         )}
       </AnimatePresence>

@@ -121,6 +121,14 @@ const Disciplines = () => {
                           {d.description}
                         </p>
 
+                        {/* Lien détail */}
+                        <Link
+                          to={`/disciplines/${toAnchor(d.nom)}`}
+                          className="mb-3 inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                        >
+                          En savoir plus →
+                        </Link>
+
                         {/* Tags */}
                         <div className="flex flex-wrap gap-1.5">
                           {d.horaires && (

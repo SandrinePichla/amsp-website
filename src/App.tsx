@@ -19,6 +19,7 @@ const MentionsLegales = lazy(() => import("./pages/MentionsLegales"));
 const Profil = lazy(() => import("./pages/Profil"));
 const AdminMembres = lazy(() => import("./pages/AdminMembres"));
 const Rejoindre = lazy(() => import("./pages/Rejoindre"));
+const DisciplineDetail = lazy(() => import("./pages/DisciplineDetail"));
 
 const queryClient = new QueryClient();
 
@@ -38,6 +39,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/disciplines" element={<Disciplines />} />
+            <Route path="/disciplines/:slug" element={<DisciplineDetail />} />
             <Route path="/planning" element={<Planning />} />
             <Route path="/inscription" element={<Inscription />} />
             <Route path="/galerie" element={<Galerie />} />

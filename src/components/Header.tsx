@@ -3,6 +3,10 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu, X, LogOut, User, ChevronDown, ShieldCheck } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
+import { client } from "@/sanityClient";
+
+const toSlug = (name: string) =>
+  name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
 
 interface NavChild {
   label: string;
@@ -15,10 +19,9 @@ interface NavItem {
   children?: NavChild[];
 }
 
-const navItems: NavItem[] = [
+const BASE_NAV: NavItem[] = [
   { label: "Accueil", path: "/" },
   { label: "L'Asso", path: "/lasso" },
-  { label: "Disciplines", path: "/disciplines" },
   { label: "Instructeurs", path: "/instructeurs" },
   { label: "Planning & Tarifs", path: "/planning" },
   { label: "Galerie", path: "/galerie" },
@@ -186,9 +189,31 @@ const UserMenu = ({
 const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
+  const [disciplineChildren, setDisciplineChildren] = useState<NavChild[]>([]);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, prenom, role, signOut } = useAuth();
+
+  useEffect(() => {
+    client
+      .fetch('*[_type == "discipline"] | order(ordre asc) { nom }')
+      .then((data: { nom: string }[]) => {
+        setDisciplineChildren([
+          { label: "Toutes les disciplines", path: "/disciplines" },
+          ...data.map((d) => ({ label: d.nom, path: `/disciplines/${toSlug(d.nom)}` })),
+        ]);
+      })
+      .catch(() => {});
+  }, []);
+
+  const navItems: NavItem[] = [
+    { label: "Accueil", path: "/" },
+    { label: "L'Asso", path: "/lasso" },
+    disciplineChildren.length > 0
+      ? { label: "Disciplines", children: disciplineChildren }
+      : { label: "Disciplines", path: "/disciplines" },
+    ...BASE_NAV.slice(2),
+  ];
 
   const handleSignOut = async () => {
     await signOut();
