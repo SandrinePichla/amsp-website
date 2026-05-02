@@ -408,6 +408,19 @@ const Inscription = () => {
 
       if (error) throw error;
 
+      // Mettre à jour les disciplines galerie du profil connecté
+      if (user && disciplinesChoisies) {
+        supabase.from("profils").select("disciplines").eq("id", user.id).single()
+          .then(({ data }) => {
+            const existing = (data?.disciplines || "").split(",").map((s: string) => s.trim()).filter(Boolean);
+            const added = disciplinesChoisies.split(",").map(s => s.trim()).filter(Boolean);
+            const merged = [...new Set([...existing, ...added])].join(", ");
+            if (merged !== (data?.disciplines || "")) {
+              supabase.from("profils").update({ disciplines: merged }).eq("id", user.id);
+            }
+          });
+      }
+
       await sendBrevoEmail(TEMPLATES.INSCRIPTION, { email: form.email, name: `${form.prenom} ${form.nom}` }, {
         nom: form.nom,
         prenom: form.prenom,
