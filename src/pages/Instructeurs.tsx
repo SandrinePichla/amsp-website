@@ -28,6 +28,7 @@ interface Instructeur {
 const Instructeurs = () => {
   const [instructeurs, setInstructeurs] = useState<Instructeur[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [selected, setSelected] = useState<Instructeur | null>(null);
 
   useEffect(() => {
@@ -45,19 +46,14 @@ const Instructeurs = () => {
             document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
           }, 100);
         }
+      })
+      .catch(() => {
+        setError(true);
+        setLoading(false);
       });
   }, []);
 
-  // Données par défaut affichées tant que Sanity est vide
-  const fallback: Instructeur[] = [
-    { _id: "1", nom: "Stéphanie Lamoureux", disciplines: [{ nom: "Qi Gong", nomCourt: "Qi Gong" }], telephone: "06.01.91.87.76" },
-    { _id: "2", nom: "Myriam Reuter", disciplines: [{ nom: "Wutao", nomCourt: "Wutao" }], telephone: "06.73.23.75.50" },
-    { _id: "3", nom: "Houze Alexandre", disciplines: [{ nom: "Tai Chi Chuan Main Nue", nomCourt: "Tai Chi" }, { nom: "Tai Chi Chuan Épée", nomCourt: "Tai Chi Épée" }], telephone: "06.13.38.59.64" },
-    { _id: "4", nom: "Jérémie Sigalat", disciplines: [{ nom: "Karaté Shotokan", nomCourt: "Karaté" }], telephone: "06.63.67.79.62" },
-    { _id: "5", nom: "Sylvaine Colas", disciplines: [{ nom: "Karaté Shotokan", nomCourt: "Karaté" }], telephone: "06.82.16.22.66" },
-  ];
-
-  const liste = instructeurs.length > 0 ? instructeurs : fallback;
+  const liste = instructeurs;
 
   const groupLabel = (inst: Instructeur): string => {
     const discs = inst.disciplines;
@@ -106,6 +102,11 @@ const Instructeurs = () => {
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center text-muted-foreground">
+              <p className="text-base font-medium">Impossible de charger les instructeurs.</p>
+              <p className="mt-1 text-sm">Veuillez réessayer ultérieurement.</p>
             </div>
           ) : (
             <div className="space-y-10">
