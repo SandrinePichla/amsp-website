@@ -140,7 +140,7 @@ const UserMenu = ({
             className="absolute right-0 top-full mt-1 min-w-[200px] rounded-lg border border-border/60 bg-background shadow-lg"
           >            
             {/* Admin */}
-            {role === "admin" && (
+            {(role === "admin" || role === "admin_discipline") && (
               <Link
                 to="/admin/membres"
                 onClick={() => setOpen(false)}
@@ -349,7 +349,7 @@ const Header = () => {
       <p className="px-3 py-1 text-[11px] text-muted-foreground truncate">
         {user.email}
       </p>
-      {role === "admin" && (
+      {(role === "admin" || role === "admin_discipline") && (
         <Link
           to="/admin/membres"
           onClick={() => setMobileOpen(false)}

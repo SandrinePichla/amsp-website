@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -75,12 +75,19 @@ const mergeDisciplines = (existing: string | null, added: string | null): string
   return [...new Set([...a, ...b])].join(", ");
 };
 
+const papierFormVariants = {
+  enter: (dir: number) => ({ x: dir * 80, opacity: 0 }),
+  center: { x: 0, opacity: 1, transition: { duration: 0.32, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] } },
+  exit: (dir: number) => ({ x: dir * -80, opacity: 0, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] as [number, number, number, number] } }),
+};
+
 const roleBadge = (role: string) => {
-  if (role === "admin")      return { label: "Admin",      cls: "bg-primary/10 text-primary" };
-  if (role === "membre")     return { label: "Membre",     cls: "bg-green-500/10 text-green-700" };
-  if (role === "refuse")     return { label: "Refusé",     cls: "bg-red-500/10 text-red-600" };
-  if (role === "en_attente") return { label: "En attente", cls: "bg-amber-500/10 text-amber-700" };
-  return                            { label: "—",          cls: "bg-muted text-muted-foreground" };
+  if (role === "admin")            return { label: "Admin",            cls: "bg-primary/10 text-primary" };
+  if (role === "admin_discipline") return { label: "Admin discipline", cls: "bg-violet-500/10 text-violet-700" };
+  if (role === "membre")           return { label: "Membre",           cls: "bg-green-500/10 text-green-700" };
+  if (role === "refuse")           return { label: "Refusé",           cls: "bg-red-500/10 text-red-600" };
+  if (role === "en_attente")       return { label: "En attente",       cls: "bg-amber-500/10 text-amber-700" };
+  return                                  { label: "—",                cls: "bg-muted text-muted-foreground" };
 };
 
 const inscBadge = (statut: string | null) => {
@@ -91,7 +98,7 @@ const inscBadge = (statut: string | null) => {
 };
 
 const AdminMembres = () => {
-  const { user } = useAuth();
+  const { user, role: currentUserRole, disciplines: currentUserDisciplines } = useAuth();
   const navigate = useNavigate();
   const [isAdmin, setIsAdmin] = useState(false);
   const [checkingRole, setCheckingRole] = useState(true);
@@ -108,6 +115,16 @@ const AdminMembres = () => {
   const [disciplinesSanity, setDisciplinesSanity] = useState<string[]>([]);
   const [expandedInscIds, setExpandedInscIds] = useState<Set<string>>(new Set());
   const dataLoadedRef = useRef(false);
+  const isSuperAdmin = currentUserRole === "admin";
+  const [confirmAdminDiscipline, setConfirmAdminDiscipline] = useState<Membre | null>(null);
+  const [confirmAdminDisciplineDiscs, setConfirmAdminDisciplineDiscs] = useState<string[]>([]);
+
+  const disciplineMatch = (inscDiscs: string | null, adminDiscs: string | null): boolean => {
+    if (!adminDiscs) return false;
+    const admin = adminDiscs.split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+    const insc = (inscDiscs || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+    return insc.some(d => admin.includes(d));
+  };
 
   const defaultSaison = (() => {
     const y = new Date().getFullYear();
@@ -116,11 +133,13 @@ const AdminMembres = () => {
   })();
   const [showPapierModal, setShowPapierModal] = useState(false);
   const [savingPapier, setSavingPapier] = useState(false);
+  const papierDirRef = useRef(1);
   const [papierForm, setPapierForm] = useState({
     nom: "", prenom: "", adresse: "", telMobile: "", email: "",
     dateNaissance: "", groupeSanguin: "", allergie: "", niveau: "",
-    urgenceContact: "", urgenceTel: "", disciplines: "", saison: defaultSaison,
-    autorisationParentale: false, droitImage: false,
+    urgencePrenom: "", urgenceNom: "", urgenceTel: "", disciplines: "", saison: defaultSaison,
+    autorisationParentale: false, droitImage: false, passSport: false,
+    moyenPaiement: "",
     typeInscription: "adulte" as "adulte" | "mineur",
     parent1Nom: "", parent1Prenom: "", parent1Email: "", parent1Tel: "",
     parent2Nom: "", parent2Prenom: "", parent2Email: "", parent2Tel: "",
@@ -145,7 +164,7 @@ const AdminMembres = () => {
   useEffect(() => {
     if (!user) { navigate("/connexion"); return; }
     supabase.from("profils").select("role").eq("id", user.id).single().then(({ data }) => {
-      if (data?.role !== "admin") { navigate("/"); return; }
+      if (data?.role !== "admin" && data?.role !== "admin_discipline") { navigate("/"); return; }
       setIsAdmin(true);
       setCheckingRole(false);
       if (!dataLoadedRef.current) {
@@ -165,7 +184,8 @@ const AdminMembres = () => {
       return;
     }
     setSavingPapier(true);
-    const urgenceContact = [papierForm.urgenceContact, papierForm.urgenceTel].filter(Boolean).join(" — ");
+    const urgenceNomComplet = [papierForm.urgencePrenom, papierForm.urgenceNom].filter(Boolean).join(" ");
+    const urgenceContact = [urgenceNomComplet, papierForm.urgenceTel].filter(Boolean).join(" — ");
     const { error } = await supabase.from("inscriptions").insert({
       nom: papierForm.nom.trim(),
       prenom: papierForm.prenom.trim(),
@@ -173,13 +193,15 @@ const AdminMembres = () => {
       date_naissance: papierForm.dateNaissance || null,
       groupe_sanguin: papierForm.groupeSanguin.trim() || null,
       allergie: papierForm.allergie.trim() || null,
-      tel_mobile: papierForm.telMobile.trim() || null,
-      email: papierForm.email.trim() || null,
+      tel_mobile: papierForm.typeInscription === "mineur" ? null : papierForm.telMobile.trim() || null,
+      email: papierForm.typeInscription === "mineur" ? null : papierForm.email.trim() || null,
       urgence_contact: urgenceContact || null,
       disciplines: papierForm.disciplines.trim(),
       niveau: papierForm.niveau.trim() || null,
       autorisation_parentale: papierForm.autorisationParentale,
       droit_image: papierForm.droitImage,
+      pass_sport: papierForm.passSport,
+      moyen_paiement: papierForm.moyenPaiement || null,
       saison: papierForm.saison.trim() || null,
       statut: "en_attente",
       source: "papier",
@@ -202,8 +224,9 @@ const AdminMembres = () => {
       setPapierForm({
         nom: "", prenom: "", adresse: "", telMobile: "", email: "",
         dateNaissance: "", groupeSanguin: "", allergie: "", niveau: "",
-        urgenceContact: "", urgenceTel: "", disciplines: "", saison: defaultSaison,
-        autorisationParentale: false, droitImage: false,
+        urgencePrenom: "", urgenceNom: "", urgenceTel: "", disciplines: "", saison: defaultSaison,
+        autorisationParentale: false, droitImage: false, passSport: false,
+        moyenPaiement: "",
         typeInscription: "adulte",
         parent1Nom: "", parent1Prenom: "", parent1Email: "", parent1Tel: "",
         parent2Nom: "", parent2Prenom: "", parent2Email: "", parent2Tel: "",
@@ -266,15 +289,39 @@ const AdminMembres = () => {
     setProcessing(null);
   };
 
-  const handleChangerRole = async (id: string, nouveauRole: "admin" | "membre") => {
+  const handleChangerRole = async (id: string, nouveauRole: "admin" | "admin_discipline" | "membre") => {
     setProcessing(id);
     const { error } = await supabase.from("profils").update({ role: nouveauRole }).eq("id", id);
     if (error) toast.error("Erreur : " + error.message);
     else {
-      toast.success(nouveauRole === "admin" ? "Membre promu administrateur." : "Droits admin retirés.");
+      toast.success(
+        nouveauRole === "admin" ? "Membre promu administrateur." :
+        nouveauRole === "admin_discipline" ? "Membre promu administrateur de discipline." :
+        "Droits admin retirés."
+      );
       setMembres((prev) => prev.map((m) => m.id === id ? { ...m, role: nouveauRole } : m));
     }
     setProcessing(null);
+  };
+
+  const handlePromouvoirAdminDiscipline = async () => {
+    if (!confirmAdminDiscipline) return;
+    setProcessing(confirmAdminDiscipline.id);
+    const discsStr = confirmAdminDisciplineDiscs.join(", ");
+    const { error } = await supabase.from("profils")
+      .update({ role: "admin_discipline", disciplines: discsStr || null })
+      .eq("id", confirmAdminDiscipline.id);
+    if (error) {
+      toast.error("Erreur : " + error.message);
+    } else {
+      toast.success("Membre promu administrateur de discipline.");
+      setMembres(prev => prev.map(m =>
+        m.id === confirmAdminDiscipline.id ? { ...m, role: "admin_discipline", disciplines: discsStr || null } : m
+      ));
+    }
+    setProcessing(null);
+    setConfirmAdminDiscipline(null);
+    setConfirmAdminDisciplineDiscs([]);
   };
 
   // --- Actions inscription discipline ---
@@ -369,8 +416,9 @@ const AdminMembres = () => {
 
   // --- Export Excel ---
   const handleExportCSV = async () => {
-    const { data, error } = await supabase.from('inscriptions').select('*').order('created_at', { ascending: false });
-    if (error || !data) { toast.error("Erreur lors de l'export."); return; }
+    const { data: rawData, error } = await supabase.from('inscriptions').select('*').order('created_at', { ascending: false });
+    if (error || !rawData) { toast.error("Erreur lors de l'export."); return; }
+    const data = isSuperAdmin ? rawData : rawData.filter(i => disciplineMatch(i.disciplines, currentUserDisciplines));
 
     const ExcelJS = (await import('exceljs')).default;
     const workbook = new ExcelJS.Workbook();
@@ -497,8 +545,10 @@ const AdminMembres = () => {
   };
 
   // --- Données dérivées ---
-  const enAttenteCompte = membres.filter((m) => m.role === "en_attente");
-  const enAttenteInscription = inscriptions.filter((i) => i.statut === "en_attente");
+  const enAttenteCompte = isSuperAdmin ? membres.filter((m) => m.role === "en_attente") : [];
+  const enAttenteInscription = inscriptions.filter(
+    (i) => i.statut === "en_attente" && (isSuperAdmin || disciplineMatch(i.disciplines, currentUserDisciplines))
+  );
 
   // Liaison confirmée : user_id uniquement (jamais par email automatiquement)
   const matchInscToProfil = (i: Inscription, profil: Membre) => i.user_id === profil.id;
@@ -513,10 +563,22 @@ const AdminMembres = () => {
     );
 
   const lignes: Ligne[] = [];
-  membres.forEach((profil) => {
-    const profilInsc = inscriptions.filter((i) => matchInscToProfil(i, profil));
-    lignes.push({ type: "profil", profil, inscriptions: profilInsc });
-  });
+  if (isSuperAdmin) {
+    membres.forEach((profil) => {
+      const profilInsc = inscriptions.filter((i) => matchInscToProfil(i, profil));
+      lignes.push({ type: "profil", profil, inscriptions: profilInsc });
+    });
+  } else {
+    const adminDiscsLower = (currentUserDisciplines || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+    membres.forEach((profil) => {
+      const profilDiscsLower = (profil.disciplines || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+      if (profilDiscsLower.some(d => adminDiscsLower.includes(d))) {
+        const profilInsc = inscriptions.filter((i) => matchInscToProfil(i, profil) && disciplineMatch(i.disciplines, currentUserDisciplines));
+        lignes.push({ type: "profil", profil, inscriptions: profilInsc });
+      }
+    });
+  }
+
   // Une inscription est "réclamée" si confirmée par user_id OU suggérée par email (en ligne) → ne pas afficher en doublon
   const linkedInscIds = new Set(
     membres.flatMap((profil) =>
@@ -528,17 +590,19 @@ const AdminMembres = () => {
     )
   );
   inscriptions.forEach((insc) => {
-    if (!linkedInscIds.has(insc.id)) {
+    if (!linkedInscIds.has(insc.id) && (isSuperAdmin || disciplineMatch(insc.disciplines, currentUserDisciplines))) {
       lignes.push({ type: "inscription_seule", inscription: insc });
     }
   });
 
   lignes.sort((a, b) => {
-    const nomA = (a.type === "profil" ? a.profil.nom : a.inscription.nom) || "";
-    const nomB = (b.type === "profil" ? b.profil.nom : b.inscription.nom) || "";
+    const nomA = a.type === "profil" ? (a.profil.nom || a.inscriptions[0]?.nom || "") : (a.inscription.nom || "");
+    const nomB = b.type === "profil" ? (b.profil.nom || b.inscriptions[0]?.nom || "") : (b.inscription.nom || "");
     const prenomA = (a.type === "profil" ? a.profil.prenom : a.inscription.prenom) || "";
     const prenomB = (b.type === "profil" ? b.profil.prenom : b.inscription.prenom) || "";
-    const cmp = nomA.localeCompare(nomB, "fr", { sensitivity: "base" });
+    const keyA = nomA || prenomA;
+    const keyB = nomB || prenomB;
+    const cmp = keyA.localeCompare(keyB, "fr", { sensitivity: "base" });
     return cmp !== 0 ? cmp : prenomA.localeCompare(prenomB, "fr", { sensitivity: "base" });
   });
 
@@ -554,9 +618,14 @@ const AdminMembres = () => {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
 
             <div className="mb-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
-              <h1 className="text-center font-serif text-4xl font-black md:text-5xl">
-                <span className="text-primary">Gestion</span> des membres
-              </h1>
+              <div className="text-center">
+                <h1 className="font-serif text-4xl font-black md:text-5xl">
+                  <span className="text-primary">Gestion</span> des membres
+                </h1>
+                {!isSuperAdmin && currentUserDisciplines && (
+                  <p className="mt-1 text-sm text-muted-foreground">Discipline(s) : {currentUserDisciplines}</p>
+                )}
+              </div>
               {!loading && (
                 <div className="flex gap-2 flex-wrap justify-center sm:justify-end">
                   <Button size="sm" onClick={() => setShowPapierModal(true)} className="gap-2 shrink-0">
@@ -572,7 +641,7 @@ const AdminMembres = () => {
             {loading ? <p className="text-center text-muted-foreground">Chargement…</p> : (
               <div className="space-y-6">
 
-                {/* Bloc En attente — Comptes membres */}
+                {isSuperAdmin && (
                 <div className="rounded-lg border border-border/50 bg-card p-6">
                   <div className="flex items-center gap-2 mb-4">
                     <Clock size={18} className="text-primary" />
@@ -603,6 +672,7 @@ const AdminMembres = () => {
                     </div>
                   )}
                 </div>
+                )}
 
                 {/* Bloc En attente — Inscriptions aux disciplines */}
                 <div className="rounded-lg border border-border/50 bg-card p-6">
@@ -643,7 +713,9 @@ const AdminMembres = () => {
 
                 {/* Tableau unifié */}
                 <div className="rounded-lg border border-border/50 bg-card p-6">
-                  <h2 className="font-serif font-bold mb-4">Tous les inscrits & membres ({lignes.length})</h2>
+                  <h2 className="font-serif font-bold mb-4">
+                    {isSuperAdmin ? `Tous les inscrits & membres (${lignes.length})` : `Inscrits & membres — votre discipline (${lignes.length})`}
+                  </h2>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
@@ -670,8 +742,7 @@ const AdminMembres = () => {
                                 {/* Ligne du titulaire du compte */}
                                 <tr onClick={() => setExpandedKey(isExpanded ? null : key)} className="border-b border-border/30 cursor-pointer hover:bg-secondary/30 transition-colors">
                                   <td className="py-3 pr-4 font-semibold">
-                                    {profil.prenom || ""} {profil.nom || ""}
-                                    {!profil.prenom && !profil.nom && <span className="text-muted-foreground italic font-normal">Sans nom</span>}
+                                    {[profil.nom || pInsc[0]?.nom, profil.prenom].filter(Boolean).join(" ") || <span className="text-muted-foreground italic font-normal">Sans nom</span>}
                                   </td>
                                   <td className="py-3 pr-4 text-muted-foreground hidden md:table-cell text-xs">{profil.email}</td>
                                   <td className="py-3 pr-4 hidden lg:table-cell text-xs text-muted-foreground truncate max-w-[140px]">{profil.disciplines || "—"}</td>
@@ -697,8 +768,7 @@ const AdminMembres = () => {
                                         <td className="py-2 pr-4 pl-5 text-sm">
                                           <span className="text-muted-foreground/50 mr-1.5 select-none">↳</span>
                                           <span className="font-medium">
-                                            {insc.prenom || ""} {insc.nom || ""}
-                                            {!insc.prenom && !insc.nom && <span className="italic text-muted-foreground font-normal">Sans nom</span>}
+                                            {[insc.nom, insc.prenom].filter(Boolean).join(" ") || <span className="italic text-muted-foreground font-normal">Sans nom</span>}
                                           </span>
                                           {insc.source === "papier" && <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-700"><FileText size={9} /> Papier</span>}
                                         </td>
@@ -756,7 +826,7 @@ const AdminMembres = () => {
                                         <div><span className="text-muted-foreground">Compte créé le </span>{new Date(profil.created_at).toLocaleDateString("fr-FR")}</div>
                                       </div>
 
-                                      <div className="mb-4 rounded border border-border/30 bg-background px-3 py-2.5">
+                                      {isSuperAdmin && <div className="mb-4 rounded border border-border/30 bg-background px-3 py-2.5">
                                         <p className="text-xs font-medium text-muted-foreground mb-2">Accès galerie — discipline(s)</p>
                                         {editingDisciplines?.id === profil.id ? (
                                           <div className="space-y-2">
@@ -783,9 +853,9 @@ const AdminMembres = () => {
                                           </div>
                                         )}
                                         <p className="mt-1.5 text-[10px] text-muted-foreground/60">Vide = accès albums "toute discipline" seulement.</p>
-                                      </div>
+                                      </div>}
 
-                                      {(() => {
+                                      {isSuperAdmin && (() => {
                                         const suggestions = inscSuggereesEmail(profil).filter(i => !pInsc.some(p => p.id === i.id));
                                         if (suggestions.length === 0) return null;
                                         return (
@@ -805,7 +875,7 @@ const AdminMembres = () => {
                                         );
                                       })()}
 
-                                      {(() => {
+                                      {isSuperAdmin && (() => {
                                         const dejaliees = new Set(pInsc.map(i => i.id));
                                         const disponibles = inscriptions.filter(i => !dejaliees.has(i.id));
                                         if (disponibles.length === 0) return null;
@@ -829,15 +899,21 @@ const AdminMembres = () => {
                                         );
                                       })()}
 
-                                      {profil.id !== user?.id && (
-                                        <div className="flex justify-end pt-2 border-t border-border/30 gap-2">
+                                      {isSuperAdmin && profil.id !== user?.id && (
+                                        <div className="flex justify-end pt-2 border-t border-border/30 gap-2 flex-wrap">
                                           {profil.role === "refuse" ? (
                                             <Button size="sm" variant="outline" onClick={() => handleApprouverCompte(profil.id)} disabled={processing === profil.id} className="gap-1 text-xs"><CheckCircle size={12} /> Réactiver le compte</Button>
                                           ) : profil.role === "admin" ? (
                                             <Button size="sm" variant="outline" onClick={() => handleChangerRole(profil.id, "membre")} disabled={processing === profil.id} className="gap-1 text-xs text-destructive hover:text-destructive"><Shield size={12} /> Retirer les droits admin</Button>
+                                          ) : profil.role === "admin_discipline" ? (
+                                            <>
+                                              <Button size="sm" variant="outline" onClick={() => setConfirmAdmin(profil)} disabled={processing === profil.id} className="gap-1 text-xs text-primary hover:text-primary"><Shield size={12} /> Promouvoir en admin</Button>
+                                              <Button size="sm" variant="outline" onClick={() => handleChangerRole(profil.id, "membre")} disabled={processing === profil.id} className="gap-1 text-xs text-destructive hover:text-destructive"><Shield size={12} /> Retirer les droits discipline</Button>
+                                            </>
                                           ) : (
                                             <>
                                               <Button size="sm" variant="outline" onClick={() => setConfirmAdmin(profil)} disabled={processing === profil.id} className="gap-1 text-xs text-primary hover:text-primary"><Shield size={12} /> Promouvoir en admin</Button>
+                                              <Button size="sm" variant="outline" onClick={() => { setConfirmAdminDiscipline(profil); setConfirmAdminDisciplineDiscs(profil.disciplines ? profil.disciplines.split(",").map(s => s.trim()).filter(Boolean) : []); }} disabled={processing === profil.id} className="gap-1 text-xs text-violet-700 hover:text-violet-700 border-violet-300"><Shield size={12} /> Admin discipline</Button>
                                               <Button size="sm" variant="outline" onClick={() => handleRefuserCompte(profil.id)} disabled={processing === profil.id} className="gap-1 text-xs text-destructive hover:text-destructive"><UserX size={12} /> Révoquer le compte</Button>
                                             </>
                                           )}
@@ -857,8 +933,7 @@ const AdminMembres = () => {
                             <React.Fragment key={key}>
                               <tr onClick={() => setExpandedKey(isExpanded ? null : key)} className="border-b border-border/30 cursor-pointer hover:bg-secondary/30 transition-colors">
                                 <td className="py-3 pr-4 font-medium">
-                                  {insc.prenom || ""} {insc.nom || ""}
-                                  {!insc.prenom && !insc.nom && <span className="text-muted-foreground italic">Sans nom</span>}
+                                  {[insc.nom, insc.prenom].filter(Boolean).join(" ") || <span className="text-muted-foreground italic">Sans nom</span>}
                                 </td>
                                 <td className="py-3 pr-4 text-muted-foreground hidden md:table-cell text-xs">{insc.email || "—"}</td>
                                 <td className="py-3 pr-4 hidden lg:table-cell text-xs text-muted-foreground truncate max-w-[140px]">{insc.disciplines || "—"}</td>
@@ -914,11 +989,18 @@ const AdminMembres = () => {
           </DialogHeader>
           <div className="space-y-6 pt-2">
 
+            {/* Type selector — fixe, hors animation */}
             <div>
               <h3 className="mb-3 text-sm font-semibold border-b border-border/50 pb-1.5">Type d'inscription</h3>
               <div className="grid grid-cols-2 gap-3">
                 {(["adulte", "mineur"] as const).map((type) => (
-                  <button key={type} type="button" onClick={() => setPapierForm(f => ({ ...f, typeInscription: type }))}
+                  <button key={type} type="button"
+                    onClick={() => {
+                      if (type !== papierForm.typeInscription) {
+                        papierDirRef.current = type === "mineur" ? 1 : -1;
+                        setPapierForm(f => ({ ...f, typeInscription: type }));
+                      }
+                    }}
                     className={`rounded-md border-2 py-3 text-sm font-semibold capitalize transition-colors ${papierForm.typeInscription === type ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:border-primary/40"}`}>
                     {type === "adulte" ? "Adulte" : "Mineur"}
                   </button>
@@ -926,149 +1008,219 @@ const AdminMembres = () => {
               </div>
             </div>
 
-            <div>
-              <h3 className="mb-3 text-sm font-semibold border-b border-border/50 pb-1.5">Identité</h3>
-              <div className="space-y-3">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="p-nom">Nom *</Label>
-                    <Input id="p-nom" placeholder="Nom" value={papierForm.nom} onChange={e => setPapierForm(f => ({ ...f, nom: e.target.value }))} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="p-prenom">Prénom *</Label>
-                    <Input id="p-prenom" placeholder="Prénom" value={papierForm.prenom} onChange={e => setPapierForm(f => ({ ...f, prenom: e.target.value }))} />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="p-adresse">Adresse</Label>
-                  <Input id="p-adresse" placeholder="Adresse complète" value={papierForm.adresse} onChange={e => setPapierForm(f => ({ ...f, adresse: e.target.value }))} />
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="p-ddn">Date de naissance</Label>
-                    <Input id="p-ddn" type="date" value={papierForm.dateNaissance} onChange={e => setPapierForm(f => ({ ...f, dateNaissance: e.target.value }))} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="p-gs">Groupe sanguin</Label>
-                    <Input id="p-gs" placeholder="Ex: A+" maxLength={5} value={papierForm.groupeSanguin} onChange={e => setPapierForm(f => ({ ...f, groupeSanguin: e.target.value }))} />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="p-allergie">Allergie(s)</Label>
-                  <Input id="p-allergie" placeholder="Précisez si nécessaire" value={papierForm.allergie} onChange={e => setPapierForm(f => ({ ...f, allergie: e.target.value }))} />
-                </div>
-              </div>
-            </div>
+            {/* Contenu animé */}
+            <AnimatePresence mode="wait" custom={papierDirRef.current}>
+              <motion.div
+                key={papierForm.typeInscription}
+                custom={papierDirRef.current}
+                variants={papierFormVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                className="space-y-6 overflow-hidden"
+              >
 
-            <div>
-              <h3 className="mb-3 text-sm font-semibold border-b border-border/50 pb-1.5">Coordonnées</h3>
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="p-mobile">Tél. mobile</Label>
-                  <Input id="p-mobile" type="tel" placeholder="06 00 00 00 00" value={papierForm.telMobile} onChange={e => setPapierForm(f => ({ ...f, telMobile: e.target.value }))} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="p-email">Email</Label>
-                  <Input id="p-email" type="email" placeholder="email@exemple.com" value={papierForm.email} onChange={e => setPapierForm(f => ({ ...f, email: e.target.value }))} />
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="p-urgnom">Contact urgence — nom</Label>
-                    <Input id="p-urgnom" placeholder="Nom, prénom" value={papierForm.urgenceContact} onChange={e => setPapierForm(f => ({ ...f, urgenceContact: e.target.value }))} />
+                {/* Identité */}
+                <div>
+                  <h3 className="mb-3 text-sm font-semibold border-b border-border/50 pb-1.5">Identité</h3>
+                  <div className="space-y-3">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="p-nom">Nom *</Label>
+                        <Input id="p-nom" placeholder="Nom" value={papierForm.nom} onChange={e => setPapierForm(f => ({ ...f, nom: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="p-prenom">Prénom *</Label>
+                        <Input id="p-prenom" placeholder="Prénom" value={papierForm.prenom} onChange={e => setPapierForm(f => ({ ...f, prenom: e.target.value }))} />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="p-adresse">Adresse</Label>
+                      <Input id="p-adresse" placeholder="Adresse complète" value={papierForm.adresse} onChange={e => setPapierForm(f => ({ ...f, adresse: e.target.value }))} />
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="p-ddn">Date de naissance</Label>
+                        <Input id="p-ddn" type="date" value={papierForm.dateNaissance} onChange={e => setPapierForm(f => ({ ...f, dateNaissance: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="p-gs">Groupe sanguin</Label>
+                        <Input id="p-gs" placeholder="Ex: A+" maxLength={5} value={papierForm.groupeSanguin} onChange={e => setPapierForm(f => ({ ...f, groupeSanguin: e.target.value }))} />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="p-allergie">Allergie(s)</Label>
+                      <Input id="p-allergie" placeholder="Précisez si nécessaire" value={papierForm.allergie} onChange={e => setPapierForm(f => ({ ...f, allergie: e.target.value }))} />
+                    </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="p-urgtel">Contact urgence — tél.</Label>
-                    <Input id="p-urgtel" type="tel" placeholder="06 00 00 00 00" value={papierForm.urgenceTel} onChange={e => setPapierForm(f => ({ ...f, urgenceTel: e.target.value }))} />
-                  </div>
                 </div>
-              </div>
-            </div>
 
-            <div>
-              <h3 className="mb-3 text-sm font-semibold border-b border-border/50 pb-1.5">Inscription</h3>
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label>Discipline(s) *</Label>
-                  <div className="grid gap-2 sm:grid-cols-2 rounded border border-border/50 p-3">
-                    {disciplinesSanity.length === 0 && <p className="text-xs text-muted-foreground col-span-2">Chargement…</p>}
-                    {disciplinesSanity.map(disc => {
-                      const checked = papierForm.disciplines.split(",").map(s => s.trim()).filter(Boolean).includes(disc);
-                      return (
-                        <label key={disc} className="flex cursor-pointer items-center gap-2">
-                          <Checkbox
-                            checked={checked}
-                            onCheckedChange={(v) => {
-                              setPapierForm(f => {
-                                const current = f.disciplines.split(",").map(s => s.trim()).filter(Boolean);
-                                const updated = v ? [...new Set([...current, disc])] : current.filter(d => d !== disc);
-                                return { ...f, disciplines: updated.join(", ") };
-                              });
-                            }}
-                          />
-                          <span className="text-sm">{disc}</span>
-                        </label>
-                      );
-                    })}
+                {/* Coordonnées — adultes uniquement (tel + email) */}
+                {papierForm.typeInscription === "adulte" && (
+                  <div>
+                    <h3 className="mb-3 text-sm font-semibold border-b border-border/50 pb-1.5">Coordonnées</h3>
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="p-mobile">Tél. mobile</Label>
+                        <Input id="p-mobile" type="tel" placeholder="06 00 00 00 00" value={papierForm.telMobile} onChange={e => setPapierForm(f => ({ ...f, telMobile: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="p-email">Email</Label>
+                        <Input id="p-email" type="email" placeholder="email@exemple.com" value={papierForm.email} onChange={e => setPapierForm(f => ({ ...f, email: e.target.value }))} />
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="p-saison">Saison</Label>
-                    <Input id="p-saison" placeholder="2025-2026" value={papierForm.saison} onChange={e => setPapierForm(f => ({ ...f, saison: e.target.value }))} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="p-niveau">Niveau</Label>
-                    <Input id="p-niveau" placeholder="Ex: Débutant, ceinture jaune…" value={papierForm.niveau} onChange={e => setPapierForm(f => ({ ...f, niveau: e.target.value }))} />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="mb-3 text-sm font-semibold border-b border-border/50 pb-1.5">Autorisations</h3>
-              <div className="space-y-3">
-                {papierForm.typeInscription === "mineur" && (
-                  <label className="flex cursor-pointer items-center gap-3">
-                    <Checkbox checked={papierForm.autorisationParentale} onCheckedChange={v => setPapierForm(f => ({ ...f, autorisationParentale: v as boolean }))} />
-                    <span className="text-sm">Autorisation parentale signée</span>
-                  </label>
                 )}
-                <label className="flex cursor-pointer items-center gap-3">
-                  <Checkbox checked={papierForm.droitImage} onCheckedChange={v => setPapierForm(f => ({ ...f, droitImage: v as boolean }))} />
-                  <span className="text-sm">Droit à l'image accordé</span>
-                </label>
-              </div>
-            </div>
 
-            {papierForm.typeInscription === "mineur" && (
-              <div>
-                <h3 className="mb-3 text-sm font-semibold border-b border-border/50 pb-1.5">Parents / Tuteurs légaux</h3>
-                <div className="space-y-4">
-                  <div className="rounded-md border border-border/50 p-3 space-y-3">
-                    <p className="text-xs font-semibold">Parent / Tuteur 1 *</p>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="space-y-1.5"><Label>Nom *</Label><Input placeholder="Nom" value={papierForm.parent1Nom} onChange={e => setPapierForm(f => ({ ...f, parent1Nom: e.target.value }))} /></div>
-                      <div className="space-y-1.5"><Label>Prénom *</Label><Input placeholder="Prénom" value={papierForm.parent1Prenom} onChange={e => setPapierForm(f => ({ ...f, parent1Prenom: e.target.value }))} /></div>
+                {/* Parents + Urgence — mineurs uniquement */}
+                {papierForm.typeInscription === "mineur" && (
+                  <>
+                    <div>
+                      <h3 className="mb-3 text-sm font-semibold border-b border-border/50 pb-1.5">Informations parents / tuteurs légaux</h3>
+                      <div className="space-y-4">
+                        <div className="rounded-md border border-border/50 p-3 space-y-3">
+                          <p className="text-xs font-semibold">Parent / Tuteur 1 *</p>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="space-y-1.5"><Label>Nom *</Label><Input placeholder="Nom" value={papierForm.parent1Nom} onChange={e => setPapierForm(f => ({ ...f, parent1Nom: e.target.value }))} /></div>
+                            <div className="space-y-1.5"><Label>Prénom *</Label><Input placeholder="Prénom" value={papierForm.parent1Prenom} onChange={e => setPapierForm(f => ({ ...f, parent1Prenom: e.target.value }))} /></div>
+                          </div>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="space-y-1.5"><Label>Email</Label><Input type="email" placeholder="email@exemple.com" value={papierForm.parent1Email} onChange={e => setPapierForm(f => ({ ...f, parent1Email: e.target.value }))} /></div>
+                            <div className="space-y-1.5"><Label>Téléphone</Label><Input type="tel" placeholder="06 00 00 00 00" value={papierForm.parent1Tel} onChange={e => setPapierForm(f => ({ ...f, parent1Tel: e.target.value }))} /></div>
+                          </div>
+                        </div>
+                        <div className="rounded-md border border-border/50 p-3 space-y-3">
+                          <p className="text-xs font-semibold text-muted-foreground">Parent / Tuteur 2 <span className="font-normal">(facultatif)</span></p>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="space-y-1.5"><Label>Nom</Label><Input placeholder="Nom" value={papierForm.parent2Nom} onChange={e => setPapierForm(f => ({ ...f, parent2Nom: e.target.value }))} /></div>
+                            <div className="space-y-1.5"><Label>Prénom</Label><Input placeholder="Prénom" value={papierForm.parent2Prenom} onChange={e => setPapierForm(f => ({ ...f, parent2Prenom: e.target.value }))} /></div>
+                          </div>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="space-y-1.5"><Label>Email</Label><Input type="email" placeholder="email@exemple.com" value={papierForm.parent2Email} onChange={e => setPapierForm(f => ({ ...f, parent2Email: e.target.value }))} /></div>
+                            <div className="space-y-1.5"><Label>Téléphone</Label><Input type="tel" placeholder="06 00 00 00 00" value={papierForm.parent2Tel} onChange={e => setPapierForm(f => ({ ...f, parent2Tel: e.target.value }))} /></div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
+                  </>
+                )}
+
+                {/* Urgence — adultes dans coordonnées, mineurs sous les parents */}
+                <div>
+                  <h3 className="mb-3 text-sm font-semibold border-b border-border/50 pb-1.5">Personne à contacter en cas d'urgence</h3>
+                  <div className="space-y-3">
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="space-y-1.5"><Label>Email</Label><Input type="email" placeholder="email@exemple.com" value={papierForm.parent1Email} onChange={e => setPapierForm(f => ({ ...f, parent1Email: e.target.value }))} /></div>
-                      <div className="space-y-1.5"><Label>Téléphone</Label><Input type="tel" placeholder="06 00 00 00 00" value={papierForm.parent1Tel} onChange={e => setPapierForm(f => ({ ...f, parent1Tel: e.target.value }))} /></div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="p-urgprenom">Prénom</Label>
+                        <Input id="p-urgprenom" placeholder="Prénom" value={papierForm.urgencePrenom} onChange={e => setPapierForm(f => ({ ...f, urgencePrenom: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="p-urgnom">Nom</Label>
+                        <Input id="p-urgnom" placeholder="Nom" value={papierForm.urgenceNom} onChange={e => setPapierForm(f => ({ ...f, urgenceNom: e.target.value }))} />
+                      </div>
                     </div>
-                  </div>
-                  <div className="rounded-md border border-border/50 p-3 space-y-3">
-                    <p className="text-xs font-semibold text-muted-foreground">Parent / Tuteur 2 <span className="font-normal">(facultatif)</span></p>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="space-y-1.5"><Label>Nom</Label><Input placeholder="Nom" value={papierForm.parent2Nom} onChange={e => setPapierForm(f => ({ ...f, parent2Nom: e.target.value }))} /></div>
-                      <div className="space-y-1.5"><Label>Prénom</Label><Input placeholder="Prénom" value={papierForm.parent2Prenom} onChange={e => setPapierForm(f => ({ ...f, parent2Prenom: e.target.value }))} /></div>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="space-y-1.5"><Label>Email</Label><Input type="email" placeholder="email@exemple.com" value={papierForm.parent2Email} onChange={e => setPapierForm(f => ({ ...f, parent2Email: e.target.value }))} /></div>
-                      <div className="space-y-1.5"><Label>Téléphone</Label><Input type="tel" placeholder="06 00 00 00 00" value={papierForm.parent2Tel} onChange={e => setPapierForm(f => ({ ...f, parent2Tel: e.target.value }))} /></div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="p-urgtel">Téléphone</Label>
+                      <Input id="p-urgtel" type="tel" placeholder="06 00 00 00 00" value={papierForm.urgenceTel} onChange={e => setPapierForm(f => ({ ...f, urgenceTel: e.target.value }))} />
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+
+                {/* Inscription */}
+                <div>
+                  <h3 className="mb-3 text-sm font-semibold border-b border-border/50 pb-1.5">Inscription</h3>
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label>Discipline(s) *</Label>
+                      <div className="grid gap-2 sm:grid-cols-2 rounded border border-border/50 p-3">
+                        {disciplinesSanity.length === 0 && <p className="text-xs text-muted-foreground col-span-2">Chargement…</p>}
+                        {(isSuperAdmin
+                          ? disciplinesSanity
+                          : disciplinesSanity.filter(d => (currentUserDisciplines || "").split(",").map(s => s.trim().toLowerCase()).includes(d.toLowerCase()))
+                        ).map(disc => {
+                          const checked = papierForm.disciplines.split(",").map(s => s.trim()).filter(Boolean).includes(disc);
+                          return (
+                            <label key={disc} className="flex cursor-pointer items-center gap-2">
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={(v) => {
+                                  setPapierForm(f => {
+                                    const current = f.disciplines.split(",").map(s => s.trim()).filter(Boolean);
+                                    const updated = v ? [...new Set([...current, disc])] : current.filter(d => d !== disc);
+                                    return { ...f, disciplines: updated.join(", ") };
+                                  });
+                                }}
+                              />
+                              <span className="text-sm">{disc}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="p-saison">Saison</Label>
+                        <Input id="p-saison" placeholder="2025-2026" value={papierForm.saison} onChange={e => setPapierForm(f => ({ ...f, saison: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="p-niveau">Niveau</Label>
+                        <Input id="p-niveau" placeholder="Ex: Débutant, ceinture jaune…" value={papierForm.niveau} onChange={e => setPapierForm(f => ({ ...f, niveau: e.target.value }))} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mode de règlement */}
+                <div>
+                  <h3 className="mb-3 text-sm font-semibold border-b border-border/50 pb-1.5">Mode de règlement</h3>
+                  <div className="space-y-2">
+                    {[
+                      { value: "cheque_1x", label: "Chèque — en 1 fois" },
+                      { value: "cheque_4x", label: "Chèque — en 4 fois", detail: "60 € à l'inscription + solde en 3 échéances" },
+                      { value: "especes", label: "Espèces" },
+                      { value: "virement", label: "Virement bancaire (en une seule fois)" },
+                    ].map(option => (
+                      <label key={option.value} className="flex cursor-pointer items-start gap-3">
+                        <input
+                          type="radio"
+                          name="papierMoyenPaiement"
+                          value={option.value}
+                          checked={papierForm.moyenPaiement === option.value}
+                          onChange={() => setPapierForm(f => ({ ...f, moyenPaiement: option.value }))}
+                          className="mt-0.5 accent-primary shrink-0"
+                        />
+                        <div className="text-sm">
+                          <span>{option.label}</span>
+                          {"detail" in option && <p className="mt-0.5 text-xs text-muted-foreground">{option.detail}</p>}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Autorisations */}
+                <div>
+                  <h3 className="mb-3 text-sm font-semibold border-b border-border/50 pb-1.5">Autorisations</h3>
+                  <div className="space-y-3">
+                    {papierForm.typeInscription === "mineur" && (
+                      <label className="flex cursor-pointer items-center gap-3">
+                        <Checkbox checked={papierForm.autorisationParentale} onCheckedChange={v => setPapierForm(f => ({ ...f, autorisationParentale: v as boolean }))} />
+                        <span className="text-sm">Autorisation parentale signée</span>
+                      </label>
+                    )}
+                    <label className="flex cursor-pointer items-center gap-3">
+                      <Checkbox checked={papierForm.droitImage} onCheckedChange={v => setPapierForm(f => ({ ...f, droitImage: v as boolean }))} />
+                      <span className="text-sm">Droit à l'image accordé</span>
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-3">
+                      <Checkbox checked={papierForm.passSport} onCheckedChange={v => setPapierForm(f => ({ ...f, passSport: v as boolean }))} />
+                      <span className="text-sm">Détenteur d'un code Pass Sport 2026-2027</span>
+                    </label>
+                  </div>
+                </div>
+
+              </motion.div>
+            </AnimatePresence>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-border/50">
               <Button variant="outline" onClick={() => setShowPapierModal(false)} disabled={savingPapier}>Annuler</Button>
@@ -1097,6 +1249,42 @@ const AdminMembres = () => {
               onClick={() => { if (confirmSupprimer) handleSupprimerInscription(confirmSupprimer.id); }}
             >
               Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!confirmAdminDiscipline} onOpenChange={(open) => { if (!open) { setConfirmAdminDiscipline(null); setConfirmAdminDisciplineDiscs([]); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Promouvoir en administrateur de discipline ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Sélectionnez les disciplines que <strong>{confirmAdminDiscipline?.prenom} {confirmAdminDiscipline?.nom}</strong> pourra administrer (validation des inscriptions, saisie papier).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="grid gap-2 sm:grid-cols-2 py-2 px-1">
+            {disciplinesSanity.map(disc => (
+              <label key={disc} className="flex cursor-pointer items-center gap-2">
+                <Checkbox
+                  checked={confirmAdminDisciplineDiscs.includes(disc)}
+                  onCheckedChange={(v) => setConfirmAdminDisciplineDiscs(prev =>
+                    v ? [...prev, disc] : prev.filter(d => d !== disc)
+                  )}
+                />
+                <span className="text-sm">{disc}</span>
+              </label>
+            ))}
+          </div>
+          {confirmAdminDisciplineDiscs.length === 0 && (
+            <p className="text-xs text-amber-600 px-1">Sélectionnez au moins une discipline.</p>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={confirmAdminDisciplineDiscs.length === 0}
+              onClick={handlePromouvoirAdminDiscipline}
+            >
+              Confirmer
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

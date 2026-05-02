@@ -57,7 +57,12 @@ const Connexion = () => {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium">Mot de passe</label>
+              <div className="mb-1.5 flex items-center justify-between">
+                <label className="text-sm font-medium">Mot de passe</label>
+                <Link to="/mot-de-passe-oublie" className="text-xs text-primary hover:underline">
+                  Mot de passe oublié ?
+                </Link>
+              </div>
               <input
                 type="password"
                 value={password}

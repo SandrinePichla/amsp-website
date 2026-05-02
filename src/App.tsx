@@ -20,6 +20,8 @@ const Profil = lazy(() => import("./pages/Profil"));
 const AdminMembres = lazy(() => import("./pages/AdminMembres"));
 const Rejoindre = lazy(() => import("./pages/Rejoindre"));
 const DisciplineDetail = lazy(() => import("./pages/DisciplineDetail"));
+const MotDePasseOublie = lazy(() => import("./pages/MotDePasseOublie"));
+const ReinitialisationMotDePasse = lazy(() => import("./pages/ReinitialisationMotDePasse"));
 
 const queryClient = new QueryClient();
 
@@ -52,6 +54,8 @@ const App = () => (
             <Route path="/profil" element={<Profil />} />
             <Route path="/admin/membres" element={<AdminMembres />} />
             <Route path="/rejoindre" element={<Rejoindre />} />
+            <Route path="/mot-de-passe-oublie" element={<MotDePasseOublie />} />
+            <Route path="/reinitialisation-mot-de-passe" element={<ReinitialisationMotDePasse />} />
           </Routes>
         </Suspense>
       </BrowserRouter>

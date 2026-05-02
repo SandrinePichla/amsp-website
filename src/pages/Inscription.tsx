@@ -44,7 +44,8 @@ interface RecapData {
   groupeSanguin: string;
   allergie: string;
   niveau: string;
-  urgenceContact: string;
+  urgencePrenom: string;
+  urgenceNom: string;
   urgenceTel: string;
   disciplines: string;
   saison: string;
@@ -88,8 +89,8 @@ const MOYEN_PAIEMENT_LABELS: Record<string, string> = {
 
 const formVariants = {
   enter: (dir: number) => ({ x: dir * 80, opacity: 0 }),
-  center: { x: 0, opacity: 1, transition: { duration: 0.32, ease: [0.4, 0, 0.2, 1] } },
-  exit: (dir: number) => ({ x: dir * -80, opacity: 0, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] } }),
+  center: { x: 0, opacity: 1, transition: { duration: 0.32, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] } },
+  exit: (dir: number) => ({ x: dir * -80, opacity: 0, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] as [number, number, number, number] } }),
 };
 
 /* ------------------------------------------------------------------ */
@@ -149,8 +150,8 @@ const PrintableInscription = ({ data }: { data: RecapData }) => {
       <Row label="Adresse" value={data.adresse || '—'} />
       <Row label="Téléphone mobile" value={data.telMobile || '—'} />
       <Row label="Email" value={data.email} />
-      {(data.urgenceContact || data.urgenceTel) && (
-        <Row label="Contact urgence" value={[data.urgenceContact, data.urgenceTel].filter(Boolean).join(' — ')} />
+      {(data.urgencePrenom || data.urgenceNom || data.urgenceTel) && (
+        <Row label="Contact urgence" value={[[data.urgencePrenom, data.urgenceNom].filter(Boolean).join(' '), data.urgenceTel].filter(Boolean).join(' — ')} />
       )}
 
       {/* Parents / tuteurs (mineurs) */}
@@ -226,7 +227,7 @@ const Inscription = () => {
     nom: "", prenom: "", adresse: "", codePostal: "", ville: "",
     telMobile: "", email: "",
     dateNaissance: "", groupeSanguin: "", allergie: "",
-    niveau: "", urgenceContact: "", urgenceTel: "",
+    niveau: "", urgencePrenom: "", urgenceNom: "", urgenceTel: "",
   });
   const [villes, setVilles] = useState<string[]>([]);
   const [loadingVilles, setLoadingVilles] = useState(false);
@@ -382,9 +383,9 @@ const Inscription = () => {
         date_naissance: form.dateNaissance || null,
         groupe_sanguin: form.groupeSanguin || null,
         allergie: form.allergie || null,
-        tel_mobile: form.telMobile,
-        email: form.email,
-        urgence_contact: [form.urgenceContact, form.urgenceTel].filter(Boolean).join(" — "),
+        tel_mobile: typeInscription === 'mineur' ? null : form.telMobile,
+        email: typeInscription === 'mineur' ? (parent1.email.trim() || null) : form.email,
+        urgence_contact: [[form.urgencePrenom, form.urgenceNom].filter(Boolean).join(" "), form.urgenceTel].filter(Boolean).join(" — "),
         disciplines: disciplinesChoisies,
         niveau: form.niveau || null,
         autorisation_parentale: typeInscription === 'mineur' ? autorisationParentale : false,
@@ -431,7 +432,7 @@ const Inscription = () => {
         groupe_sanguin: form.groupeSanguin || "",
         allergie: form.allergie || "Aucune",
         niveau: form.niveau || "Non précisé",
-        urgence_contact: [form.urgenceContact, form.urgenceTel].filter(Boolean).join(" — "),
+        urgence_contact: [[form.urgencePrenom, form.urgenceNom].filter(Boolean).join(" "), form.urgenceTel].filter(Boolean).join(" — "),
         disciplines: disciplinesChoisies,
         autorisation_parentale: autorisationParentale ? "Oui" : "Non / Non concerné",
         droit_image: droitImage ? "Oui" : "Non",
@@ -463,7 +464,8 @@ const Inscription = () => {
         groupeSanguin: form.groupeSanguin,
         allergie: form.allergie,
         niveau: form.niveau,
-        urgenceContact: form.urgenceContact,
+        urgencePrenom: form.urgencePrenom,
+        urgenceNom: form.urgenceNom,
         urgenceTel: form.urgenceTel,
         disciplines: disciplinesChoisies,
         saison,
@@ -482,7 +484,7 @@ const Inscription = () => {
         nom: "", prenom: "", adresse: "", codePostal: "", ville: "",
         telMobile: "", email: "",
         dateNaissance: "", groupeSanguin: "", allergie: "",
-        niveau: "", urgenceContact: "", urgenceTel: "",
+        niveau: "", urgencePrenom: "", urgenceNom: "", urgenceTel: "",
       });
       setVilles([]);
       setSelectedDisciplines([]);
@@ -655,33 +657,22 @@ const Inscription = () => {
                     </div>
                   </div>
 
-                  {/* Coordonnées */}
-                  <div>
-                    <h2 className="mb-4 font-serif text-lg font-bold border-b border-border/50 pb-2">Coordonnées</h2>
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="telMobile">Téléphone mobile *</Label>
-                        <Input id="telMobile" type="tel" required maxLength={20} placeholder="06 00 00 00 00" value={form.telMobile} onChange={handleChange} />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="email">Email *</Label>
-                        <Input id="email" type="email" required maxLength={255} placeholder="votre@email.com" value={form.email} onChange={handleChange} />
-                      </div>
-                      <div>
-                        <p className="mb-2 text-sm font-medium">Personne à contacter en cas d'urgence *</p>
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          <div className="space-y-2">
-                            <Label htmlFor="urgenceContact">Nom et prénom</Label>
-                            <Input id="urgenceContact" required maxLength={100} placeholder="Nom, prénom" value={form.urgenceContact} onChange={handleChange} />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="urgenceTel">Téléphone</Label>
-                            <Input id="urgenceTel" type="tel" required maxLength={20} placeholder="06 00 00 00 00" value={form.urgenceTel} onChange={handleChange} />
-                          </div>
+                  {/* Coordonnées — adultes uniquement (tel + email) */}
+                  {typeInscription === 'adulte' && (
+                    <div>
+                      <h2 className="mb-4 font-serif text-lg font-bold border-b border-border/50 pb-2">Coordonnées</h2>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="telMobile">Téléphone mobile *</Label>
+                          <Input id="telMobile" type="tel" required maxLength={20} placeholder="06 00 00 00 00" value={form.telMobile} onChange={handleChange} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="email">Email *</Label>
+                          <Input id="email" type="email" required maxLength={255} placeholder="votre@email.com" value={form.email} onChange={handleChange} />
                         </div>
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Informations parents / tuteurs — mineurs uniquement */}
                   {typeInscription === 'mineur' && (
@@ -739,6 +730,29 @@ const Inscription = () => {
                       </div>
                     </div>
                   )}
+
+                  {/* Urgence — adultes dans coordonnées, mineurs sous les parents */}
+                  <div>
+                    <h2 className="mb-4 font-serif text-lg font-bold border-b border-border/50 pb-2">
+                      Personne à contacter en cas d'urgence *
+                    </h2>
+                    <div className="space-y-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="urgencePrenom">Prénom</Label>
+                          <Input id="urgencePrenom" required maxLength={100} placeholder="Prénom" value={form.urgencePrenom} onChange={handleChange} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="urgenceNom">Nom</Label>
+                          <Input id="urgenceNom" required maxLength={100} placeholder="Nom" value={form.urgenceNom} onChange={handleChange} />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="urgenceTel">Téléphone</Label>
+                        <Input id="urgenceTel" type="tel" required maxLength={20} placeholder="06 00 00 00 00" value={form.urgenceTel} onChange={handleChange} />
+                      </div>
+                    </div>
+                  </div>
 
                   {/* Discipline(s) */}
                   <div>
