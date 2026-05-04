@@ -17,6 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { Cours, Tarif, TarifSpecial } from "@/components/PrintablePlanning";
 
 import { sendBrevoEmail, TEMPLATES } from "@/lib/brevo";
+import { PrintableInscription, type RecapData } from "@/components/PrintableInscription";
 
 interface Discipline {
   _id: string;
@@ -32,31 +33,6 @@ interface InscriptionData {
   texteAutorisationImage?: string;
   texteAutorisationParentale?: string;
   texteInfosCertificatMedical?: string;
-}
-
-interface RecapData {
-  nom: string;
-  prenom: string;
-  adresse: string;
-  telMobile: string;
-  email: string;
-  dateNaissance: string;
-  groupeSanguin: string;
-  allergie: string;
-  niveau: string;
-  urgencePrenom: string;
-  urgenceNom: string;
-  urgenceTel: string;
-  disciplines: string;
-  saison: string;
-  typeInscription: 'adulte' | 'mineur';
-  passSport: boolean;
-  moyenPaiement: string;
-  droitImage: boolean;
-  autorisationParentale: boolean;
-  parent1: { nom: string; prenom: string; email: string; tel: string };
-  parent2: { nom: string; prenom: string; email: string; tel: string };
-  dateEnvoi: string;
 }
 
 const REGLEMENT_DEFAULT = `LES PRATIQUANTS DOIVENT :
@@ -80,121 +56,10 @@ L'INSTRUCTEUR DOIT :
 - Prodiguer les premiers soins en cas de blessure
 - Les instructeurs étant bénévoles, ils peuvent être dans l'impossibilité de faire les cours et doivent prévenir les adhérents de leur absence`;
 
-const MOYEN_PAIEMENT_LABELS: Record<string, string> = {
-  cheque_1x: 'Chèque — en 1 fois',
-  cheque_4x: 'Chèque — en 4 fois',
-  especes: 'Espèces',
-  virement: 'Virement bancaire (en une seule fois)',
-};
-
 const formVariants = {
   enter: (dir: number) => ({ x: dir * 80, opacity: 0 }),
   center: { x: 0, opacity: 1, transition: { duration: 0.32, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] } },
   exit: (dir: number) => ({ x: dir * -80, opacity: 0, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] as [number, number, number, number] } }),
-};
-
-/* ------------------------------------------------------------------ */
-/* Composant hors-écran pour le récapitulatif téléchargeable           */
-/* ------------------------------------------------------------------ */
-const Section = ({ title }: { title: string }) => (
-  <div style={{ margin: '22px 0 8px', fontWeight: 700, fontSize: 12, textTransform: 'uppercase', color: '#b91c1c', letterSpacing: 0.8, borderBottom: '1px solid #f0d0d0', paddingBottom: 4 }}>
-    {title}
-  </div>
-);
-
-const Row = ({ label, value }: { label: string; value: string }) => (
-  <div style={{ display: 'flex', gap: 12, marginBottom: 5, fontSize: 13 }}>
-    <span style={{ width: 180, flexShrink: 0, color: '#666' }}>{label}</span>
-    <span style={{ fontWeight: 500 }}>{value}</span>
-  </div>
-);
-
-const PrintableInscription = ({ data }: { data: RecapData }) => {
-  const hasParent2 = data.parent2.nom.trim() || data.parent2.prenom.trim();
-  return (
-    <div
-      style={{
-        fontFamily: 'Georgia, serif',
-        background: '#fff',
-        color: '#111',
-        padding: '44px 52px',
-        width: '760px',
-        lineHeight: 1.6,
-      }}
-    >
-      {/* En-tête */}
-      <div style={{ borderBottom: '3px solid #b91c1c', paddingBottom: 14, marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-        <div>
-          <div style={{ fontSize: 20, fontWeight: 900, color: '#b91c1c', letterSpacing: 1 }}>
-            AMSP — Arts Martiaux Saint-Pierrois
-          </div>
-          <div style={{ fontSize: 14, color: '#555', marginTop: 3 }}>
-            Récapitulatif d'inscription — Saison {data.saison}
-          </div>
-        </div>
-        <div style={{ fontSize: 12, color: '#888', textAlign: 'right' }}>
-          Envoyé le {data.dateEnvoi}<br />
-          {data.typeInscription === 'mineur' ? 'Inscription mineur' : 'Inscription adulte'}
-        </div>
-      </div>
-
-      {/* Identité */}
-      <Section title="Identité" />
-      <Row label="Nom et prénom" value={`${data.prenom} ${data.nom}`} />
-      <Row label="Date de naissance" value={data.dateNaissance ? new Date(data.dateNaissance).toLocaleDateString('fr-FR') : '—'} />
-      {data.groupeSanguin && <Row label="Groupe sanguin" value={data.groupeSanguin} />}
-      {data.allergie && <Row label="Allergie(s)" value={data.allergie} />}
-
-      {/* Coordonnées */}
-      <Section title="Coordonnées" />
-      <Row label="Adresse" value={data.adresse || '—'} />
-      <Row label="Téléphone mobile" value={data.telMobile || '—'} />
-      <Row label="Email" value={data.email} />
-      {(data.urgencePrenom || data.urgenceNom || data.urgenceTel) && (
-        <Row label="Contact urgence" value={[[data.urgencePrenom, data.urgenceNom].filter(Boolean).join(' '), data.urgenceTel].filter(Boolean).join(' — ')} />
-      )}
-
-      {/* Parents / tuteurs (mineurs) */}
-      {data.typeInscription === 'mineur' && (
-        <>
-          <Section title="Parent / Tuteur 1" />
-          <Row label="Nom et prénom" value={`${data.parent1.prenom} ${data.parent1.nom}`.trim() || '—'} />
-          {data.parent1.email && <Row label="Email" value={data.parent1.email} />}
-          {data.parent1.tel && <Row label="Téléphone" value={data.parent1.tel} />}
-          {hasParent2 && (
-            <>
-              <Section title="Parent / Tuteur 2" />
-              <Row label="Nom et prénom" value={`${data.parent2.prenom} ${data.parent2.nom}`.trim() || '—'} />
-              {data.parent2.email && <Row label="Email" value={data.parent2.email} />}
-              {data.parent2.tel && <Row label="Téléphone" value={data.parent2.tel} />}
-            </>
-          )}
-        </>
-      )}
-
-      {/* Disciplines */}
-      <Section title="Discipline(s) choisie(s)" />
-      <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4 }}>{data.disciplines}</div>
-      {data.niveau && <Row label="Niveau actuel" value={data.niveau} />}
-
-      {/* Mode de règlement */}
-      <Section title="Mode de règlement" />
-      <Row label="Moyen de paiement" value={MOYEN_PAIEMENT_LABELS[data.moyenPaiement] ?? data.moyenPaiement} />
-      <Row label="Pass Sport 2026-2027" value={data.passSport ? 'Oui' : 'Non'} />
-
-      {/* Autorisations */}
-      <Section title="Autorisations" />
-      <Row label="Droit à l'image" value={data.droitImage ? 'Accordé' : 'Refusé'} />
-      {data.typeInscription === 'mineur' && (
-        <Row label="Autorisation parentale" value={data.autorisationParentale ? 'Accordée' : 'Non accordée'} />
-      )}
-
-      {/* Pied de page */}
-      <div style={{ marginTop: 32, paddingTop: 12, borderTop: '1px solid #e5e5e5', fontSize: 11, color: '#aaa' }}>
-        Document généré automatiquement — Association Arts Martiaux Saint-Pierrois
-      </div>
-    </div>
-  );
 };
 
 /* ------------------------------------------------------------------ */
@@ -464,9 +329,7 @@ const Inscription = () => {
         groupeSanguin: form.groupeSanguin,
         allergie: form.allergie,
         niveau: form.niveau,
-        urgencePrenom: form.urgencePrenom,
-        urgenceNom: form.urgenceNom,
-        urgenceTel: form.urgenceTel,
+        urgenceContact: [[form.urgencePrenom, form.urgenceNom].filter(Boolean).join(' '), form.urgenceTel].filter(Boolean).join(' — '),
         disciplines: disciplinesChoisies,
         saison,
         typeInscription,

@@ -9,7 +9,10 @@ import { toast } from "sonner";
 import { supabase } from "@/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { Clock, CheckCircle, XCircle, Shield, Download, ChevronDown, UserX, ClipboardList, Link2, Plus, FileText, Trash2 } from "lucide-react";
+import {
+  Clock, CheckCircle, XCircle, Shield, Download, ChevronDown,
+  UserX, ClipboardList, Link2, Plus, FileText, Trash2, Search,
+} from "lucide-react";
 import { sendBrevoEmail, TEMPLATES } from "@/lib/brevo";
 import { client } from "@/sanityClient";
 import {
@@ -19,6 +22,9 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PrintableInscription, type RecapData } from "@/components/PrintableInscription";
 
 interface Membre {
   id: string;
@@ -69,6 +75,40 @@ type Ligne =
   | { type: "profil"; profil: Membre; inscriptions: Inscription[] }
   | { type: "inscription_seule"; inscription: Inscription };
 
+type ActiveTab = "tous" | "en_attente" | "actifs" | "sans_compte";
+
+const inscriptionToRecapData = (insc: {
+  nom: string | null; prenom: string | null; adresse: string | null; tel_mobile: string | null; email: string | null;
+  date_naissance: string | null; groupe_sanguin: string | null; allergie: string | null; niveau: string | null;
+  urgence_contact: string | null; disciplines: string | null; saison: string | null; type_inscription: string | null;
+  pass_sport: boolean; moyen_paiement: string | null; droit_image: boolean; autorisation_parentale: boolean;
+  parent1_nom: string | null; parent1_prenom: string | null; parent1_email: string | null; parent1_tel: string | null;
+  parent2_nom: string | null; parent2_prenom: string | null; parent2_email: string | null; parent2_tel: string | null;
+  created_at: string; source: string | null;
+}): RecapData => ({
+  nom: insc.nom || '',
+  prenom: insc.prenom || '',
+  adresse: insc.adresse || '',
+  telMobile: insc.tel_mobile || '',
+  email: insc.email || '',
+  dateNaissance: insc.date_naissance || '',
+  groupeSanguin: insc.groupe_sanguin || '',
+  allergie: insc.allergie || '',
+  niveau: insc.niveau || '',
+  urgenceContact: insc.urgence_contact || '',
+  disciplines: insc.disciplines || '',
+  saison: insc.saison || '',
+  typeInscription: (insc.type_inscription === 'mineur' ? 'mineur' : 'adulte'),
+  passSport: insc.pass_sport || false,
+  moyenPaiement: insc.moyen_paiement || '',
+  droitImage: insc.droit_image || false,
+  autorisationParentale: insc.autorisation_parentale || false,
+  parent1: { nom: insc.parent1_nom || '', prenom: insc.parent1_prenom || '', email: insc.parent1_email || '', tel: insc.parent1_tel || '' },
+  parent2: { nom: insc.parent2_nom || '', prenom: insc.parent2_prenom || '', email: insc.parent2_email || '', tel: insc.parent2_tel || '' },
+  dateEnvoi: new Date(insc.created_at).toLocaleDateString('fr-FR'),
+  source: insc.source,
+});
+
 const mergeDisciplines = (existing: string | null, added: string | null): string => {
   const a = (existing || "").split(",").map(s => s.trim()).filter(Boolean);
   const b = (added || "").split(",").map(s => s.trim()).filter(Boolean);
@@ -97,6 +137,33 @@ const inscBadge = (statut: string | null) => {
   return                             { label: "En attente", cls: "bg-amber-500/10 text-amber-700" };
 };
 
+const PAIEMENT_LABELS: Record<string, string> = {
+  cheque_1x: "Chèque 1 fois",
+  cheque_4x: "Chèque 4 fois",
+  especes: "Espèces",
+  virement: "Virement",
+};
+
+const discTags = (disciplines: string | null) =>
+  (disciplines || "").split(",").map(s => s.trim()).filter(Boolean);
+
+const getInitials = (prenom: string | null, nom: string | null) =>
+  [(prenom || "").charAt(0), (nom || "").charAt(0)].filter(Boolean).join("").toUpperCase() || "?";
+
+const avatarBg = (str: string) => {
+  const colors = [
+    "bg-blue-100 text-blue-700",
+    "bg-emerald-100 text-emerald-700",
+    "bg-violet-100 text-violet-700",
+    "bg-orange-100 text-orange-700",
+    "bg-rose-100 text-rose-700",
+    "bg-teal-100 text-teal-700",
+    "bg-amber-100 text-amber-700",
+  ];
+  const code = (str.charCodeAt(0) || 0) + (str.charCodeAt(1) || 0);
+  return colors[code % colors.length];
+};
+
 const AdminMembres = () => {
   const { user, role: currentUserRole, disciplines: currentUserDisciplines } = useAuth();
   const navigate = useNavigate();
@@ -106,7 +173,7 @@ const AdminMembres = () => {
   const [inscriptions, setInscriptions] = useState<Inscription[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
-  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [confirmAdmin, setConfirmAdmin] = useState<Membre | null>(null);
   const [editingDisciplines, setEditingDisciplines] = useState<{ id: string; value: string } | null>(null);
   const [linkingProfilId, setLinkingProfilId] = useState<string | null>(null);
@@ -114,7 +181,28 @@ const AdminMembres = () => {
   const [confirmSupprimer, setConfirmSupprimer] = useState<Inscription | null>(null);
   const [disciplinesSanity, setDisciplinesSanity] = useState<string[]>([]);
   const [expandedInscIds, setExpandedInscIds] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<ActiveTab>("tous");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterDiscipline, setFilterDiscipline] = useState("");
+  const [linkingInscToProfilMode, setLinkingInscToProfilMode] = useState(false);
+  const [linkingInscToProfilId, setLinkingInscToProfilId] = useState("");
+  const [adminRecapInsc, setAdminRecapInsc] = useState<Inscription | null>(null);
+  const adminRecapRef = useRef<HTMLDivElement>(null);
   const dataLoadedRef = useRef(false);
+
+  useEffect(() => {
+    if (!adminRecapInsc || !adminRecapRef.current) return;
+    const el = adminRecapRef.current;
+    import("html2canvas").then(({ default: html2canvas }) => {
+      html2canvas(el, { backgroundColor: "#ffffff", scale: 2, useCORS: true, logging: false, width: el.scrollWidth, height: el.scrollHeight, windowWidth: el.scrollWidth, windowHeight: el.scrollHeight }).then(canvas => {
+        const link = document.createElement("a");
+        link.download = `inscription-amsp-${adminRecapInsc.nom ?? "recap"}.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+        setAdminRecapInsc(null);
+      });
+    });
+  }, [adminRecapInsc]);
   const isSuperAdmin = currentUserRole === "admin";
   const [confirmAdminDiscipline, setConfirmAdminDiscipline] = useState<Membre | null>(null);
   const [confirmAdminDisciplineDiscs, setConfirmAdminDisciplineDiscs] = useState<string[]>([]);
@@ -257,7 +345,6 @@ const AdminMembres = () => {
     toast.success("Inscription liée au compte.");
   };
 
-  // --- Actions compte membre ---
   const handleApprouverCompte = async (id: string) => {
     setProcessing(id);
     const { error } = await supabase.from("profils").update({ role: "membre" }).eq("id", id);
@@ -266,6 +353,19 @@ const AdminMembres = () => {
     } else {
       toast.success("Compte approuvé.");
       setMembres((prev) => prev.map((m) => m.id === id ? { ...m, role: "membre" } : m));
+      const profil = membres.find((m) => m.id === id);
+      const linkedInsc = inscriptions.filter((i) =>
+        i.user_id === id ||
+        (!i.user_id && i.email && profil?.email && i.email.toLowerCase() === profil.email.toLowerCase())
+      );
+      const allDiscs = linkedInsc.map((i) => i.disciplines).filter(Boolean).join(", ");
+      if (allDiscs) {
+        const newDiscs = mergeDisciplines(profil?.disciplines || null, allDiscs);
+        if (newDiscs !== (profil?.disciplines || "")) {
+          await supabase.from("profils").update({ disciplines: newDiscs }).eq("id", id);
+          setMembres((prev) => prev.map((m) => m.id === id ? { ...m, disciplines: newDiscs } : m));
+        }
+      }
       const m = membres.find((m) => m.id === id);
       if (m?.email) {
         try {
@@ -324,7 +424,6 @@ const AdminMembres = () => {
     setConfirmAdminDisciplineDiscs([]);
   };
 
-  // --- Actions inscription discipline ---
   const handleValiderInscription = async (id: string) => {
     setProcessing(`insc-${id}`);
     const { error } = await supabase.from("inscriptions").update({ statut: "validee" }).eq("id", id);
@@ -332,12 +431,10 @@ const AdminMembres = () => {
       toast.error("Erreur : " + error.message);
     } else {
       setInscriptions((prev) => prev.map((i) => i.id === id ? { ...i, statut: "validee" } : i));
-
-      // Proposer de mettre à jour les disciplines du profil lié
       const insc = inscriptions.find((i) => i.id === id);
       const matchedProfil = insc ? membres.find((m) =>
         m.id === insc.user_id ||
-        (!insc.user_id && insc.source !== "papier" && insc.email && insc.email.toLowerCase() === m.email.toLowerCase())
+        (!insc.user_id && insc.email && insc.email.toLowerCase() === m.email.toLowerCase())
       ) : null;
       if (matchedProfil && insc?.disciplines) {
         const newDiscs = mergeDisciplines(matchedProfil.disciplines, insc.disciplines);
@@ -347,8 +444,6 @@ const AdminMembres = () => {
         }
       }
       toast.success("Inscription validée.");
-
-      // Envoyer un email de confirmation au membre
       if (insc?.email) {
         try {
           await sendBrevoEmail(TEMPLATES.VALIDATION, { email: insc.email, name: [insc.prenom, insc.nom].filter(Boolean).join(" ") || insc.email }, {
@@ -368,7 +463,6 @@ const AdminMembres = () => {
             saison: insc.saison || "",
           });
         } catch {
-          // L'inscription est validée même si l'email échoue
           toast.warning("Inscription validée, mais l'email de confirmation n'a pas pu être envoyé.");
         }
       }
@@ -414,7 +508,6 @@ const AdminMembres = () => {
     setConfirmSupprimer(null);
   };
 
-  // --- Export Excel ---
   const handleExportCSV = async () => {
     const { data: rawData, error } = await supabase.from('inscriptions').select('*').order('created_at', { ascending: false });
     if (error || !rawData) { toast.error("Erreur lors de l'export."); return; }
@@ -448,112 +541,101 @@ const AdminMembres = () => {
     sheet.getRow(1).height = 30;
 
     sheet.mergeCells(2, 1, 2, NB_COLS);
-    const dateCell = sheet.getCell(2, 1);
-    dateCell.value = 'Exporté le ' + new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) + ' — ' + data.length + ' inscription(s)';
-    dateCell.font = { name: 'Calibri', size: 10, italic: true, color: { argb: BLANC } };
-    dateCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLEU } };
-    dateCell.alignment = { vertical: 'middle', horizontal: 'center' };
+    const sousTitreCell = sheet.getCell(2, 1);
+    sousTitreCell.value = `Exporté le ${new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} — ${data.length} inscription(s)`;
+    sousTitreCell.font = { name: 'Calibri', size: 10, italic: true, color: { argb: BLANC } };
+    sousTitreCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLEU } };
+    sousTitreCell.alignment = { vertical: 'middle', horizontal: 'center' };
     sheet.getRow(2).height = 18;
-    sheet.getRow(3).height = 6;
+
+    sheet.addRow([]);
 
     const headers = [
-      'Date', 'Saison', 'Statut', 'Nom', 'Prénom', 'Date de naissance',
-      'Groupe sanguin', 'Allergie(s)', 'Adresse', 'Tél. mobile',
-      'Email', 'Contact urgence', 'Discipline(s)', 'Niveau',
-      'Autorisation parentale', "Droit à l'image", 'Compte membre', 'Source',
-      'Type', 'Pass Sport', 'Paiement', 'Parent 1', 'Parent 2',
+      'Statut', 'Source', 'Saison', 'Type', 'Nom', 'Prénom', 'Date naissance',
+      'Adresse', 'Téléphone', 'Email', 'Discipline(s)', 'Niveau', 'Groupe sanguin',
+      'Allergie(s)', 'Urgence', 'Paiement', 'Pass Sport', 'Droit image',
+      'Autorisation parentale', 'Parent 1', 'Parent 1 email', 'Parent 1 tél',
+      'Parent 2', 'Reçue le',
     ];
-    const headerRow = sheet.getRow(4);
+    const headerRow = sheet.addRow(headers);
     headerRow.height = 22;
-    headers.forEach((h, idx) => {
-      const cell = headerRow.getCell(idx + 1);
-      cell.value = h;
+    headerRow.eachCell((cell) => {
       cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: BLANC } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ROUGE } };
-      cell.alignment = { vertical: 'middle', horizontal: 'left' };
+      cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
       cell.border = { bottom: { style: 'thin', color: { argb: BLANC } } };
     });
 
-    data.forEach((i, rowIdx) => {
-      const profil = membres.find((m) => m.id === i.user_id);
-      const compte = profil?.role === 'admin' ? 'Admin' : profil?.role === 'membre' ? 'Oui' : profil?.role === 'en_attente' ? 'En attente' : 'Non';
-      const statutInsc = i.statut === 'validee' ? 'Validée' : i.statut === 'refusee' ? 'Refusée' : i.statut === 'supprimee' ? 'Supprimée' : 'En attente';
-      const rowBg = rowIdx % 2 === 0 ? BLANC : GRIS_CLAIR;
-      const values = [
-        new Date(i.created_at).toLocaleDateString('fr-FR'),
+    const statutColors: Record<string, { bg: string; fg: string }> = {
+      validee: { bg: VERT_BG, fg: VERT_FG },
+      refusee: { bg: ROUGE_BG, fg: ROUGE_FG },
+      en_attente: { bg: AMBRE_BG, fg: AMBRE_FG },
+      supprimee: { bg: GRIS_BG, fg: GRIS_FG },
+    };
+
+    data.forEach((i, idx) => {
+      const isEven = idx % 2 === 0;
+      const rowBg = isEven ? GRIS_CLAIR : BLANC;
+      const statut = i.statut || 'en_attente';
+      const row = sheet.addRow([
+        { validee: 'Validée', refusee: 'Refusée', en_attente: 'En attente', supprimee: 'Supprimée' }[statut] ?? statut,
+        i.source === 'papier' ? 'Papier' : 'En ligne',
         i.saison || '',
-        statutInsc,
+        i.type_inscription === 'mineur' ? 'Mineur' : 'Adulte',
         i.nom || '',
         i.prenom || '',
         i.date_naissance ? new Date(i.date_naissance).toLocaleDateString('fr-FR') : '',
-        i.groupe_sanguin || '',
-        i.allergie || '',
         i.adresse || '',
         i.tel_mobile || '',
         i.email || '',
-        i.urgence_contact || '',
         i.disciplines || '',
         i.niveau || '',
-        i.autorisation_parentale ? 'Oui' : 'Non',
+        i.groupe_sanguin || '',
+        i.allergie || '',
+        i.urgence_contact || '',
+        PAIEMENT_LABELS[i.moyen_paiement || ''] ?? (i.moyen_paiement || ''),
+        i.pass_sport ? 'Oui' : '',
         i.droit_image ? 'Oui' : 'Non',
-        compte,
-        i.source === 'papier' ? 'Papier' : 'En ligne',
-        i.type_inscription === 'mineur' ? 'Mineur' : 'Adulte',
-        i.pass_sport ? 'Oui' : 'Non',
-        ({cheque_1x:'Chèque 1 fois', cheque_4x:'Chèque 4 fois', especes:'Espèces', virement:'Virement'} as Record<string,string>)[i.moyen_paiement || ''] || (i.moyen_paiement || ''),
-        [i.parent1_prenom, i.parent1_nom].filter(Boolean).join(' ') + (i.parent1_email ? ` — ${i.parent1_email}` : '') + (i.parent1_tel ? ` — ${i.parent1_tel}` : ''),
-        [i.parent2_prenom, i.parent2_nom].filter(Boolean).join(' ') + (i.parent2_email ? ` — ${i.parent2_email}` : '') + (i.parent2_tel ? ` — ${i.parent2_tel}` : ''),
-      ];
-      const dataRow = sheet.getRow(4 + rowIdx + 1);
-      dataRow.height = 18;
-      values.forEach((val, colIdx) => {
-        const cell = dataRow.getCell(colIdx + 1);
-        cell.value = val;
-        cell.font = { name: 'Calibri', size: 10 };
-        cell.alignment = { vertical: 'middle' };
-        if (colIdx === 2) {
-          if (val === 'Validée') {
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: VERT_BG } };
-            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: VERT_FG } };
-          } else if (val === 'Refusée') {
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ROUGE_BG } };
-            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: ROUGE_FG } };
-          } else if (val === 'Supprimée') {
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GRIS_BG } };
-            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: GRIS_FG } };
-          } else {
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AMBRE_BG } };
-            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: AMBRE_FG } };
-          }
+        i.autorisation_parentale ? 'Oui' : 'Non / NC',
+        [i.parent1_prenom, i.parent1_nom].filter(Boolean).join(' ') || '',
+        i.parent1_email || '',
+        i.parent1_tel || '',
+        [i.parent2_prenom, i.parent2_nom].filter(Boolean).join(' ') || '',
+        new Date(i.created_at).toLocaleDateString('fr-FR'),
+      ]);
+      row.height = 18;
+      const sc = statutColors[statut] || { bg: rowBg, fg: '00000000' };
+      row.eachCell((cell, colNum) => {
+        if (colNum === 1) {
+          cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: sc.fg } };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: sc.bg } };
         } else {
+          cell.font = { name: 'Calibri', size: 9 };
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBg } };
         }
+        cell.alignment = { vertical: 'middle', wrapText: false };
       });
     });
 
-    [12, 16, 12, 16, 14, 16, 13, 16, 30, 13, 13, 26, 26, 34, 14, 20, 15, 14, 12, 10, 12, 18, 36, 36]
-      .forEach((w, idx) => { sheet.getColumn(idx + 1).width = w; });
+    const colWidths = [12, 9, 10, 8, 16, 16, 14, 30, 14, 28, 20, 14, 12, 18, 24, 14, 10, 10, 14, 22, 24, 14, 22, 12];
+    colWidths.forEach((w, i) => { sheet.getColumn(i + 1).width = w; });
 
-    const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const buf = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'inscriptions_amsp_' + new Date().toISOString().slice(0, 10) + '.xlsx';
-    a.click();
-    URL.revokeObjectURL(url);
+    const a = document.createElement('a'); a.href = url;
+    a.download = `AMSP_inscriptions_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    a.click(); URL.revokeObjectURL(url);
   };
 
-  // --- Données dérivées ---
-  const enAttenteCompte = isSuperAdmin ? membres.filter((m) => m.role === "en_attente") : [];
+  // --- Calcul des lignes ---
+  const enAttenteCompte = membres.filter(m => m.role === "en_attente");
   const enAttenteInscription = inscriptions.filter(
     (i) => i.statut === "en_attente" && (isSuperAdmin || disciplineMatch(i.disciplines, currentUserDisciplines))
   );
 
-  // Liaison confirmée : user_id uniquement (jamais par email automatiquement)
   const matchInscToProfil = (i: Inscription, profil: Membre) => i.user_id === profil.id;
 
-  // Suggestion par email : uniquement pour les inscriptions en ligne, jamais papier
   const inscSuggereesEmail = (profil: Membre) =>
     inscriptions.filter(i =>
       !i.user_id &&
@@ -572,14 +654,13 @@ const AdminMembres = () => {
     const adminDiscsLower = (currentUserDisciplines || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
     membres.forEach((profil) => {
       const profilDiscsLower = (profil.disciplines || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
-      if (profilDiscsLower.some(d => adminDiscsLower.includes(d))) {
-        const profilInsc = inscriptions.filter((i) => matchInscToProfil(i, profil) && disciplineMatch(i.disciplines, currentUserDisciplines));
+      const profilInsc = inscriptions.filter((i) => matchInscToProfil(i, profil) && disciplineMatch(i.disciplines, currentUserDisciplines));
+      if (profilDiscsLower.some(d => adminDiscsLower.includes(d)) || profilInsc.length > 0) {
         lignes.push({ type: "profil", profil, inscriptions: profilInsc });
       }
     });
   }
 
-  // Une inscription est "réclamée" si confirmée par user_id OU suggérée par email (en ligne) → ne pas afficher en doublon
   const linkedInscIds = new Set(
     membres.flatMap((profil) =>
       inscriptions
@@ -606,6 +687,65 @@ const AdminMembres = () => {
     return cmp !== 0 ? cmp : prenomA.localeCompare(prenomB, "fr", { sensitivity: "base" });
   });
 
+  // --- Compteurs d'onglets ---
+  const countEnAttente = lignes.filter(l =>
+    (l.type === "profil" && (l.profil.role === "en_attente" || l.inscriptions.some(i => i.statut === "en_attente"))) ||
+    (l.type === "inscription_seule" && l.inscription.statut === "en_attente")
+  ).length;
+  const countActifs = lignes.filter(l => l.type === "profil" && ["membre", "admin", "admin_discipline"].includes(l.profil.role)).length;
+  const countSansCompte = lignes.filter(l => l.type === "inscription_seule").length;
+
+  // --- Filtrage ---
+  const lignesFiltrees = lignes.filter(ligne => {
+    if (activeTab === "en_attente") {
+      const isEnAttenteCompte = ligne.type === "profil" && ligne.profil.role === "en_attente";
+      const hasInscEnAttente = ligne.type === "profil" && ligne.inscriptions.some(i => i.statut === "en_attente");
+      const isInscEnAttente = ligne.type === "inscription_seule" && ligne.inscription.statut === "en_attente";
+      if (!isEnAttenteCompte && !hasInscEnAttente && !isInscEnAttente) return false;
+    }
+    if (activeTab === "actifs") {
+      if (ligne.type !== "profil") return false;
+      if (!["membre", "admin", "admin_discipline"].includes(ligne.profil.role)) return false;
+    }
+    if (activeTab === "sans_compte") {
+      if (ligne.type !== "inscription_seule") return false;
+    }
+    if (filterDiscipline) {
+      const dLower = filterDiscipline.toLowerCase();
+      if (ligne.type === "profil") {
+        const profilHas = (ligne.profil.disciplines || "").toLowerCase().includes(dLower);
+        const inscHas = ligne.inscriptions.some(i => (i.disciplines || "").toLowerCase().includes(dLower));
+        if (!profilHas && !inscHas) return false;
+      } else {
+        if (!(ligne.inscription.disciplines || "").toLowerCase().includes(dLower)) return false;
+      }
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      if (ligne.type === "profil") {
+        const mp = (ligne.profil.nom || "").toLowerCase().includes(q) ||
+          (ligne.profil.prenom || "").toLowerCase().includes(q) ||
+          ligne.profil.email.toLowerCase().includes(q);
+        const mi = ligne.inscriptions.some(i =>
+          (i.nom || "").toLowerCase().includes(q) ||
+          (i.prenom || "").toLowerCase().includes(q) ||
+          (i.email || "").toLowerCase().includes(q)
+        );
+        if (!mp && !mi) return false;
+      } else {
+        const i = ligne.inscription;
+        if (!(i.nom || "").toLowerCase().includes(q) &&
+            !(i.prenom || "").toLowerCase().includes(q) &&
+            !(i.email || "").toLowerCase().includes(q)) return false;
+      }
+    }
+    return true;
+  });
+
+  const selectedLigne = selectedKey
+    ? lignes.find(l => (l.type === "profil" ? `p-${l.profil.id}` : `i-${l.inscription.id}`) === selectedKey) ?? null
+    : null;
+
   if (checkingRole) return (
     <Layout><section className="py-20"><p className="text-center text-muted-foreground">Vérification des droits…</p></section></Layout>
   );
@@ -617,8 +757,9 @@ const AdminMembres = () => {
         <div className="container mx-auto max-w-5xl px-4">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
 
+            {/* En-tête */}
             <div className="mb-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
-              <div className="text-center">
+              <div className="text-center sm:text-left">
                 <h1 className="font-serif text-4xl font-black md:text-5xl">
                   <span className="text-primary">Gestion</span> des membres
                 </h1>
@@ -632,7 +773,7 @@ const AdminMembres = () => {
                     <Plus size={14} /> Saisir inscription papier
                   </Button>
                   <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-2 shrink-0">
-                    <Download size={14} /> Exporter les inscriptions
+                    <Download size={14} /> Exporter
                   </Button>
                 </div>
               )}
@@ -641,338 +782,207 @@ const AdminMembres = () => {
             {loading ? <p className="text-center text-muted-foreground">Chargement…</p> : (
               <div className="space-y-6">
 
-                {isSuperAdmin && (
-                <div className="rounded-lg border border-border/50 bg-card p-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Clock size={18} className="text-primary" />
-                    <h2 className="font-serif font-bold">
-                      Demandes d'accès espace membre
-                      {enAttenteCompte.length > 0 && (
-                        <span className="ml-2 rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">{enAttenteCompte.length}</span>
-                      )}
-                    </h2>
-                  </div>
-                  {enAttenteCompte.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Aucune demande en attente.</p>
-                  ) : (
-                    <div className="space-y-3">
+                {/* Bloc En attente — Comptes */}
+                {isSuperAdmin && enAttenteCompte.length > 0 && (
+                  <div className="rounded-lg border border-amber-300/60 bg-amber-50/60 dark:bg-amber-950/20 p-5">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Clock size={16} className="text-amber-600" />
+                      <h2 className="font-serif font-bold text-sm">
+                        Demandes d'accès espace membre
+                        <span className="ml-2 rounded-full bg-amber-500 px-2 py-0.5 text-xs text-white">{enAttenteCompte.length}</span>
+                      </h2>
+                    </div>
+                    <div className="space-y-2">
                       {enAttenteCompte.map((m) => (
-                        <div key={m.id} className="flex flex-col gap-3 rounded-md border border-border/30 p-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div key={m.id} className="flex flex-col gap-3 rounded-md border border-amber-200 bg-background px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                           <div>
                             <p className="font-medium text-sm">{m.prenom || ""} {m.nom || ""}{!m.prenom && !m.nom && <span className="text-muted-foreground italic">Sans nom</span>}</p>
-                            <p className="text-xs text-muted-foreground">{m.email}</p>
-                            <p className="text-xs text-muted-foreground">Demande le {new Date(m.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}</p>
+                            <p className="text-xs text-muted-foreground">{m.email} · le {new Date(m.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}</p>
                           </div>
-                          <div className="flex gap-2">
-                            <Button size="sm" onClick={() => handleApprouverCompte(m.id)} disabled={processing === m.id} className="gap-1"><CheckCircle size={14} /> Approuver</Button>
-                            <Button size="sm" variant="outline" onClick={() => handleRefuserCompte(m.id)} disabled={processing === m.id} className="gap-1 text-destructive hover:text-destructive"><XCircle size={14} /> Refuser</Button>
+                          <div className="flex gap-2 shrink-0">
+                            <Button size="sm" onClick={() => handleApprouverCompte(m.id)} disabled={processing === m.id} className="gap-1"><CheckCircle size={13} /> Approuver</Button>
+                            <Button size="sm" variant="outline" onClick={() => handleRefuserCompte(m.id)} disabled={processing === m.id} className="gap-1 text-destructive hover:text-destructive"><XCircle size={13} /> Refuser</Button>
                           </div>
                         </div>
                       ))}
                     </div>
-                  )}
-                </div>
+                  </div>
                 )}
 
-                {/* Bloc En attente — Inscriptions aux disciplines */}
-                <div className="rounded-lg border border-border/50 bg-card p-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <ClipboardList size={18} className="text-primary" />
-                    <h2 className="font-serif font-bold">
-                      Inscriptions aux disciplines en attente
-                      {enAttenteInscription.length > 0 && (
+                {/* Bloc En attente — Inscriptions */}
+                {enAttenteInscription.length > 0 && (
+                  <div className="rounded-lg border border-border/50 bg-card p-5">
+                    <div className="flex items-center gap-2 mb-4">
+                      <ClipboardList size={16} className="text-primary" />
+                      <h2 className="font-serif font-bold text-sm">
+                        Inscriptions aux disciplines en attente
                         <span className="ml-2 rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">{enAttenteInscription.length}</span>
-                      )}
-                    </h2>
-                  </div>
-                  {enAttenteInscription.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Aucune inscription en attente.</p>
-                  ) : (
-                    <div className="space-y-3">
+                      </h2>
+                    </div>
+                    <div className="space-y-2">
                       {enAttenteInscription.map((insc) => (
-                        <div key={insc.id} className="flex flex-col gap-3 rounded-md border border-border/30 p-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div key={insc.id} className="flex flex-col gap-3 rounded-md border border-border/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                           <div>
-                            <div className="flex items-center gap-2 mb-0.5">
+                            <div className="flex items-center gap-2">
                               <p className="font-medium text-sm">{insc.prenom || ""} {insc.nom || ""}{!insc.prenom && !insc.nom && <span className="text-muted-foreground italic">Sans nom</span>}</p>
-                              {insc.source === "papier" && (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-700"><FileText size={9} /> Papier</span>
-                              )}
+                              {insc.source === "papier" && <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-700"><FileText size={9} /> Papier</span>}
                             </div>
-                            <p className="text-xs text-muted-foreground">{insc.disciplines || "—"} — {insc.saison || "—"}</p>
-                            <p className="text-xs text-muted-foreground">Reçue le {new Date(insc.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}</p>
+                            <p className="text-xs text-muted-foreground">{insc.disciplines || "—"} · {insc.saison || "—"} · reçue le {new Date(insc.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}</p>
                           </div>
-                          <div className="flex gap-2">
-                            <Button size="sm" onClick={() => handleValiderInscription(insc.id)} disabled={processing === `insc-${insc.id}`} className="gap-1"><CheckCircle size={14} /> Valider</Button>
-                            <Button size="sm" variant="outline" onClick={() => handleRefuserInscription(insc.id)} disabled={processing === `insc-${insc.id}`} className="gap-1 text-destructive hover:text-destructive"><XCircle size={14} /> Refuser</Button>
+                          <div className="flex gap-2 shrink-0">
+                            <Button size="sm" onClick={() => handleValiderInscription(insc.id)} disabled={processing === `insc-${insc.id}`} className="gap-1"><CheckCircle size={13} /> Valider</Button>
+                            <Button size="sm" variant="outline" onClick={() => handleRefuserInscription(insc.id)} disabled={processing === `insc-${insc.id}`} className="gap-1 text-destructive hover:text-destructive"><XCircle size={13} /> Refuser</Button>
                           </div>
                         </div>
                       ))}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
-                {/* Tableau unifié */}
-                <div className="rounded-lg border border-border/50 bg-card p-6">
+                {/* Tableau unifié — cartes */}
+                <div className="rounded-lg border border-border/50 bg-card p-5">
                   <h2 className="font-serif font-bold mb-4">
                     {isSuperAdmin ? `Tous les inscrits & membres (${lignes.length})` : `Inscrits & membres — votre discipline (${lignes.length})`}
                   </h2>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-border/50 text-xs text-muted-foreground">
-                          <th className="pb-2 pr-4 text-left font-medium">Nom / Prénom</th>
-                          <th className="pb-2 pr-4 text-left font-medium hidden md:table-cell">Email</th>
-                          <th className="pb-2 pr-4 text-left font-medium hidden lg:table-cell">Discipline(s)</th>
-                          <th className="pb-2 pr-4 text-left font-medium">Inscription</th>
-                          <th className="pb-2 text-left font-medium">Compte membre</th>
-                          <th className="pb-2"></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {lignes.map((ligne) => {
-                          const key = ligne.type === "profil" ? `p-${ligne.profil.id}` : `i-${ligne.inscription.id}`;
-                          const isExpanded = expandedKey === key;
 
-                          if (ligne.type === "profil") {
-                            const { profil, inscriptions: pInsc } = ligne;
-                            const roleBdg = roleBadge(profil.role);
-
-                            return (
-                              <React.Fragment key={key}>
-                                {/* Ligne du titulaire du compte */}
-                                <tr onClick={() => setExpandedKey(isExpanded ? null : key)} className="border-b border-border/30 cursor-pointer hover:bg-secondary/30 transition-colors">
-                                  <td className="py-3 pr-4 font-semibold">
-                                    {[profil.nom || pInsc[0]?.nom, profil.prenom].filter(Boolean).join(" ") || <span className="text-muted-foreground italic font-normal">Sans nom</span>}
-                                  </td>
-                                  <td className="py-3 pr-4 text-muted-foreground hidden md:table-cell text-xs">{profil.email}</td>
-                                  <td className="py-3 pr-4 hidden lg:table-cell text-xs text-muted-foreground truncate max-w-[140px]">{profil.disciplines || "—"}</td>
-                                  <td className="py-3 pr-4 text-xs text-muted-foreground">
-                                    {pInsc.length > 0 ? `${pInsc.length} inscription${pInsc.length > 1 ? "s" : ""}` : "—"}
-                                  </td>
-                                  <td className="py-3">
-                                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${roleBdg.cls}`}>{roleBdg.label}</span>
-                                  </td>
-                                  <td className="py-3 pl-2"><ChevronDown size={14} className={`text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`} /></td>
-                                </tr>
-
-                                {/* Sous-lignes des inscriptions — toujours visibles */}
-                                {pInsc.map((insc) => {
-                                  const iBdg = inscBadge(insc.statut);
-                                  const isInscExpanded = expandedInscIds.has(insc.id);
-                                  return (
-                                    <React.Fragment key={`insc-${insc.id}`}>
-                                      <tr
-                                        onClick={() => setExpandedInscIds(prev => { const next = new Set(prev); next.has(insc.id) ? next.delete(insc.id) : next.add(insc.id); return next; })}
-                                        className="border-b border-border/20 cursor-pointer bg-secondary/10 hover:bg-secondary/20 transition-colors"
-                                      >
-                                        <td className="py-2 pr-4 pl-5 text-sm">
-                                          <span className="text-muted-foreground/50 mr-1.5 select-none">↳</span>
-                                          <span className="font-medium">
-                                            {[insc.nom, insc.prenom].filter(Boolean).join(" ") || <span className="italic text-muted-foreground font-normal">Sans nom</span>}
-                                          </span>
-                                          {insc.source === "papier" && <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-700"><FileText size={9} /> Papier</span>}
-                                        </td>
-                                        <td className="py-2 pr-4 hidden md:table-cell text-xs text-muted-foreground">{insc.saison || "—"}</td>
-                                        <td className="py-2 pr-4 hidden lg:table-cell text-xs text-muted-foreground truncate max-w-[140px]">{insc.disciplines || "—"}</td>
-                                        <td className="py-2 pr-4">
-                                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${iBdg.cls}`}>{iBdg.label}</span>
-                                        </td>
-                                        <td className="py-2" onClick={e => e.stopPropagation()}>
-                                          <div className="flex items-center gap-1">
-                                            {insc.statut !== "validee" && insc.statut !== "supprimee" && (
-                                              <Button size="sm" onClick={() => handleValiderInscription(insc.id)} disabled={processing === `insc-${insc.id}`} className="h-6 px-2 text-xs gap-1"><CheckCircle size={10} /> Valider</Button>
-                                            )}
-                                            {insc.statut !== "refusee" && insc.statut !== "supprimee" && (
-                                              <Button size="sm" variant="outline" onClick={() => handleRefuserInscription(insc.id)} disabled={processing === `insc-${insc.id}`} className="h-6 px-2 text-xs gap-1 text-destructive hover:text-destructive"><XCircle size={10} /></Button>
-                                            )}
-                                            {insc.statut !== "supprimee" && (
-                                              <Button size="sm" variant="outline" onClick={() => setConfirmSupprimer(insc)} disabled={processing === `insc-${insc.id}`} className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"><Trash2 size={10} /></Button>
-                                            )}
-                                          </div>
-                                        </td>
-                                        <td className="py-2 pl-2"><ChevronDown size={13} className={`text-muted-foreground transition-transform ${isInscExpanded ? "rotate-180" : ""}`} /></td>
-                                      </tr>
-                                      {isInscExpanded && (
-                                        <tr className="border-b border-border/20 bg-secondary/10">
-                                          <td colSpan={6} className="px-5 py-3">
-                                            <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3 text-xs text-muted-foreground">
-                                              {insc.adresse && <span><span className="font-medium text-foreground">Adresse </span>{insc.adresse}</span>}
-                                              {insc.tel_mobile && <span><span className="font-medium text-foreground">Mobile </span>{insc.tel_mobile}</span>}
-                                              {insc.urgence_contact && <span><span className="font-medium text-foreground">Urgence </span>{insc.urgence_contact}</span>}
-                                              {insc.date_naissance && <span><span className="font-medium text-foreground">Naissance </span>{new Date(insc.date_naissance).toLocaleDateString("fr-FR")}</span>}
-                                              {insc.groupe_sanguin && <span><span className="font-medium text-foreground">Groupe sanguin </span>{insc.groupe_sanguin}</span>}
-                                              {insc.allergie && <span><span className="font-medium text-foreground">Allergie </span>{insc.allergie}</span>}
-                                              {insc.niveau && <span><span className="font-medium text-foreground">Niveau </span>{insc.niveau}</span>}
-                                              {insc.moyen_paiement && <span><span className="font-medium text-foreground">Paiement </span>{{cheque_1x:"Chèque 1 fois",cheque_4x:"Chèque 4 fois",especes:"Espèces",virement:"Virement"}[insc.moyen_paiement] ?? insc.moyen_paiement}</span>}
-                                              {insc.pass_sport && <span className="text-primary font-medium">Pass Sport 2026-2027</span>}
-                                              {insc.type_inscription === "mineur" && (insc.parent1_nom || insc.parent1_prenom) && <span className="sm:col-span-2 lg:col-span-3"><span className="font-medium text-foreground">Parent 1 </span>{[insc.parent1_prenom, insc.parent1_nom].filter(Boolean).join(" ")}{insc.parent1_email ? ` — ${insc.parent1_email}` : ""}{insc.parent1_tel ? ` — ${insc.parent1_tel}` : ""}</span>}
-                                              {insc.type_inscription === "mineur" && (insc.parent2_nom || insc.parent2_prenom) && <span className="sm:col-span-2 lg:col-span-3"><span className="font-medium text-foreground">Parent 2 </span>{[insc.parent2_prenom, insc.parent2_nom].filter(Boolean).join(" ")}{insc.parent2_email ? ` — ${insc.parent2_email}` : ""}{insc.parent2_tel ? ` — ${insc.parent2_tel}` : ""}</span>}
-                                            </div>
-                                          </td>
-                                        </tr>
-                                      )}
-                                    </React.Fragment>
-                                  );
-                                })}
-
-                                {/* Accordéon compte : gestion uniquement */}
-                                {isExpanded && (
-                                  <tr>
-                                    <td colSpan={6} className="bg-secondary/20 px-4 py-4">
-                                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 text-xs mb-4">
-                                        <div><span className="text-muted-foreground">Email </span>{profil.email}</div>
-                                        {profil.telephone && <div><span className="text-muted-foreground">Téléphone </span>{profil.telephone}</div>}
-                                        {profil.adresse && <div><span className="text-muted-foreground">Adresse </span>{profil.adresse}</div>}
-                                        <div><span className="text-muted-foreground">Compte créé le </span>{new Date(profil.created_at).toLocaleDateString("fr-FR")}</div>
-                                      </div>
-
-                                      {isSuperAdmin && <div className="mb-4 rounded border border-border/30 bg-background px-3 py-2.5">
-                                        <p className="text-xs font-medium text-muted-foreground mb-2">Accès galerie — discipline(s)</p>
-                                        {editingDisciplines?.id === profil.id ? (
-                                          <div className="space-y-2">
-                                            <div className="grid gap-1.5 sm:grid-cols-2">
-                                              {disciplinesSanity.map(disc => {
-                                                const checked = editingDisciplines.value.split(",").map(s => s.trim()).filter(Boolean).includes(disc);
-                                                return (
-                                                  <label key={disc} className="flex cursor-pointer items-center gap-2">
-                                                    <Checkbox checked={checked} onCheckedChange={(v) => { const current = editingDisciplines.value.split(",").map(s => s.trim()).filter(Boolean); const updated = v ? [...new Set([...current, disc])] : current.filter(d => d !== disc); setEditingDisciplines({ id: profil.id, value: updated.join(", ") }); }} />
-                                                    <span className="text-xs">{disc}</span>
-                                                  </label>
-                                                );
-                                              })}
-                                            </div>
-                                            <div className="flex gap-2 pt-1">
-                                              <Button size="sm" className="h-6 px-2 text-xs" onClick={() => handleSaveDisciplines(profil.id, editingDisciplines.value)}>Enregistrer</Button>
-                                              <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => setEditingDisciplines(null)}>Annuler</Button>
-                                            </div>
-                                          </div>
-                                        ) : (
-                                          <div className="flex items-center justify-between gap-2">
-                                            <p className="text-xs text-foreground">{profil.disciplines || <span className="italic text-muted-foreground">Non défini — accès aux albums "toute discipline" uniquement</span>}</p>
-                                            <Button size="sm" variant="outline" className="h-6 px-2 text-xs shrink-0" onClick={() => setEditingDisciplines({ id: profil.id, value: profil.disciplines || "" })}>Modifier</Button>
-                                          </div>
-                                        )}
-                                        <p className="mt-1.5 text-[10px] text-muted-foreground/60">Vide = accès albums "toute discipline" seulement.</p>
-                                      </div>}
-
-                                      {isSuperAdmin && (() => {
-                                        const suggestions = inscSuggereesEmail(profil).filter(i => !pInsc.some(p => p.id === i.id));
-                                        if (suggestions.length === 0) return null;
-                                        return (
-                                          <div className="mb-4">
-                                            <p className="text-xs font-medium text-amber-700 mb-2 flex items-center gap-1.5"><span className="rounded-full bg-amber-400/20 px-1.5 py-0.5">Email</span> Inscription(s) en ligne avec le même email — à confirmer</p>
-                                            <div className="space-y-2">
-                                              {suggestions.map(insc => { const iBdg = inscBadge(insc.statut); return (
-                                                <div key={insc.id} className="rounded border border-amber-400/40 bg-background px-3 py-2 text-xs">
-                                                  <div className="flex items-center justify-between gap-2">
-                                                    <div className="flex items-center gap-2 flex-wrap"><span className="font-medium">{insc.prenom} {insc.nom}</span><span className="text-muted-foreground">{insc.disciplines || "—"}</span><span className="text-muted-foreground">{insc.saison || ""}</span></div>
-                                                    <div className="flex items-center gap-1.5 shrink-0"><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${iBdg.cls}`}>{iBdg.label}</span><Button size="sm" variant="outline" onClick={() => handleLierInscription(insc.id, profil.id, insc.disciplines)} disabled={processing === `insc-${insc.id}`} className="h-6 px-2 text-xs gap-1 text-primary hover:text-primary"><Link2 size={10} /> Confirmer le lien</Button></div>
-                                                  </div>
-                                                </div>
-                                              ); })}
-                                            </div>
-                                          </div>
-                                        );
-                                      })()}
-
-                                      {isSuperAdmin && (() => {
-                                        const dejaliees = new Set(pInsc.map(i => i.id));
-                                        const disponibles = inscriptions.filter(i => !dejaliees.has(i.id));
-                                        if (disponibles.length === 0) return null;
-                                        const isLinking = linkingProfilId === profil.id;
-                                        return (
-                                          <div className="mb-4 rounded border border-border/30 bg-background px-3 py-2.5">
-                                            <p className="text-xs font-medium text-muted-foreground mb-2">Lier une inscription existante</p>
-                                            {isLinking ? (
-                                              <div className="flex items-center gap-2 flex-wrap">
-                                                <select className="flex-1 min-w-0 rounded border border-border bg-card px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary" value={linkingInscId} onChange={e => setLinkingInscId(e.target.value)}>
-                                                  <option value="">— Choisir une inscription —</option>
-                                                  {disponibles.map(i => (<option key={i.id} value={i.id}>{[i.prenom, i.nom].filter(Boolean).join(" ") || i.email || "Sans nom"} — {i.disciplines || "?"} {i.saison ? `(${i.saison})` : ""}</option>))}
-                                                </select>
-                                                <Button size="sm" className="h-7 px-3 text-xs gap-1" disabled={!linkingInscId} onClick={async () => { const insc = inscriptions.find(i => i.id === linkingInscId); await handleLierInscription(linkingInscId, profil.id, insc?.disciplines || null); setLinkingProfilId(null); setLinkingInscId(""); }}><Link2 size={11} /> Lier</Button>
-                                                <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => { setLinkingProfilId(null); setLinkingInscId(""); }}>Annuler</Button>
-                                              </div>
-                                            ) : (
-                                              <Button size="sm" variant="outline" className="h-7 px-3 text-xs gap-1" onClick={() => { setLinkingProfilId(profil.id); setLinkingInscId(""); }}><Link2 size={11} /> Lier une inscription…</Button>
-                                            )}
-                                          </div>
-                                        );
-                                      })()}
-
-                                      {isSuperAdmin && profil.id !== user?.id && (
-                                        <div className="flex justify-end pt-2 border-t border-border/30 gap-2 flex-wrap">
-                                          {profil.role === "refuse" ? (
-                                            <Button size="sm" variant="outline" onClick={() => handleApprouverCompte(profil.id)} disabled={processing === profil.id} className="gap-1 text-xs"><CheckCircle size={12} /> Réactiver le compte</Button>
-                                          ) : profil.role === "admin" ? (
-                                            <Button size="sm" variant="outline" onClick={() => handleChangerRole(profil.id, "membre")} disabled={processing === profil.id} className="gap-1 text-xs text-destructive hover:text-destructive"><Shield size={12} /> Retirer les droits admin</Button>
-                                          ) : profil.role === "admin_discipline" ? (
-                                            <>
-                                              <Button size="sm" variant="outline" onClick={() => setConfirmAdmin(profil)} disabled={processing === profil.id} className="gap-1 text-xs text-primary hover:text-primary"><Shield size={12} /> Promouvoir en admin</Button>
-                                              <Button size="sm" variant="outline" onClick={() => handleChangerRole(profil.id, "membre")} disabled={processing === profil.id} className="gap-1 text-xs text-destructive hover:text-destructive"><Shield size={12} /> Retirer les droits discipline</Button>
-                                            </>
-                                          ) : (
-                                            <>
-                                              <Button size="sm" variant="outline" onClick={() => setConfirmAdmin(profil)} disabled={processing === profil.id} className="gap-1 text-xs text-primary hover:text-primary"><Shield size={12} /> Promouvoir en admin</Button>
-                                              <Button size="sm" variant="outline" onClick={() => { setConfirmAdminDiscipline(profil); setConfirmAdminDisciplineDiscs(profil.disciplines ? profil.disciplines.split(",").map(s => s.trim()).filter(Boolean) : []); }} disabled={processing === profil.id} className="gap-1 text-xs text-violet-700 hover:text-violet-700 border-violet-300"><Shield size={12} /> Admin discipline</Button>
-                                              <Button size="sm" variant="outline" onClick={() => handleRefuserCompte(profil.id)} disabled={processing === profil.id} className="gap-1 text-xs text-destructive hover:text-destructive"><UserX size={12} /> Révoquer le compte</Button>
-                                            </>
-                                          )}
-                                        </div>
-                                      )}
-                                    </td>
-                                  </tr>
-                                )}
-                              </React.Fragment>
-                            );
-                          }
-
-                          // Inscription sans compte
-                          const { inscription: insc } = ligne;
-                          const iBdg = inscBadge(insc.statut);
-                          return (
-                            <React.Fragment key={key}>
-                              <tr onClick={() => setExpandedKey(isExpanded ? null : key)} className="border-b border-border/30 cursor-pointer hover:bg-secondary/30 transition-colors">
-                                <td className="py-3 pr-4 font-medium">
-                                  {[insc.nom, insc.prenom].filter(Boolean).join(" ") || <span className="text-muted-foreground italic">Sans nom</span>}
-                                </td>
-                                <td className="py-3 pr-4 text-muted-foreground hidden md:table-cell text-xs">{insc.email || "—"}</td>
-                                <td className="py-3 pr-4 hidden lg:table-cell text-xs text-muted-foreground truncate max-w-[140px]">{insc.disciplines || "—"}</td>
-                                <td className="py-3 pr-4"><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${iBdg.cls}`}>{iBdg.label}</span></td>
-                                <td className="py-3"><span className="rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground">Pas de compte</span></td>
-                                <td className="py-3 pl-2"><ChevronDown size={14} className={`text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`} /></td>
-                              </tr>
-                              {isExpanded && (
-                                <tr>
-                                  <td colSpan={6} className="bg-secondary/20 px-4 py-4">
-                                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 text-xs mb-3">
-                                      {insc.email && <div><span className="text-muted-foreground">Email </span>{insc.email}</div>}
-                                      {insc.tel_mobile && <div><span className="text-muted-foreground">Mobile </span>{insc.tel_mobile}</div>}
-                                      {insc.adresse && <div><span className="text-muted-foreground">Adresse </span>{insc.adresse}</div>}
-                                      {insc.date_naissance && <div><span className="text-muted-foreground">Naissance </span>{new Date(insc.date_naissance).toLocaleDateString("fr-FR")}</div>}
-                                      {insc.groupe_sanguin && <div><span className="text-muted-foreground">Groupe sanguin </span>{insc.groupe_sanguin}</div>}
-                                      {insc.allergie && <div><span className="text-muted-foreground">Allergie </span>{insc.allergie}</div>}
-                                      {insc.urgence_contact && <div><span className="text-muted-foreground">Urgence </span>{insc.urgence_contact}</div>}
-                                      {insc.niveau && <div><span className="text-muted-foreground">Niveau </span>{insc.niveau}</div>}
-                                      {insc.moyen_paiement && <div><span className="text-muted-foreground">Paiement </span>{{cheque_1x:"Chèque 1 fois",cheque_4x:"Chèque 4 fois",especes:"Espèces",virement:"Virement"}[insc.moyen_paiement] ?? insc.moyen_paiement}</div>}
-                                      {insc.pass_sport && <div className="text-primary font-medium">Pass Sport 2026-2027</div>}
-                                      {insc.type_inscription === "mineur" && (insc.parent1_nom || insc.parent1_prenom) && <div className="sm:col-span-2 lg:col-span-3"><span className="text-muted-foreground">Parent 1 </span>{[insc.parent1_prenom, insc.parent1_nom].filter(Boolean).join(" ")}{insc.parent1_email ? ` — ${insc.parent1_email}` : ""}{insc.parent1_tel ? ` — ${insc.parent1_tel}` : ""}</div>}
-                                      {insc.type_inscription === "mineur" && (insc.parent2_nom || insc.parent2_prenom) && <div className="sm:col-span-2 lg:col-span-3"><span className="text-muted-foreground">Parent 2 </span>{[insc.parent2_prenom, insc.parent2_nom].filter(Boolean).join(" ")}{insc.parent2_email ? ` — ${insc.parent2_email}` : ""}{insc.parent2_tel ? ` — ${insc.parent2_tel}` : ""}</div>}
-                                      <div><span className="text-muted-foreground">Envoyée le </span>{new Date(insc.created_at).toLocaleDateString("fr-FR")}</div>
-                                    </div>
-                                    <div className="flex justify-end pt-2 border-t border-border/30 gap-2">
-                                      {insc.statut !== "validee" && insc.statut !== "supprimee" && (<Button size="sm" onClick={() => handleValiderInscription(insc.id)} disabled={processing === `insc-${insc.id}`} className="gap-1 text-xs"><CheckCircle size={12} /> Valider l'inscription</Button>)}
-                                      {insc.statut !== "refusee" && insc.statut !== "supprimee" && (<Button size="sm" variant="outline" onClick={() => handleRefuserInscription(insc.id)} disabled={processing === `insc-${insc.id}`} className="gap-1 text-xs text-destructive hover:text-destructive"><XCircle size={12} /> Refuser l'inscription</Button>)}
-                                      {insc.statut !== "supprimee" && (<Button size="sm" variant="outline" onClick={() => setConfirmSupprimer(insc)} disabled={processing === `insc-${insc.id}`} className="gap-1 text-xs text-muted-foreground hover:text-destructive"><Trash2 size={12} /> Supprimer</Button>)}
-                                    </div>
-                                  </td>
-                                </tr>
-                              )}
-                            </React.Fragment>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                  {/* Barre recherche + filtre */}
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center mb-4">
+                    <div className="relative flex-1">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        placeholder="Rechercher par nom, prénom, email…"
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        className="pl-8 h-9 text-sm"
+                      />
+                    </div>
+                    {disciplinesSanity.length > 0 && (
+                      <select
+                        value={filterDiscipline}
+                        onChange={e => setFilterDiscipline(e.target.value)}
+                        className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring shrink-0"
+                      >
+                        <option value="">Toutes les disciplines</option>
+                        {disciplinesSanity.map(d => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                    )}
                   </div>
+
+                  {/* Onglets */}
+                  <Tabs value={activeTab} onValueChange={v => setActiveTab(v as ActiveTab)} className="mb-4">
+                    <TabsList className="h-8 text-xs">
+                      <TabsTrigger value="tous" className="text-xs px-3 h-7">Tous ({lignes.length})</TabsTrigger>
+                      <TabsTrigger value="en_attente" className="text-xs px-3 h-7">
+                        En attente {countEnAttente > 0 && <span className="ml-1.5 rounded-full bg-amber-500 text-white text-[10px] px-1.5 py-0.5 leading-none">{countEnAttente}</span>}
+                      </TabsTrigger>
+                      <TabsTrigger value="actifs" className="text-xs px-3 h-7">Membres actifs ({countActifs})</TabsTrigger>
+                      <TabsTrigger value="sans_compte" className="text-xs px-3 h-7">Sans compte ({countSansCompte})</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+
+                  {/* Grille de cartes */}
+                  {lignesFiltrees.length === 0 ? (
+                    <p className="text-center text-sm text-muted-foreground py-8">Aucun résultat.</p>
+                  ) : (
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {lignesFiltrees.map((ligne) => {
+                        const key = ligne.type === "profil" ? `p-${ligne.profil.id}` : `i-${ligne.inscription.id}`;
+
+                        if (ligne.type === "profil") {
+                          const { profil, inscriptions: pInsc } = ligne;
+                          const nom = profil.nom || pInsc[0]?.nom || "";
+                          const prenom = profil.prenom || "";
+                          const initials = getInitials(prenom, nom);
+                          const roleBdg = roleBadge(profil.role);
+                          const tags = [...new Set(pInsc.flatMap(i => discTags(i.disciplines)))];
+                          const pendingCount = pInsc.filter(i => i.statut === "en_attente").length;
+
+                          return (
+                            <motion.div
+                              key={key}
+                              layout
+                              initial={{ opacity: 0, y: 6 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              onClick={() => setSelectedKey(key)}
+                              className="cursor-pointer rounded-xl border border-border/60 bg-background p-4 hover:border-primary/40 hover:shadow-sm transition-all group"
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${avatarBg(nom || prenom || "?")}`}>
+                                  {initials}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-start justify-between gap-1.5 mb-0.5">
+                                    <p className="font-semibold text-sm leading-tight truncate">
+                                      {[nom, prenom].filter(Boolean).join(" ") || <span className="italic text-muted-foreground font-normal">Sans nom</span>}
+                                    </p>
+                                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${roleBdg.cls}`}>{roleBdg.label}</span>
+                                  </div>
+                                  <p className="text-[11px] text-muted-foreground truncate">{profil.email}</p>
+                                  {tags.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-2">
+                                      {tags.map(d => (
+                                        <span key={d} className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">{d}</span>
+                                      ))}
+                                    </div>
+                                  )}
+                                  <div className="flex items-center gap-2 mt-2 text-[11px] text-muted-foreground">
+                                    {pInsc.length > 0 && <span>{pInsc.length} inscription{pInsc.length > 1 ? "s" : ""}</span>}
+                                    {pendingCount > 0 && <span className="text-amber-600 font-medium">{pendingCount} en attente</span>}
+                                    {pInsc.length === 0 && <span className="italic">Aucune inscription</span>}
+                                  </div>
+                                </div>
+                              </div>
+                            </motion.div>
+                          );
+                        }
+
+                        // inscription_seule
+                        const { inscription: insc } = ligne;
+                        const nom = insc.nom || "";
+                        const prenom = insc.prenom || "";
+                        const initials = getInitials(prenom, nom);
+                        const iBdg = inscBadge(insc.statut);
+                        const tags = discTags(insc.disciplines);
+
+                        return (
+                          <motion.div
+                            key={key}
+                            layout
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            onClick={() => setSelectedKey(key)}
+                            className="cursor-pointer rounded-xl border border-border/60 bg-background p-4 hover:border-primary/40 hover:shadow-sm transition-all group"
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${avatarBg(nom || prenom || "?")}`}>
+                                {initials}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-start justify-between gap-1.5 mb-0.5">
+                                  <p className="font-semibold text-sm leading-tight truncate">
+                                    {[nom, prenom].filter(Boolean).join(" ") || <span className="italic text-muted-foreground font-normal">Sans nom</span>}
+                                  </p>
+                                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${iBdg.cls}`}>{iBdg.label}</span>
+                                </div>
+                                <p className="text-[11px] text-muted-foreground truncate">{insc.email || "—"}</p>
+                                {tags.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-2">
+                                    {tags.map(d => (
+                                      <span key={d} className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">{d}</span>
+                                    ))}
+                                  </div>
+                                )}
+                                <div className="flex items-center gap-2 mt-2">
+                                  <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">Pas de compte</span>
+                                  {insc.source === "papier" && <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-700"><FileText size={9} /> Papier</span>}
+                                </div>
+                              </div>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
               </div>
@@ -980,6 +990,452 @@ const AdminMembres = () => {
           </motion.div>
         </div>
       </section>
+
+      {/* Panneau latéral — détail */}
+      <Sheet open={!!selectedKey} onOpenChange={(open) => {
+        if (!open) {
+          setSelectedKey(null);
+          setEditingDisciplines(null);
+          setLinkingProfilId(null);
+          setLinkingInscId("");
+          setLinkingInscToProfilMode(false);
+          setLinkingInscToProfilId("");
+        }
+      }}>
+        <SheetContent className="w-full sm:max-w-lg flex flex-col overflow-hidden p-0">
+          {selectedLigne && (
+            <div className="flex flex-col h-full overflow-y-auto">
+
+              {/* ——— PANNEAU : PROFIL ——— */}
+              {selectedLigne.type === "profil" && (() => {
+                const { profil, inscriptions: pInsc } = selectedLigne;
+                const nom = profil.nom || pInsc[0]?.nom || "";
+                const prenom = profil.prenom || "";
+                const initials = getInitials(prenom, nom);
+                const roleBdg = roleBadge(profil.role);
+
+                return (
+                  <>
+                    {/* Header */}
+                    <div className="flex items-center gap-4 p-6 pb-4 border-b border-border/50 pr-12">
+                      <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-base font-bold ${avatarBg(nom || prenom || "?")}`}>
+                        {initials}
+                      </div>
+                      <div className="min-w-0">
+                        <SheetTitle className="font-serif text-lg">
+                          {[nom, prenom].filter(Boolean).join(" ") || <span className="italic text-muted-foreground">Sans nom</span>}
+                        </SheetTitle>
+                        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium mt-1 ${roleBdg.cls}`}>{roleBdg.label}</span>
+                      </div>
+                    </div>
+
+                    {/* Body */}
+                    <div className="flex-1 space-y-5 p-6">
+
+                      {/* Inscriptions liées */}
+                      <div>
+                        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                          Inscriptions liées {pInsc.length > 0 && `(${pInsc.length})`}
+                        </h3>
+                        {pInsc.length === 0 ? (
+                          <p className="text-sm text-muted-foreground italic">Aucune inscription liée.</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {pInsc.map(insc => {
+                              const iBdg = inscBadge(insc.statut);
+                              const isExpanded = expandedInscIds.has(insc.id);
+                              return (
+                                <div key={insc.id} className="rounded-lg border border-border/40 overflow-hidden">
+                                  <button
+                                    onClick={() => setExpandedInscIds(prev => {
+                                      const next = new Set(prev);
+                                      next.has(insc.id) ? next.delete(insc.id) : next.add(insc.id);
+                                      return next;
+                                    })}
+                                    className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm hover:bg-secondary/30 transition-colors text-left"
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className="font-medium truncate">{[insc.nom, insc.prenom].filter(Boolean).join(" ") || "Sans nom"}</span>
+                                      {insc.source === "papier" && <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-700"><FileText size={9} /> Papier</span>}
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                      <span className="text-xs text-muted-foreground">{insc.disciplines || "—"}</span>
+                                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${iBdg.cls}`}>{iBdg.label}</span>
+                                      <ChevronDown size={13} className={`text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                                    </div>
+                                  </button>
+                                  {isExpanded && (
+                                    <div className="border-t border-border/30 bg-secondary/10 px-4 py-3 space-y-3">
+                                      <div className="grid gap-1.5 sm:grid-cols-2 text-xs text-muted-foreground">
+                                        {insc.saison && <span><span className="font-medium text-foreground">Saison </span>{insc.saison}</span>}
+                                        {insc.adresse && <span><span className="font-medium text-foreground">Adresse </span>{insc.adresse}</span>}
+                                        {insc.tel_mobile && <span><span className="font-medium text-foreground">Mobile </span>{insc.tel_mobile}</span>}
+                                        {insc.urgence_contact && <span><span className="font-medium text-foreground">Urgence </span>{insc.urgence_contact}</span>}
+                                        {insc.date_naissance && <span><span className="font-medium text-foreground">Naissance </span>{new Date(insc.date_naissance).toLocaleDateString("fr-FR")}</span>}
+                                        {insc.groupe_sanguin && <span><span className="font-medium text-foreground">Groupe sanguin </span>{insc.groupe_sanguin}</span>}
+                                        {insc.allergie && <span><span className="font-medium text-foreground">Allergie </span>{insc.allergie}</span>}
+                                        {insc.niveau && <span><span className="font-medium text-foreground">Niveau </span>{insc.niveau}</span>}
+                                        {insc.moyen_paiement && <span><span className="font-medium text-foreground">Paiement </span>{PAIEMENT_LABELS[insc.moyen_paiement] ?? insc.moyen_paiement}</span>}
+                                        {insc.pass_sport && <span className="text-primary font-medium">Pass Sport</span>}
+                                        {insc.type_inscription === "mineur" && (insc.parent1_nom || insc.parent1_prenom) && (
+                                          <span className="sm:col-span-2">
+                                            <span className="font-medium text-foreground">Parent 1 </span>
+                                            {[insc.parent1_prenom, insc.parent1_nom].filter(Boolean).join(" ")}
+                                            {insc.parent1_email ? ` — ${insc.parent1_email}` : ""}
+                                            {insc.parent1_tel ? ` — ${insc.parent1_tel}` : ""}
+                                          </span>
+                                        )}
+                                        {insc.type_inscription === "mineur" && (insc.parent2_nom || insc.parent2_prenom) && (
+                                          <span className="sm:col-span-2">
+                                            <span className="font-medium text-foreground">Parent 2 </span>
+                                            {[insc.parent2_prenom, insc.parent2_nom].filter(Boolean).join(" ")}
+                                            {insc.parent2_email ? ` — ${insc.parent2_email}` : ""}
+                                            {insc.parent2_tel ? ` — ${insc.parent2_tel}` : ""}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="flex gap-2 flex-wrap pt-1">
+                                        {insc.statut !== "validee" && insc.statut !== "supprimee" && (
+                                          <Button size="sm" onClick={() => handleValiderInscription(insc.id)} disabled={processing === `insc-${insc.id}`} className="h-7 px-3 text-xs gap-1"><CheckCircle size={11} /> Valider</Button>
+                                        )}
+                                        {insc.statut !== "refusee" && insc.statut !== "supprimee" && (
+                                          <Button size="sm" variant="outline" onClick={() => handleRefuserInscription(insc.id)} disabled={processing === `insc-${insc.id}`} className="h-7 px-3 text-xs gap-1 text-destructive hover:text-destructive"><XCircle size={11} /> Refuser</Button>
+                                        )}
+                                        {insc.statut !== "supprimee" && (
+                                          <Button size="sm" variant="outline" onClick={() => setConfirmSupprimer(insc)} disabled={processing === `insc-${insc.id}`} className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"><Trash2 size={11} /></Button>
+                                        )}
+                                        <Button size="sm" variant="outline" onClick={() => setAdminRecapInsc(insc)} className="h-7 px-2 text-xs gap-1 text-muted-foreground"><Download size={11} /></Button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Suggestions email */}
+                      {isSuperAdmin && (() => {
+                        const suggestions = inscSuggereesEmail(profil).filter(i => !pInsc.some(p => p.id === i.id));
+                        if (suggestions.length === 0) return null;
+                        return (
+                          <div>
+                            <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-2">Inscription(s) avec le même email — à confirmer</h3>
+                            <div className="space-y-2">
+                              {suggestions.map(insc => {
+                                const iBdg = inscBadge(insc.statut);
+                                return (
+                                  <div key={insc.id} className="rounded-lg border border-amber-300/50 bg-amber-50/40 dark:bg-amber-950/20 px-4 py-3">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <div className="text-sm">
+                                        <span className="font-medium">{insc.prenom} {insc.nom}</span>
+                                        <span className="text-muted-foreground ml-2 text-xs">{insc.disciplines || "—"} {insc.saison ? `· ${insc.saison}` : ""}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1.5 shrink-0">
+                                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${iBdg.cls}`}>{iBdg.label}</span>
+                                        <Button size="sm" variant="outline" onClick={() => handleLierInscription(insc.id, profil.id, insc.disciplines)} disabled={processing === `insc-${insc.id}`} className="h-7 px-2 text-xs gap-1 text-primary hover:text-primary"><Link2 size={10} /> Confirmer</Button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Infos du compte */}
+                      <div>
+                        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Compte</h3>
+                        <div className="rounded-lg border border-border/40 bg-secondary/20 divide-y divide-border/30">
+                          <div className="px-4 py-2.5 text-sm flex items-center gap-2">
+                            <span className="text-muted-foreground w-20 shrink-0 text-xs">Email</span>
+                            <span className="truncate">{profil.email}</span>
+                          </div>
+                          {profil.telephone && (
+                            <div className="px-4 py-2.5 text-sm flex items-center gap-2">
+                              <span className="text-muted-foreground w-20 shrink-0 text-xs">Téléphone</span>
+                              <span>{profil.telephone}</span>
+                            </div>
+                          )}
+                          {profil.adresse && (
+                            <div className="px-4 py-2.5 text-sm flex items-center gap-2">
+                              <span className="text-muted-foreground w-20 shrink-0 text-xs">Adresse</span>
+                              <span>{profil.adresse}</span>
+                            </div>
+                          )}
+                          <div className="px-4 py-2.5 text-sm flex items-center gap-2">
+                            <span className="text-muted-foreground w-20 shrink-0 text-xs">Membre depuis</span>
+                            <span>{new Date(profil.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Accès galerie — disciplines */}
+                      {isSuperAdmin && (
+                        <div>
+                          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Accès galerie — discipline(s)</h3>
+                          <div className="rounded-lg border border-border/40 p-4">
+                            {editingDisciplines?.id === profil.id ? (
+                              <div className="space-y-3">
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                  {disciplinesSanity.map(disc => {
+                                    const checked = editingDisciplines.value.split(",").map(s => s.trim()).filter(Boolean).includes(disc);
+                                    return (
+                                      <label key={disc} className="flex cursor-pointer items-center gap-2">
+                                        <Checkbox
+                                          checked={checked}
+                                          onCheckedChange={(v) => {
+                                            const current = editingDisciplines.value.split(",").map(s => s.trim()).filter(Boolean);
+                                            const updated = v ? [...new Set([...current, disc])] : current.filter(d => d !== disc);
+                                            setEditingDisciplines({ id: profil.id, value: updated.join(", ") });
+                                          }}
+                                        />
+                                        <span className="text-sm">{disc}</span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                                <div className="flex gap-2 pt-1">
+                                  <Button size="sm" className="h-7 px-3 text-xs" onClick={() => handleSaveDisciplines(profil.id, editingDisciplines.value)}>Enregistrer</Button>
+                                  <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => setEditingDisciplines(null)}>Annuler</Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-between gap-2">
+                                <div>
+                                  {discTags(profil.disciplines).length > 0 ? (
+                                    <div className="flex flex-wrap gap-1">
+                                      {discTags(profil.disciplines).map(d => (
+                                        <span key={d} className="rounded-full bg-secondary px-2 py-0.5 text-xs">{d}</span>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs italic text-muted-foreground">Non défini — albums "toute discipline" uniquement</p>
+                                  )}
+                                </div>
+                                <Button size="sm" variant="outline" className="h-7 px-3 text-xs shrink-0" onClick={() => setEditingDisciplines({ id: profil.id, value: profil.disciplines || "" })}>Modifier</Button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Lier une inscription */}
+                      {isSuperAdmin && (() => {
+                        const dejaliees = new Set(pInsc.map(i => i.id));
+                        const disponibles = inscriptions.filter(i => !dejaliees.has(i.id));
+                        if (disponibles.length === 0) return null;
+                        const isLinking = linkingProfilId === profil.id;
+                        return (
+                          <div>
+                            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Lier une inscription existante</h3>
+                            <div className="rounded-lg border border-border/40 p-4">
+                              {isLinking ? (
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <select
+                                    className="flex-1 min-w-0 rounded border border-border bg-card px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                                    value={linkingInscId}
+                                    onChange={e => setLinkingInscId(e.target.value)}
+                                  >
+                                    <option value="">— Choisir une inscription —</option>
+                                    {disponibles.map(i => (
+                                      <option key={i.id} value={i.id}>
+                                        {[i.prenom, i.nom].filter(Boolean).join(" ") || i.email || "Sans nom"} — {i.disciplines || "?"} {i.saison ? `(${i.saison})` : ""}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <Button size="sm" className="h-8 px-3 text-xs gap-1" disabled={!linkingInscId} onClick={async () => {
+                                    const insc = inscriptions.find(i => i.id === linkingInscId);
+                                    await handleLierInscription(linkingInscId, profil.id, insc?.disciplines || null);
+                                    setLinkingProfilId(null);
+                                    setLinkingInscId("");
+                                  }}><Link2 size={12} /> Lier</Button>
+                                  <Button size="sm" variant="outline" className="h-8 px-2 text-xs" onClick={() => { setLinkingProfilId(null); setLinkingInscId(""); }}>Annuler</Button>
+                                </div>
+                              ) : (
+                                <Button size="sm" variant="outline" className="h-8 px-3 text-xs gap-1" onClick={() => { setLinkingProfilId(profil.id); setLinkingInscId(""); }}>
+                                  <Link2 size={12} /> Lier une inscription…
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Rôle & permissions */}
+                      {isSuperAdmin && profil.id !== user?.id && (
+                        <div>
+                          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Rôle & permissions</h3>
+                          <div className="flex flex-wrap gap-2">
+                            {profil.role === "refuse" ? (
+                              <Button size="sm" variant="outline" onClick={() => handleApprouverCompte(profil.id)} disabled={processing === profil.id} className="gap-1 text-xs"><CheckCircle size={12} /> Réactiver le compte</Button>
+                            ) : profil.role === "admin" ? (
+                              <Button size="sm" variant="outline" onClick={() => handleChangerRole(profil.id, "membre")} disabled={processing === profil.id} className="gap-1 text-xs text-destructive hover:text-destructive"><Shield size={12} /> Retirer les droits admin</Button>
+                            ) : profil.role === "admin_discipline" ? (
+                              <>
+                                <Button size="sm" variant="outline" onClick={() => setConfirmAdmin(profil)} disabled={processing === profil.id} className="gap-1 text-xs text-primary hover:text-primary"><Shield size={12} /> Promouvoir en admin</Button>
+                                <Button size="sm" variant="outline" onClick={() => handleChangerRole(profil.id, "membre")} disabled={processing === profil.id} className="gap-1 text-xs text-destructive hover:text-destructive"><Shield size={12} /> Retirer les droits discipline</Button>
+                              </>
+                            ) : (
+                              <>
+                                <Button size="sm" variant="outline" onClick={() => setConfirmAdmin(profil)} disabled={processing === profil.id} className="gap-1 text-xs text-primary hover:text-primary"><Shield size={12} /> Promouvoir en admin</Button>
+                                <Button size="sm" variant="outline" onClick={() => { setConfirmAdminDiscipline(profil); setConfirmAdminDisciplineDiscs(profil.disciplines ? profil.disciplines.split(",").map(s => s.trim()).filter(Boolean) : []); }} disabled={processing === profil.id} className="gap-1 text-xs text-violet-700 hover:text-violet-700 border-violet-300"><Shield size={12} /> Admin discipline</Button>
+                                <Button size="sm" variant="outline" onClick={() => handleRefuserCompte(profil.id)} disabled={processing === profil.id} className="gap-1 text-xs text-destructive hover:text-destructive"><UserX size={12} /> Révoquer le compte</Button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                    </div>
+                  </>
+                );
+              })()}
+
+              {/* ——— PANNEAU : INSCRIPTION SEULE ——— */}
+              {selectedLigne.type === "inscription_seule" && (() => {
+                const insc = selectedLigne.inscription;
+                const iBdg = inscBadge(insc.statut);
+                const initials = getInitials(insc.prenom, insc.nom);
+
+                return (
+                  <>
+                    {/* Header */}
+                    <div className="flex items-center gap-4 p-6 pb-4 border-b border-border/50 pr-12">
+                      <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-base font-bold ${avatarBg(insc.nom || insc.prenom || "?")}`}>
+                        {initials}
+                      </div>
+                      <div className="min-w-0">
+                        <SheetTitle className="font-serif text-lg">
+                          {[insc.nom, insc.prenom].filter(Boolean).join(" ") || <span className="italic text-muted-foreground">Sans nom</span>}
+                        </SheetTitle>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${iBdg.cls}`}>{iBdg.label}</span>
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">Pas de compte</span>
+                          {insc.source === "papier" && <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-700"><FileText size={10} /> Papier</span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Body */}
+                    <div className="flex-1 space-y-5 p-6">
+
+                      {/* Infos inscription */}
+                      <div>
+                        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Inscription</h3>
+                        <div className="rounded-lg border border-border/40 bg-secondary/20 divide-y divide-border/30">
+                          {insc.disciplines && (
+                            <div className="px-4 py-2.5 text-sm flex items-start gap-2">
+                              <span className="text-muted-foreground w-24 shrink-0 text-xs pt-0.5">Discipline(s)</span>
+                              <div className="flex flex-wrap gap-1">{discTags(insc.disciplines).map(d => <span key={d} className="rounded-full bg-secondary px-2 py-0.5 text-xs">{d}</span>)}</div>
+                            </div>
+                          )}
+                          {insc.saison && <div className="px-4 py-2.5 text-sm flex gap-2"><span className="text-muted-foreground w-24 shrink-0 text-xs">Saison</span><span>{insc.saison}</span></div>}
+                          {insc.email && <div className="px-4 py-2.5 text-sm flex gap-2"><span className="text-muted-foreground w-24 shrink-0 text-xs">Email</span><span className="truncate">{insc.email}</span></div>}
+                          {insc.tel_mobile && <div className="px-4 py-2.5 text-sm flex gap-2"><span className="text-muted-foreground w-24 shrink-0 text-xs">Téléphone</span><span>{insc.tel_mobile}</span></div>}
+                          {insc.adresse && <div className="px-4 py-2.5 text-sm flex gap-2"><span className="text-muted-foreground w-24 shrink-0 text-xs">Adresse</span><span>{insc.adresse}</span></div>}
+                          {insc.date_naissance && <div className="px-4 py-2.5 text-sm flex gap-2"><span className="text-muted-foreground w-24 shrink-0 text-xs">Naissance</span><span>{new Date(insc.date_naissance).toLocaleDateString("fr-FR")}</span></div>}
+                          {insc.groupe_sanguin && <div className="px-4 py-2.5 text-sm flex gap-2"><span className="text-muted-foreground w-24 shrink-0 text-xs">Groupe sanguin</span><span>{insc.groupe_sanguin}</span></div>}
+                          {insc.allergie && <div className="px-4 py-2.5 text-sm flex gap-2"><span className="text-muted-foreground w-24 shrink-0 text-xs">Allergie</span><span>{insc.allergie}</span></div>}
+                          {insc.niveau && <div className="px-4 py-2.5 text-sm flex gap-2"><span className="text-muted-foreground w-24 shrink-0 text-xs">Niveau</span><span>{insc.niveau}</span></div>}
+                          {insc.urgence_contact && <div className="px-4 py-2.5 text-sm flex gap-2"><span className="text-muted-foreground w-24 shrink-0 text-xs">Urgence</span><span>{insc.urgence_contact}</span></div>}
+                          {insc.moyen_paiement && <div className="px-4 py-2.5 text-sm flex gap-2"><span className="text-muted-foreground w-24 shrink-0 text-xs">Paiement</span><span>{PAIEMENT_LABELS[insc.moyen_paiement] ?? insc.moyen_paiement}</span></div>}
+                          {(insc.pass_sport || insc.droit_image || insc.autorisation_parentale) && (
+                            <div className="px-4 py-2.5 text-sm flex gap-2">
+                              <span className="text-muted-foreground w-24 shrink-0 text-xs">Options</span>
+                              <div className="flex flex-wrap gap-1.5 text-xs">
+                                {insc.pass_sport && <span className="text-primary font-medium">Pass Sport</span>}
+                                {insc.droit_image && <span>Droit image ✓</span>}
+                                {insc.autorisation_parentale && <span>Auth. parentale ✓</span>}
+                              </div>
+                            </div>
+                          )}
+                          {insc.type_inscription === "mineur" && (insc.parent1_nom || insc.parent1_prenom) && (
+                            <div className="px-4 py-2.5 text-sm flex gap-2">
+                              <span className="text-muted-foreground w-24 shrink-0 text-xs">Parent 1</span>
+                              <span>{[insc.parent1_prenom, insc.parent1_nom].filter(Boolean).join(" ")}{insc.parent1_email ? ` — ${insc.parent1_email}` : ""}{insc.parent1_tel ? ` — ${insc.parent1_tel}` : ""}</span>
+                            </div>
+                          )}
+                          {insc.type_inscription === "mineur" && (insc.parent2_nom || insc.parent2_prenom) && (
+                            <div className="px-4 py-2.5 text-sm flex gap-2">
+                              <span className="text-muted-foreground w-24 shrink-0 text-xs">Parent 2</span>
+                              <span>{[insc.parent2_prenom, insc.parent2_nom].filter(Boolean).join(" ")}{insc.parent2_email ? ` — ${insc.parent2_email}` : ""}{insc.parent2_tel ? ` — ${insc.parent2_tel}` : ""}</span>
+                            </div>
+                          )}
+                          <div className="px-4 py-2.5 text-sm flex gap-2"><span className="text-muted-foreground w-24 shrink-0 text-xs">Reçue le</span><span>{new Date(insc.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}</span></div>
+                        </div>
+                      </div>
+
+                      {/* Lier à un compte */}
+                      <div>
+                        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Lier à un compte membre</h3>
+                        {!linkingInscToProfilMode ? (
+                          <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => setLinkingInscToProfilMode(true)}>
+                            <Link2 size={12} /> Lier à un compte existant
+                          </Button>
+                        ) : (
+                          <div className="space-y-2">
+                            <select
+                              className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm"
+                              value={linkingInscToProfilId}
+                              onChange={(e) => setLinkingInscToProfilId(e.target.value)}
+                            >
+                              <option value="">-- Choisir un membre --</option>
+                              {membres.map(m => (
+                                <option key={m.id} value={m.id}>
+                                  {[m.prenom, m.nom].filter(Boolean).join(" ") || m.email}
+                                </option>
+                              ))}
+                            </select>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                className="text-xs gap-1"
+                                disabled={!linkingInscToProfilId || processing === `insc-${insc.id}`}
+                                onClick={async () => {
+                                  await handleLierInscription(insc.id, linkingInscToProfilId, insc.disciplines);
+                                  setLinkingInscToProfilMode(false);
+                                  setLinkingInscToProfilId("");
+                                }}
+                              >
+                                <Link2 size={12} /> Confirmer le lien
+                              </Button>
+                              <Button size="sm" variant="ghost" className="text-xs" onClick={() => { setLinkingInscToProfilMode(false); setLinkingInscToProfilId(""); }}>
+                                Annuler
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Actions */}
+                      <div>
+                        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Actions</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {insc.statut !== "validee" && insc.statut !== "supprimee" && (
+                            <Button size="sm" onClick={() => handleValiderInscription(insc.id)} disabled={processing === `insc-${insc.id}`} className="gap-1 text-xs"><CheckCircle size={12} /> Valider l'inscription</Button>
+                          )}
+                          {insc.statut !== "refusee" && insc.statut !== "supprimee" && (
+                            <Button size="sm" variant="outline" onClick={() => handleRefuserInscription(insc.id)} disabled={processing === `insc-${insc.id}`} className="gap-1 text-xs text-destructive hover:text-destructive"><XCircle size={12} /> Refuser</Button>
+                          )}
+                          {insc.statut !== "supprimee" && (
+                            <Button size="sm" variant="outline" onClick={() => setConfirmSupprimer(insc)} disabled={processing === `insc-${insc.id}`} className="gap-1 text-xs text-muted-foreground hover:text-destructive"><Trash2 size={12} /> Supprimer</Button>
+                          )}
+                          <Button size="sm" variant="outline" onClick={() => setAdminRecapInsc(insc)} className="gap-1 text-xs text-muted-foreground"><Download size={12} /> Récapitulatif</Button>
+                        </div>
+                      </div>
+
+                    </div>
+                  </>
+                );
+              })()}
+
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
 
       {/* Modale saisie inscription papier */}
       <Dialog open={showPapierModal} onOpenChange={(open) => { if (!open) setShowPapierModal(false); }}>
@@ -989,7 +1445,6 @@ const AdminMembres = () => {
           </DialogHeader>
           <div className="space-y-6 pt-2">
 
-            {/* Type selector — fixe, hors animation */}
             <div>
               <h3 className="mb-3 text-sm font-semibold border-b border-border/50 pb-1.5">Type d'inscription</h3>
               <div className="grid grid-cols-2 gap-3">
@@ -1008,7 +1463,6 @@ const AdminMembres = () => {
               </div>
             </div>
 
-            {/* Contenu animé */}
             <AnimatePresence mode="wait" custom={papierDirRef.current}>
               <motion.div
                 key={papierForm.typeInscription}
@@ -1019,8 +1473,6 @@ const AdminMembres = () => {
                 exit="exit"
                 className="space-y-6 overflow-hidden"
               >
-
-                {/* Identité */}
                 <div>
                   <h3 className="mb-3 text-sm font-semibold border-b border-border/50 pb-1.5">Identité</h3>
                   <div className="space-y-3">
@@ -1055,7 +1507,6 @@ const AdminMembres = () => {
                   </div>
                 </div>
 
-                {/* Coordonnées — adultes uniquement (tel + email) */}
                 {papierForm.typeInscription === "adulte" && (
                   <div>
                     <h3 className="mb-3 text-sm font-semibold border-b border-border/50 pb-1.5">Coordonnées</h3>
@@ -1072,7 +1523,6 @@ const AdminMembres = () => {
                   </div>
                 )}
 
-                {/* Parents + Urgence — mineurs uniquement */}
                 {papierForm.typeInscription === "mineur" && (
                   <>
                     <div>
@@ -1105,7 +1555,6 @@ const AdminMembres = () => {
                   </>
                 )}
 
-                {/* Urgence — adultes dans coordonnées, mineurs sous les parents */}
                 <div>
                   <h3 className="mb-3 text-sm font-semibold border-b border-border/50 pb-1.5">Personne à contacter en cas d'urgence</h3>
                   <div className="space-y-3">
@@ -1126,7 +1575,6 @@ const AdminMembres = () => {
                   </div>
                 </div>
 
-                {/* Inscription */}
                 <div>
                   <h3 className="mb-3 text-sm font-semibold border-b border-border/50 pb-1.5">Inscription</h3>
                   <div className="space-y-3">
@@ -1170,7 +1618,6 @@ const AdminMembres = () => {
                   </div>
                 </div>
 
-                {/* Mode de règlement */}
                 <div>
                   <h3 className="mb-3 text-sm font-semibold border-b border-border/50 pb-1.5">Mode de règlement</h3>
                   <div className="space-y-2">
@@ -1198,7 +1645,6 @@ const AdminMembres = () => {
                   </div>
                 </div>
 
-                {/* Autorisations */}
                 <div>
                   <h3 className="mb-3 text-sm font-semibold border-b border-border/50 pb-1.5">Autorisations</h3>
                   <div className="space-y-3">
@@ -1306,6 +1752,15 @@ const AdminMembres = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Hors-écran : récapitulatif téléchargeable admin */}
+      <div style={{ position: "fixed", left: "-9999px", top: 0, pointerEvents: "none" }}>
+        {adminRecapInsc && (
+          <div ref={adminRecapRef}>
+            <PrintableInscription data={inscriptionToRecapData(adminRecapInsc)} />
+          </div>
+        )}
+      </div>
     </Layout>
   );
 };
