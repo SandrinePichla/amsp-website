@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Layout from "@/components/Layout";
 import { client } from "@/sanityClient";
 import { urlFor } from "@/sanityImage";
 import {
   Sparkles, GraduationCap, Users, Clock, Phone, Mail, User, Award,
-  CalendarDays, ArrowRight, ChevronLeft, ExternalLink,
+  CalendarDays, ArrowRight, ChevronLeft, ExternalLink, X,
 } from "lucide-react";
 import { iconesDisciplines } from "@/iconesDisciplines";
 import { PALETTE, buildColorMap, timeToMinutes, DAYS } from "@/components/PrintablePlanning";
@@ -69,6 +69,7 @@ const DisciplineDetail = () => {
   const [tarifs, setTarifs] = useState<Tarif[]>([]);
   const [tarifsSpeciaux, setTarifsSpeciaux] = useState<TarifSpecial[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<Instructeur | null>(null);
 
   useEffect(() => {
     client
@@ -210,7 +211,11 @@ const DisciplineDetail = () => {
             </h2>
             <div className="grid gap-4 sm:grid-cols-2">
               {instructeurs.map((inst) => (
-                <div key={inst._id} className="flex flex-col gap-4 rounded-xl border border-border/40 bg-card p-4 sm:flex-row sm:items-start">
+                <button
+                  key={inst._id}
+                  onClick={() => setSelected(inst)}
+                  className="flex flex-col gap-4 rounded-xl border border-border/40 bg-card p-4 sm:flex-row sm:items-start text-left w-full transition-all hover:border-primary/50 hover:shadow-md hover:shadow-primary/10 cursor-pointer"
+                >
                   {inst.photo ? (
                     <img
                       src={urlFor(inst.photo).width(120).height(120).fit("crop").url()}
@@ -231,33 +236,10 @@ const DisciplineDetail = () => {
                       </p>
                     )}
                     {inst.bio && (
-                      <p className="mt-2 text-xs text-muted-foreground leading-relaxed whitespace-pre-line">{inst.bio}</p>
+                      <p className="mt-2 text-xs text-muted-foreground leading-relaxed line-clamp-3">{inst.bio}</p>
                     )}
-                    <div className="mt-2 flex flex-col gap-1">
-                      {inst.telephone && (
-                        <a href={`tel:${inst.telephone.replace(/\./g, "")}`} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors">
-                          <Phone size={11} className="text-primary" />{inst.telephone}
-                        </a>
-                      )}
-                      {inst.email && (
-                        <a href={`mailto:${inst.email}`} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors">
-                          <Mail size={11} className="text-primary" />{inst.email}
-                        </a>
-                      )}
-                      {inst.liens?.map((lien) => (
-                        <a
-                          key={lien.url}
-                          href={lien.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          <ExternalLink size={11} className="text-primary" />{lien.label}
-                        </a>
-                      ))}
-                    </div>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </motion.section>
@@ -492,6 +474,98 @@ const DisciplineDetail = () => {
         </motion.section>
 
       </div>
+      {/* Popup fiche instructeur */}
+      <AnimatePresence>
+        {selected && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setSelected(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ duration: 0.2 }}
+              className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-card border border-border shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setSelected(null)}
+                className="absolute top-4 right-4 z-10 rounded-full bg-background/80 p-2 hover:bg-secondary transition-colors"
+              >
+                <X size={18} />
+              </button>
+
+              {selected.photo ? (
+                <img
+                  src={urlFor(selected.photo).width(600).height(400).fit("crop").url()}
+                  alt={selected.nom}
+                  className="w-full h-56 object-cover rounded-t-2xl"
+                />
+              ) : (
+                <div className="w-full h-40 flex items-center justify-center bg-primary/10 rounded-t-2xl">
+                  <User size={64} className="text-primary/30" />
+                </div>
+              )}
+
+              <div className="p-6">
+                <h2 className="font-serif text-2xl font-bold">{selected.nom}</h2>
+
+                {selected.grade && (
+                  <p className="mt-3 flex items-center gap-2 text-sm font-semibold text-primary">
+                    <Award size={14} className="shrink-0" />
+                    {selected.grade}
+                  </p>
+                )}
+
+                {selected.bio && (
+                  <p className="mt-4 text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                    {selected.bio}
+                  </p>
+                )}
+
+                {(selected.telephone || selected.email || (selected.liens && selected.liens.length > 0)) && (
+                  <div className="mt-5 flex flex-col gap-2 border-t border-border/40 pt-4">
+                    {selected.telephone && (
+                      <a
+                        href={`tel:${selected.telephone.replace(/\./g, "")}`}
+                        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        <Phone size={14} className="text-primary shrink-0" />
+                        {selected.telephone}
+                      </a>
+                    )}
+                    {selected.email && (
+                      <a
+                        href={`mailto:${selected.email}`}
+                        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        <Mail size={14} className="text-primary shrink-0" />
+                        {selected.email}
+                      </a>
+                    )}
+                    {selected.liens?.map((lien) => (
+                      <a
+                        key={lien.url}
+                        href={lien.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        <ExternalLink size={14} className="text-primary shrink-0" />
+                        {lien.label}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </Layout>
   );
 };
