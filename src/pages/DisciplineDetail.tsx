@@ -70,6 +70,7 @@ const DisciplineDetail = () => {
   const [tarifsSpeciaux, setTarifsSpeciaux] = useState<TarifSpecial[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Instructeur | null>(null);
+  const [lightbox, setLightbox] = useState<string | null>(null);
 
   useEffect(() => {
     client
@@ -474,6 +475,35 @@ const DisciplineDetail = () => {
         </motion.section>
 
       </div>
+      {/* Lightbox photo */}
+      <AnimatePresence>
+        {lightbox && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4 cursor-zoom-out"
+            onClick={() => setLightbox(null)}
+          >
+            <button
+              onClick={() => setLightbox(null)}
+              className="absolute top-4 right-4 rounded-full bg-white/10 p-2 hover:bg-white/20 transition-colors"
+            >
+              <X size={20} className="text-white" />
+            </button>
+            <motion.img
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.2 }}
+              src={lightbox}
+              className="max-w-full max-h-[90vh] rounded-xl object-contain shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Popup fiche instructeur */}
       <AnimatePresence>
         {selected && (
@@ -500,11 +530,19 @@ const DisciplineDetail = () => {
               </button>
 
               {selected.photo ? (
-                <img
-                  src={urlFor(selected.photo).width(600).height(400).fit("crop").url()}
-                  alt={selected.nom}
-                  className="w-full h-56 object-cover rounded-t-2xl"
-                />
+                <button
+                  className="relative w-full h-48 overflow-hidden rounded-t-2xl focus:outline-none group bg-secondary/30"
+                  onClick={(e) => { e.stopPropagation(); setLightbox(urlFor(selected.photo!).width(1200).url()); }}
+                >
+                  <img
+                    src={urlFor(selected.photo).width(600).url()}
+                    alt={selected.nom}
+                    className="w-full h-full object-contain transition-opacity group-hover:opacity-90 cursor-zoom-in"
+                  />
+                  {/* Fondus côtés */}
+                  <div className="pointer-events-none absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-card to-transparent" />
+                  <div className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-card to-transparent" />
+                </button>
               ) : (
                 <div className="w-full h-40 flex items-center justify-center bg-primary/10 rounded-t-2xl">
                   <User size={64} className="text-primary/30" />
