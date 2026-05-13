@@ -11,7 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import {
   Clock, CheckCircle, XCircle, Shield, Download, ChevronDown,
-  UserX, ClipboardList, Link2, Plus, FileText, Trash2, Search,
+  UserX, ClipboardList, Link2, Plus, FileText, Trash2, Search, Pencil, Upload, ExternalLink,
 } from "lucide-react";
 import { sendBrevoEmail, TEMPLATES } from "@/lib/brevo";
 import { client } from "@/sanityClient";
@@ -69,6 +69,7 @@ interface Inscription {
   parent2_prenom: string | null;
   parent2_email: string | null;
   parent2_tel: string | null;
+  document_scan_url: string | null;
 }
 
 type Ligne =
@@ -220,6 +221,8 @@ const AdminMembres = () => {
     return m >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
   })();
   const [showPapierModal, setShowPapierModal] = useState(false);
+  const [editingInscId, setEditingInscId] = useState<string | null>(null);
+  const [scanFile, setScanFile] = useState<File | null>(null);
   const [savingPapier, setSavingPapier] = useState(false);
   const papierDirRef = useRef(1);
   const [papierForm, setPapierForm] = useState({
@@ -262,6 +265,44 @@ const AdminMembres = () => {
     });
   }, [user, navigate]);
 
+  const openPapierEdit = (insc: Inscription) => {
+    const urgenceParts = (insc.urgence_contact || "").split(" — ");
+    const urgenceTel = urgenceParts.length > 1 ? urgenceParts[urgenceParts.length - 1] : "";
+    const urgenceNameParts = (urgenceParts.length > 1 ? urgenceParts.slice(0, -1).join(" — ") : insc.urgence_contact || "").split(" ");
+    setEditingInscId(insc.id);
+    setScanFile(null);
+    setPapierForm({
+      nom: insc.nom || "",
+      prenom: insc.prenom || "",
+      adresse: insc.adresse || "",
+      telMobile: insc.tel_mobile || "",
+      email: insc.email || "",
+      dateNaissance: insc.date_naissance || "",
+      groupeSanguin: insc.groupe_sanguin || "",
+      allergie: insc.allergie || "",
+      niveau: insc.niveau || "",
+      urgencePrenom: urgenceNameParts[0] || "",
+      urgenceNom: urgenceNameParts.slice(1).join(" "),
+      urgenceTel,
+      disciplines: insc.disciplines || "",
+      saison: insc.saison || defaultSaison,
+      autorisationParentale: insc.autorisation_parentale || false,
+      droitImage: insc.droit_image || false,
+      passSport: insc.pass_sport || false,
+      moyenPaiement: insc.moyen_paiement || "",
+      typeInscription: (insc.type_inscription as "adulte" | "mineur") || "adulte",
+      parent1Nom: insc.parent1_nom || "",
+      parent1Prenom: insc.parent1_prenom || "",
+      parent1Email: insc.parent1_email || "",
+      parent1Tel: insc.parent1_tel || "",
+      parent2Nom: insc.parent2_nom || "",
+      parent2Prenom: insc.parent2_prenom || "",
+      parent2Email: insc.parent2_email || "",
+      parent2Tel: insc.parent2_tel || "",
+    });
+    setShowPapierModal(true);
+  };
+
   const handleSaisirPapier = async () => {
     if (!papierForm.nom.trim() || !papierForm.prenom.trim()) {
       toast.error("Le nom et le prénom sont obligatoires.");
@@ -271,18 +312,34 @@ const AdminMembres = () => {
       toast.error("Veuillez indiquer au moins une discipline.");
       return;
     }
+    if (!papierForm.moyenPaiement) {
+      toast.error("Veuillez sélectionner un moyen de paiement.");
+      return;
+    }
+    if (!papierForm.dateNaissance) {
+      toast.error("La date de naissance est obligatoire.");
+      return;
+    }
+    if (!papierForm.urgenceTel.trim() && !papierForm.urgenceNom.trim() && !papierForm.urgencePrenom.trim()) {
+      toast.error("La personne à contacter en cas d'urgence est obligatoire.");
+      return;
+    }
+    if (papierForm.typeInscription === "mineur" && (!papierForm.parent1Nom.trim() || !papierForm.parent1Prenom.trim())) {
+      toast.error("Le nom et le prénom du parent / tuteur 1 sont obligatoires.");
+      return;
+    }
     setSavingPapier(true);
     const urgenceNomComplet = [papierForm.urgencePrenom, papierForm.urgenceNom].filter(Boolean).join(" ");
     const urgenceContact = [urgenceNomComplet, papierForm.urgenceTel].filter(Boolean).join(" — ");
-    const { error } = await supabase.from("inscriptions").insert({
+    const inscData = {
       nom: papierForm.nom.trim(),
       prenom: papierForm.prenom.trim(),
       adresse: papierForm.adresse.trim() || null,
       date_naissance: papierForm.dateNaissance || null,
       groupe_sanguin: papierForm.groupeSanguin.trim() || null,
       allergie: papierForm.allergie.trim() || null,
-      tel_mobile: papierForm.typeInscription === "mineur" ? null : papierForm.telMobile.trim() || null,
-      email: papierForm.typeInscription === "mineur" ? null : papierForm.email.trim() || null,
+      tel_mobile: papierForm.typeInscription === "mineur" ? '' : papierForm.telMobile.trim() || null,
+      email: papierForm.typeInscription === "mineur" ? '' : papierForm.email.trim() || null,
       urgence_contact: urgenceContact || null,
       disciplines: papierForm.disciplines.trim(),
       niveau: papierForm.niveau.trim() || null,
@@ -291,9 +348,6 @@ const AdminMembres = () => {
       pass_sport: papierForm.passSport,
       moyen_paiement: papierForm.moyenPaiement || null,
       saison: papierForm.saison.trim() || null,
-      statut: "en_attente",
-      source: "papier",
-      user_id: null,
       type_inscription: papierForm.typeInscription,
       parent1_nom: papierForm.typeInscription === "mineur" ? papierForm.parent1Nom.trim() || null : null,
       parent1_prenom: papierForm.typeInscription === "mineur" ? papierForm.parent1Prenom.trim() || null : null,
@@ -303,12 +357,40 @@ const AdminMembres = () => {
       parent2_prenom: papierForm.typeInscription === "mineur" && papierForm.parent2Prenom.trim() ? papierForm.parent2Prenom.trim() : null,
       parent2_email: papierForm.typeInscription === "mineur" && papierForm.parent2Email.trim() ? papierForm.parent2Email.trim() : null,
       parent2_tel: papierForm.typeInscription === "mineur" && papierForm.parent2Tel.trim() ? papierForm.parent2Tel.trim() : null,
-    });
-    if (error) {
-      toast.error("Erreur : " + error.message);
+    };
+
+    let savedId: string | null = editingInscId;
+    let saveError: string | null = null;
+
+    if (editingInscId) {
+      const { error } = await supabase.from("inscriptions").update(inscData).eq("id", editingInscId);
+      if (error) saveError = error.message;
     } else {
-      toast.success("Inscription papier enregistrée.");
+      const { data: inserted, error } = await supabase.from("inscriptions").insert({
+        ...inscData, statut: "en_attente", source: "papier", user_id: null,
+      }).select("id").single();
+      if (error) saveError = error.message;
+      else savedId = inserted?.id ?? null;
+    }
+
+    if (saveError) {
+      toast.error("Erreur : " + saveError);
+    } else {
+      if (scanFile && savedId) {
+        const ext = scanFile.name.split(".").pop();
+        const path = `${savedId}/${Date.now()}.${ext}`;
+        const { error: uploadError } = await supabase.storage.from("inscriptions-scans").upload(path, scanFile, { upsert: true });
+        if (uploadError) {
+          toast.warning("Inscription enregistrée, mais l'upload du scan a échoué : " + uploadError.message);
+        } else {
+          const { data: { publicUrl } } = supabase.storage.from("inscriptions-scans").getPublicUrl(path);
+          await supabase.from("inscriptions").update({ document_scan_url: publicUrl }).eq("id", savedId);
+        }
+      }
+      toast.success(editingInscId ? "Inscription modifiée." : "Inscription papier enregistrée.");
       setShowPapierModal(false);
+      setEditingInscId(null);
+      setScanFile(null);
       setPapierForm({
         nom: "", prenom: "", adresse: "", telMobile: "", email: "",
         dateNaissance: "", groupeSanguin: "", allergie: "", niveau: "",
@@ -444,14 +526,15 @@ const AdminMembres = () => {
         }
       }
       toast.success("Inscription validée.");
-      if (insc?.email) {
+      const destEmail = insc?.email || insc?.parent1_email;
+      if (destEmail) {
         try {
-          await sendBrevoEmail(TEMPLATES.VALIDATION, { email: insc.email, name: [insc.prenom, insc.nom].filter(Boolean).join(" ") || insc.email }, {
+          await sendBrevoEmail(TEMPLATES.VALIDATION, { email: destEmail, name: [insc.prenom, insc.nom].filter(Boolean).join(" ") || destEmail }, {
             nom: insc.nom || "",
             prenom: insc.prenom || "",
             adresse: insc.adresse || "",
             tel_mobile: insc.tel_mobile || "",
-            email: insc.email,
+            email: destEmail,
             date_naissance: insc.date_naissance || "",
             groupe_sanguin: insc.groupe_sanguin || "",
             allergie: insc.allergie || "Aucune",
@@ -854,6 +937,7 @@ const AdminMembres = () => {
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
                         className="pl-8 h-9 text-sm"
+                        autoComplete="off"
                       />
                     </div>
                     {disciplinesSanity.length > 0 && (
@@ -1105,6 +1189,9 @@ const AdminMembres = () => {
                                           <Button size="sm" variant="outline" onClick={() => setConfirmSupprimer(insc)} disabled={processing === `insc-${insc.id}`} className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"><Trash2 size={11} /></Button>
                                         )}
                                         <Button size="sm" variant="outline" onClick={() => setAdminRecapInsc(insc)} className="h-7 px-2 text-xs gap-1 text-muted-foreground"><Download size={11} /></Button>
+                                        {insc.source === "papier" && (
+                                          <Button size="sm" variant="outline" onClick={() => openPapierEdit(insc)} className="h-7 px-2 text-xs gap-1 text-muted-foreground"><Pencil size={11} /></Button>
+                                        )}
                                       </div>
                                     </div>
                                   )}
@@ -1424,8 +1511,20 @@ const AdminMembres = () => {
                             <Button size="sm" variant="outline" onClick={() => setConfirmSupprimer(insc)} disabled={processing === `insc-${insc.id}`} className="gap-1 text-xs text-muted-foreground hover:text-destructive"><Trash2 size={12} /> Supprimer</Button>
                           )}
                           <Button size="sm" variant="outline" onClick={() => setAdminRecapInsc(insc)} className="gap-1 text-xs text-muted-foreground"><Download size={12} /> Récapitulatif</Button>
+                          {insc.source === "papier" && (
+                            <Button size="sm" variant="outline" onClick={() => openPapierEdit(insc)} className="gap-1 text-xs text-muted-foreground"><Pencil size={12} /> Modifier</Button>
+                          )}
                         </div>
                       </div>
+
+                      {insc.document_scan_url && (
+                        <div>
+                          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Document scanné</h3>
+                          <a href={insc.document_scan_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-primary underline hover:no-underline">
+                            <ExternalLink size={12} /> Voir le scan
+                          </a>
+                        </div>
+                      )}
 
                     </div>
                   </>
@@ -1437,11 +1536,11 @@ const AdminMembres = () => {
         </SheetContent>
       </Sheet>
 
-      {/* Modale saisie inscription papier */}
-      <Dialog open={showPapierModal} onOpenChange={(open) => { if (!open) setShowPapierModal(false); }}>
+      {/* Modale saisie / modification inscription papier */}
+      <Dialog open={showPapierModal} onOpenChange={(open) => { if (!open) { setShowPapierModal(false); setEditingInscId(null); setScanFile(null); } }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-serif">Saisir une inscription papier</DialogTitle>
+            <DialogTitle className="font-serif">{editingInscId ? "Modifier l'inscription papier" : "Saisir une inscription papier"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-6 pt-2">
 
@@ -1492,7 +1591,7 @@ const AdminMembres = () => {
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1.5">
-                        <Label htmlFor="p-ddn">Date de naissance</Label>
+                        <Label htmlFor="p-ddn">Date de naissance *</Label>
                         <Input id="p-ddn" type="date" value={papierForm.dateNaissance} onChange={e => setPapierForm(f => ({ ...f, dateNaissance: e.target.value }))} />
                       </div>
                       <div className="space-y-1.5">
@@ -1556,7 +1655,7 @@ const AdminMembres = () => {
                 )}
 
                 <div>
-                  <h3 className="mb-3 text-sm font-semibold border-b border-border/50 pb-1.5">Personne à contacter en cas d'urgence</h3>
+                  <h3 className="mb-3 text-sm font-semibold border-b border-border/50 pb-1.5">Personne à contacter en cas d'urgence *</h3>
                   <div className="space-y-3">
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1.5">
@@ -1668,10 +1767,36 @@ const AdminMembres = () => {
               </motion.div>
             </AnimatePresence>
 
+            <div>
+              <h3 className="mb-3 text-sm font-semibold border-b border-border/50 pb-1.5">Document scanné <span className="font-normal text-muted-foreground">(facultatif)</span></h3>
+              {editingInscId && (() => {
+                const existingUrl = inscriptions.find(i => i.id === editingInscId)?.document_scan_url;
+                return existingUrl ? (
+                  <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+                    <ExternalLink size={12} />
+                    <a href={existingUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground truncate max-w-xs">Scan existant</a>
+                    <span className="text-muted-foreground/60">(sera remplacé si vous uploadez un nouveau fichier)</span>
+                  </div>
+                ) : null;
+              })()}
+              <label className="flex cursor-pointer items-center gap-3 rounded-md border border-dashed border-border/70 px-4 py-3 hover:border-primary/50 transition-colors">
+                <Upload size={15} className="text-muted-foreground shrink-0" />
+                <span className="flex-1 min-w-0 text-sm text-muted-foreground truncate">
+                  {scanFile ? scanFile.name : "Ajouter le formulaire scanné (PDF, JPG, PNG)"}
+                </span>
+                <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="sr-only" onChange={e => setScanFile(e.target.files?.[0] ?? null)} />
+              </label>
+              {scanFile && (
+                <button type="button" className="mt-1 text-xs text-muted-foreground hover:text-destructive" onClick={() => setScanFile(null)}>
+                  Retirer le fichier
+                </button>
+              )}
+            </div>
+
             <div className="flex justify-end gap-2 pt-2 border-t border-border/50">
-              <Button variant="outline" onClick={() => setShowPapierModal(false)} disabled={savingPapier}>Annuler</Button>
+              <Button variant="outline" onClick={() => { setShowPapierModal(false); setEditingInscId(null); setScanFile(null); }} disabled={savingPapier}>Annuler</Button>
               <Button onClick={handleSaisirPapier} disabled={savingPapier} className="gap-2">
-                {savingPapier ? "Enregistrement…" : <><Plus size={14} /> Enregistrer l'inscription</>}
+                {savingPapier ? "Enregistrement…" : editingInscId ? <><Pencil size={14} /> Enregistrer les modifications</> : <><Plus size={14} /> Enregistrer l'inscription</>}
               </Button>
             </div>
           </div>
