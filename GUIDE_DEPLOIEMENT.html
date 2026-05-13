@@ -276,7 +276,7 @@
       <th>Où</th>
     </tr>
     <tr>
-      <td>Changer le rôle d'un membre (<code>membre</code> / <code>admin</code>)</td>
+      <td>Changer le rôle d'un membre (<code>membre</code> / <code>admin</code> / <code>admin_discipline</code>)</td>
       <td>Faisable directement depuis le site → Gestion des membres</td>
     </tr>
     <tr>
@@ -288,6 +288,29 @@
       <td>Table <code>profils</code> → sélectionner la ligne → icône poubelle</td>
     </tr>
   </table>
+
+  <h3>Structure des tables</h3>
+
+  <p><strong>Table <code>profils</code></strong> — colonnes importantes :</p>
+  <table>
+    <tr><th>Colonne</th><th>Type</th><th>Rôle</th></tr>
+    <tr><td><code>role</code></td><td>text</td><td>Valeurs possibles : <code>membre</code>, <code>admin</code>, <code>admin_discipline</code>, <code>en_attente</code>, <code>refuse</code></td></tr>
+    <tr><td><code>disciplines</code></td><td>text</td><td>Disciplines de l'adhérent (ex: <code>Karaté, Judo</code>). Utilisé pour filtrer la galerie privée et les droits <code>admin_discipline</code>.</td></tr>
+  </table>
+
+  <p><strong>Table <code>inscriptions</code></strong> — colonnes ajoutées :</p>
+  <table>
+    <tr><th>Colonne</th><th>Type</th><th>Rôle</th></tr>
+    <tr><td><code>type_inscription</code></td><td>text</td><td><code>adulte</code> ou <code>mineur</code></td></tr>
+    <tr><td><code>pass_sport</code></td><td>boolean</td><td>L'adhérent utilise le Pass Sport</td></tr>
+    <tr><td><code>moyen_paiement</code></td><td>text</td><td>Mode de paiement choisi</td></tr>
+    <tr><td><code>parent1_nom</code>, <code>parent1_prenom</code>, <code>parent1_email</code>, <code>parent1_tel</code></td><td>text</td><td>Coordonnées parent/tuteur 1 (mineurs)</td></tr>
+    <tr><td><code>parent2_nom</code>, <code>parent2_prenom</code>, <code>parent2_email</code>, <code>parent2_tel</code></td><td>text</td><td>Coordonnées parent/tuteur 2 (optionnel, mineurs)</td></tr>
+  </table>
+
+  <div class="attention">
+    ⚠️ Si vous reconstruisez la base de données depuis zéro, pensez à créer toutes ces colonnes. Le script SQL complet est disponible dans l'historique git.
+  </div>
 
   <h3>Modifier la structure des tables (SQL Editor)</h3>
 
@@ -311,6 +334,17 @@
       <li>Modifier ou créer une politique</li>
     </ol>
   </div>
+
+  <h3>Rôles disponibles dans <code>profils.role</code></h3>
+
+  <table>
+    <tr><th>Valeur</th><th>Accès sur le site</th></tr>
+    <tr><td><code>admin</code></td><td>Super-admin : voit toutes les inscriptions, tous les membres, peut exporter, gérer les rôles</td></tr>
+    <tr><td><code>admin_discipline</code></td><td>Admin limité : voit uniquement les inscriptions de sa discipline (colonne <code>disciplines</code>)</td></tr>
+    <tr><td><code>membre</code></td><td>Membre approuvé : accès à la galerie privée de sa discipline</td></tr>
+    <tr><td><code>en_attente</code></td><td>Demande d'accès en cours de traitement</td></tr>
+    <tr><td><code>refuse</code></td><td>Demande refusée</td></tr>
+  </table>
 
   <h3>Politiques RLS requises</h3>
 
@@ -373,10 +407,39 @@ WITH CHECK (
 
   <h3>Clé API et configuration</h3>
 
+  <p>La configuration Brevo est répartie en <strong>deux endroits distincts</strong> :</p>
+
+  <table>
+    <tr><th>Variable</th><th>Où la configurer</th><th>Rôle</th></tr>
+    <tr>
+      <td><code>BREVO_API_KEY</code></td>
+      <td>Supabase → <strong>Edge Functions → Secrets</strong></td>
+      <td>Clé API Brevo pour l'envoi des emails (côté serveur)</td>
+    </tr>
+    <tr>
+      <td><code>BREVO_SENDER_EMAIL</code></td>
+      <td>Supabase → <strong>Edge Functions → Secrets</strong></td>
+      <td>Adresse expéditrice des emails (ex : <code>contact@amsp.fr</code>)</td>
+    </tr>
+    <tr>
+      <td><code>VITE_BREVO_ADMIN_EMAIL</code></td>
+      <td>Fichier <code>.env</code> à la racine du projet</td>
+      <td>Email destinataire de l'admin (notifications d'inscription)</td>
+    </tr>
+    <tr>
+      <td><code>VITE_BREVO_TEMPLATE_*</code></td>
+      <td>Fichier <code>.env</code> à la racine du projet</td>
+      <td>IDs des 7 templates Brevo (1 à 7)</td>
+    </tr>
+  </table>
+
+  <div class="conseil">
+    💡 Pour modifier l'adresse expéditrice ou la clé API : Supabase Dashboard → Project → Edge Functions → Secrets → modifier <code>BREVO_SENDER_EMAIL</code> ou <code>BREVO_API_KEY</code>.<br>
+    Pour modifier l'email de réception des notifications admin : modifier <code>VITE_BREVO_ADMIN_EMAIL</code> dans le fichier <code>.env</code> puis redéployer (<code>npm run deploy</code>).
+  </div>
+
   <div class="attention">
-    ⚠️ La clé API Brevo et les IDs de templates sont stockés dans le fichier <strong><code>.env</code></strong> à la racine du projet. Ce fichier n'est pas envoyé sur GitHub pour des raisons de sécurité.<br><br>
-    Variables concernées : <code>VITE_BREVO_API_KEY</code>, <code>VITE_BREVO_SENDER_EMAIL</code>, <code>VITE_BREVO_ADMIN_EMAIL</code>, <code>VITE_BREVO_TEMPLATE_*</code><br><br>
-    Si vous travaillez sur un nouvel ordinateur, copier le fichier <code>.env.example</code> en <code>.env</code> et remplir les valeurs.
+    ⚠️ Le fichier <code>.env</code> n'est pas envoyé sur GitHub. Sur un nouvel ordinateur, copier <code>.env.example</code> en <code>.env</code> et remplir les valeurs. La clé API et l'email expéditeur sont à récupérer dans Supabase Secrets.
   </div>
 
   <!-- SECTION 8 -->
@@ -394,10 +457,11 @@ npm run dev</div>
   <h3>Contenu modifiable</h3>
 
   <ul>
-    <li><strong>Disciplines</strong> : textes, images, descriptions</li>
+    <li><strong>Disciplines</strong> : textes, images, descriptions — chaque discipline a sa page détail (<code>/disciplines/:slug</code>) avec instructeurs associés et liens externes configurés dans le code (<code>LIENS_UTILES</code> dans <code>DisciplineDetail.tsx</code>)</li>
     <li><strong>Actualités</strong> : articles, photos</li>
-    <li><strong>Galerie</strong> : albums photos (privés ou publics)</li>
+    <li><strong>Galerie</strong> : albums photos (privés ou publics) — les albums privés peuvent être associés à une discipline : seuls les membres de cette discipline les voient</li>
     <li><strong>Inscription</strong> : textes du formulaire (règlement intérieur, infos paiement, autorisation parentale…)</li>
+    <li><strong>Instructeurs</strong> : fiches des instructeurs, avec champ <code>liens</code> pour leurs réseaux sociaux / sites externes</li>
     <li><strong>Paramètres</strong> : informations de contact, horaires</li>
   </ul>
 
@@ -444,11 +508,15 @@ npm run dev</div>
     </tr>
     <tr>
       <td>Les emails n'arrivent pas</td>
-      <td>Vérifier sur brevo.com → <strong>Transactionnel</strong> → <strong>Logs</strong> si les envois apparaissent. Vérifier que la clé API dans <code>.env</code> est correcte.</td>
+      <td>Vérifier sur brevo.com → <strong>Transactionnel</strong> → <strong>Logs</strong>. Vérifier que <code>BREVO_API_KEY</code> et <code>BREVO_SENDER_EMAIL</code> sont bien renseignés dans Supabase → Edge Functions → Secrets. Vérifier que <code>VITE_BREVO_ADMIN_EMAIL</code> dans <code>.env</code> est l'adresse correcte.</td>
     </tr>
     <tr>
       <td>Le fichier <code>.env</code> est manquant</td>
-      <td>Copier <code>.env.example</code> en <code>.env</code> et remplir la clé API Brevo et les IDs de templates.</td>
+      <td>Copier <code>.env.example</code> en <code>.env</code> et remplir <code>VITE_BREVO_ADMIN_EMAIL</code> et les IDs de templates. La clé API Brevo est dans Supabase Secrets, pas dans <code>.env</code>.</td>
+    </tr>
+    <tr>
+      <td>Les boutons Valider/Refuser semblent fonctionner mais le statut revient en attente</td>
+      <td>Politique RLS manquante sur la table <code>inscriptions</code>. Exécuter le script SQL de la section 6 (Politiques RLS requises) dans le SQL Editor de Supabase.</td>
     </tr>
   </table>
 

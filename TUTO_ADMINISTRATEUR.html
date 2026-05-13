@@ -137,9 +137,11 @@
       <li>Se connecter à l'espace admin du site</li>
       <li>Valider ou refuser une inscription aux disciplines</li>
       <li>Valider ou refuser une demande d'accès à l'espace membre</li>
-      <li>Promouvoir un membre en administrateur</li>
+      <li>Promouvoir un membre en administrateur ou en admin de discipline</li>
+      <li>Rechercher, exporter et imprimer les dossiers</li>
       <li>Modifier le contenu du site avec Sanity</li>
       <li>Vérifier que les modifications sont bien en ligne</li>
+      <li>Réinitialiser un mot de passe (espace membre)</li>
     </ol>
   </div>
 
@@ -169,12 +171,17 @@
 
   <p>Lorsqu'une personne remplit le formulaire d'inscription sur le site, vous recevez un email de notification et son dossier apparaît <strong>en attente</strong> dans la gestion des membres.</p>
 
+  <div class="conseil">
+    💡 Le formulaire d'inscription propose deux modes : <strong>Adulte</strong> (formulaire standard) et <strong>Mineur</strong> (avec coordonnées des parents/tuteurs, autorisation parentale obligatoire). Les dossiers mineurs affichent les infos des parents dans la fiche de l'inscrit.
+  </div>
+
   <div class="etapes">
     <strong>Étapes :</strong>
     <ol>
       <li>Connectez-vous à votre compte admin (voir section 1)</li>
       <li>Cliquer sur l'icône bouclier en haut à droite → <strong>"Gestion des membres"</strong></li>
-      <li>Dans la section <strong>"Inscriptions aux disciplines en attente"</strong>, vous voyez les dossiers à traiter</li>
+      <li>L'onglet <strong>"En attente"</strong> est sélectionné par défaut — vous voyez les dossiers à traiter</li>
+      <li>Cliquer sur un dossier pour dérouler ses informations complètes</li>
       <li>Pour chaque dossier, cliquer sur :
         <ul>
           <li>✅ <strong>Valider</strong> → le membre reçoit un email de confirmation avec le récapitulatif de son dossier</li>
@@ -249,30 +256,116 @@
   </div>
 
   <!-- SECTION 4 -->
-  <h2>4. Promouvoir un membre en administrateur</h2>
+  <h2>4. Promouvoir un membre en administrateur ou admin de discipline</h2>
 
-  <p>Pour donner les droits administrateur à un membre (il pourra gérer les autres membres) :</p>
+  <p>Il existe deux niveaux d'administration :</p>
 
+  <table>
+    <tr>
+      <th>Rôle</th>
+      <th>Ce qu'il peut faire</th>
+    </tr>
+    <tr>
+      <td><strong>Admin</strong></td>
+      <td>Voit et gère toutes les inscriptions et tous les membres, peut exporter, modifier les rôles</td>
+    </tr>
+    <tr>
+      <td><strong>Admin de discipline</strong></td>
+      <td>Voit uniquement les inscriptions et membres de sa discipline. Ne peut pas modifier les rôles ni exporter tous les membres.</td>
+    </tr>
+  </table>
+
+  <h3>Promouvoir en admin complet</h3>
   <div class="etapes">
     <strong>Étapes :</strong>
     <ol>
-      <li>Aller dans <strong>"Gestion des membres"</strong></li>
-      <li>Dans le tableau du bas, cliquer sur le nom du membre pour dérouler sa fiche</li>
+      <li>Aller dans <strong>"Gestion des membres"</strong> → onglet <strong>"Actifs"</strong></li>
+      <li>Cliquer sur le nom du membre pour dérouler sa fiche</li>
       <li>Cliquer sur <strong>"Promouvoir en admin"</strong> (bouton bleu)</li>
-      <li>Une fenêtre de confirmation s'ouvre avec le nom et l'email du membre</li>
-      <li>Cliquer sur <strong>"Confirmer"</strong> pour valider</li>
+      <li>Confirmer dans la fenêtre qui s'ouvre</li>
+    </ol>
+  </div>
+
+  <h3>Promouvoir en admin de discipline</h3>
+  <div class="etapes">
+    <strong>Étapes :</strong>
+    <ol>
+      <li>Aller dans <strong>"Gestion des membres"</strong> → onglet <strong>"Actifs"</strong></li>
+      <li>Cliquer sur le nom du membre pour dérouler sa fiche</li>
+      <li>Cliquer sur <strong>"Admin discipline"</strong> (bouton violet)</li>
+      <li>Choisir les disciplines dont il sera responsable</li>
+      <li>Confirmer</li>
     </ol>
   </div>
 
   <div class="attention">
-    ⚠️ Un administrateur peut gérer tous les membres du site. Ne donnez ce rôle qu'à des personnes de confiance.
+    ⚠️ Un administrateur complet peut gérer tous les membres du site. Ne donnez ce rôle qu'à des personnes de confiance. L'admin de discipline ne voit que sa propre discipline — c'est un rôle plus limité et plus sûr.
   </div>
 
-  <p>Pour <strong>retirer les droits admin</strong>, même procédure → bouton <strong>"Retirer les droits admin"</strong> (en rouge).</p>
+  <p>Pour <strong>retirer les droits</strong>, même procédure → bouton <strong>"Retirer les droits admin"</strong> (en rouge).</p>
 
   <!-- SECTION 5 -->
+  <h2>5. Rechercher, exporter et imprimer les dossiers</h2>
+
+  <h3>Navigation par onglets</h3>
+  <p>La page "Gestion des membres" est organisée en onglets :</p>
+  <table>
+    <tr>
+      <th>Onglet</th>
+      <th>Ce qu'on y voit</th>
+    </tr>
+    <tr>
+      <td><strong>En attente</strong></td>
+      <td>Dossiers d'inscription et demandes d'accès à traiter (avec badge rouge)</td>
+    </tr>
+    <tr>
+      <td><strong>Actifs</strong></td>
+      <td>Membres approuvés et leurs inscriptions liées</td>
+    </tr>
+    <tr>
+      <td><strong>Sans compte</strong></td>
+      <td>Inscriptions reçues par formulaire mais sans compte espace membre correspondant</td>
+    </tr>
+    <tr>
+      <td><strong>Tous</strong></td>
+      <td>Vue complète : tous les membres et toutes les inscriptions</td>
+    </tr>
+  </table>
+
+  <h3>Barre de recherche</h3>
+  <p>Dans l'onglet <strong>"Tous"</strong>, une barre de recherche permet de filtrer par nom, prénom ou email.</p>
+
+  <h3>Exporter les dossiers en Excel</h3>
+  <div class="etapes">
+    <ol>
+      <li>Cliquer sur le bouton <strong>"Exporter"</strong> (icône téléchargement) en haut de la page</li>
+      <li>Un fichier Excel (<code>.xlsx</code>) est téléchargé avec tous les dossiers visibles selon votre rôle</li>
+    </ol>
+  </div>
+
+  <h3>Imprimer / télécharger une fiche d'inscription</h3>
+  <div class="etapes">
+    <ol>
+      <li>Ouvrir un dossier en cliquant sur le nom du membre</li>
+      <li>Cliquer sur l'icône <strong>"Imprimer"</strong> (ou télécharger) dans la fiche</li>
+      <li>Une fiche formatée s'ouvre — prête à imprimer ou enregistrer en PDF</li>
+    </ol>
+  </div>
+
+  <h3>Lier une inscription à un profil</h3>
+  <p>Si une inscription (formulaire en ligne) ne s'est pas automatiquement associée au bon compte membre :</p>
+  <div class="etapes">
+    <ol>
+      <li>Dans l'onglet <strong>"Sans compte"</strong>, repérer l'inscription orpheline</li>
+      <li>Cliquer sur <strong>"Lier une inscription…"</strong></li>
+      <li>Sélectionner le profil membre correspondant dans la liste</li>
+      <li>Confirmer — l'inscription est rattachée au profil et les disciplines sont mises à jour</li>
+    </ol>
+  </div>
+
+  <!-- SECTION 6 -->
   <div class="page-break"></div>
-  <h2>5. Modifier le contenu du site avec Sanity</h2>
+  <h2>6. Modifier le contenu du site avec Sanity</h2>
 
   <p>Sanity est l'outil qui permet de modifier le contenu du site (textes, photos, actualités, disciplines…) <strong>sans toucher au code</strong>. Les modifications sont visibles sur le site en moins d'une minute.</p>
 
@@ -357,8 +450,8 @@
     ⚠️ <strong>La publication se fait en deux clics :</strong> d'abord activer le toggle <strong>"Publié"</strong> (en bas à gauche), puis cliquer sur <strong>"Publish"</strong> (en bas à droite). Tant que ces deux étapes ne sont pas faites, les changements ne sont pas visibles sur le site.
   </div>
 
-  <!-- SECTION 6 -->
-  <h2>6. Vérifier que les modifications sont bien en ligne</h2>
+  <!-- SECTION 7 -->
+  <h2>7. Vérifier que les modifications sont bien en ligne</h2>
 
   <h3>Après une modification dans Sanity</h3>
 
@@ -417,6 +510,26 @@
     </tr>
   </table>
 
+  <!-- SECTION 8 -->
+  <h2>8. Réinitialiser un mot de passe (espace membre)</h2>
+
+  <p>Si un membre a oublié son mot de passe pour accéder à l'espace membre :</p>
+
+  <div class="etapes">
+    <strong>Étapes pour le membre :</strong>
+    <ol>
+      <li>Aller sur le site → cliquer sur <strong>"Se connecter"</strong></li>
+      <li>Cliquer sur <strong>"Mot de passe oublié ?"</strong> sous le formulaire de connexion</li>
+      <li>Entrer son adresse email et valider</li>
+      <li>Il reçoit un email avec un lien de réinitialisation (valable quelques minutes)</li>
+      <li>Cliquer sur le lien → saisir un nouveau mot de passe → confirmer</li>
+    </ol>
+  </div>
+
+  <div class="conseil">
+    💡 Cette procédure est entièrement autonome — l'administrateur n'a pas à intervenir. Si le membre ne reçoit pas l'email, lui demander de vérifier ses spams.
+  </div>
+
   <!-- RECAP -->
   <h2>Récapitulatif — Qui fait quoi</h2>
 
@@ -427,13 +540,33 @@
       <th>Compétences requises</th>
     </tr>
     <tr>
-      <td>Valider / refuser des membres</td>
-      <td>Site AMSP</td>
+      <td>Valider / refuser une inscription aux disciplines</td>
+      <td>Site AMSP → Gestion des membres → En attente</td>
       <td>Aucune</td>
     </tr>
     <tr>
-      <td>Promouvoir un administrateur</td>
-      <td>Site AMSP</td>
+      <td>Approuver / refuser un accès espace membre</td>
+      <td>Site AMSP → Gestion des membres → En attente</td>
+      <td>Aucune</td>
+    </tr>
+    <tr>
+      <td>Promouvoir un admin ou admin de discipline</td>
+      <td>Site AMSP → Gestion des membres → Actifs</td>
+      <td>Aucune</td>
+    </tr>
+    <tr>
+      <td>Exporter les inscriptions en Excel</td>
+      <td>Site AMSP → Gestion des membres → bouton Exporter</td>
+      <td>Aucune</td>
+    </tr>
+    <tr>
+      <td>Imprimer une fiche d'inscription</td>
+      <td>Site AMSP → Gestion des membres → ouvrir le dossier → icône imprimer</td>
+      <td>Aucune</td>
+    </tr>
+    <tr>
+      <td>Lier une inscription à un profil</td>
+      <td>Site AMSP → Gestion des membres → Sans compte</td>
       <td>Aucune</td>
     </tr>
     <tr>
@@ -449,6 +582,16 @@
     <tr>
       <td>Déployer une mise à jour</td>
       <td>Terminal</td>
+      <td>Développeur</td>
+    </tr>
+    <tr>
+      <td>Modifier les emails automatiques (textes)</td>
+      <td>Brevo → Templates</td>
+      <td>Développeur</td>
+    </tr>
+    <tr>
+      <td>Changer l'adresse expéditrice des emails</td>
+      <td>Supabase → Edge Functions → Secrets → BREVO_SENDER_EMAIL</td>
       <td>Développeur</td>
     </tr>
   </table>

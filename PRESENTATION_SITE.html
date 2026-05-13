@@ -283,7 +283,7 @@
     </tr>
     <tr>
       <td><strong>Disciplines</strong></td>
-      <td>Fiche détaillée de chaque discipline (description, photo, horaires)</td>
+      <td>Liste des disciplines avec liens vers la page détail de chacune. Chaque page détail affiche description, instructeurs associés, horaires et liens vers sites externes (fédérations, etc.)</td>
       <td>Oui — via Sanity</td>
     </tr>
     <tr>
@@ -293,17 +293,17 @@
     </tr>
     <tr>
       <td><strong>Inscription</strong></td>
-      <td>Formulaire d'inscription aux disciplines, règlement intérieur, infos de paiement, autorisation parentale</td>
-      <td>Oui — documents via Sanity</td>
+      <td>Formulaire d'inscription en deux modes : <strong>Adulte</strong> et <strong>Mineur</strong>. Règlement intérieur, infos de paiement, Pass Sport, moyen de paiement, autorisation parentale (mineurs)</td>
+      <td>Oui — textes via Sanity</td>
     </tr>
     <tr>
       <td><strong>Galerie</strong></td>
-      <td>Albums photos publics et albums privés (réservés aux membres connectés)</td>
+      <td>Albums photos publics (visibles par tous) et albums privés filtrés par discipline (visibles uniquement par les membres de la discipline concernée)</td>
       <td>Oui — via Sanity</td>
     </tr>
     <tr>
       <td><strong>Instructeurs</strong></td>
-      <td>Fiches des instructeurs</td>
+      <td>Fiches des instructeurs avec photo, bio, disciplines enseignées et liens vers leurs réseaux/sites</td>
       <td>Oui — via Sanity</td>
     </tr>
     <tr>
@@ -313,12 +313,12 @@
     </tr>
     <tr>
       <td><strong>Connexion</strong></td>
-      <td>Page de connexion / création de compte pour l'espace membre</td>
+      <td>Page de connexion / création de compte pour l'espace membre, avec lien "Mot de passe oublié"</td>
       <td>Non</td>
     </tr>
     <tr>
       <td><strong>Gestion des membres</strong></td>
-      <td>Interface admin — visible uniquement quand connecté en tant qu'administrateur</td>
+      <td>Interface admin — visible uniquement quand connecté en tant qu'administrateur (ou admin de discipline)</td>
       <td>—</td>
     </tr>
   </table>
@@ -373,9 +373,11 @@
 
   <h3>Ce que voit l'adhérent</h3>
   <div class="schema">
-    <strong>1. Formulaire en ligne</strong> — l'adhérent remplit ses informations personnelles, choisit ses disciplines et accepte le règlement intérieur.<br><br>
-    <strong>2. Email de confirmation immédiat</strong> — il reçoit un email résumant sa demande et l'informant qu'elle est en cours de traitement.<br><br>
-    <strong>3. Décision de l'admin</strong> — une fois que l'administrateur a traité sa demande :<br>
+    <strong>1. Choix du type</strong> — l'adhérent sélectionne <strong>Adulte</strong> ou <strong>Mineur</strong> (le formulaire s'adapte automatiquement).<br><br>
+    <strong>2. Formulaire en ligne</strong> — informations personnelles, disciplines choisies, Pass Sport (oui/non), moyen de paiement, règlement intérieur.<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;• Pour les <strong>mineurs</strong> : coordonnées d'un ou deux parents/tuteurs + autorisation parentale obligatoire.<br><br>
+    <strong>3. Email de confirmation immédiat</strong> — il reçoit un email résumant sa demande et l'informant qu'elle est en cours de traitement.<br><br>
+    <strong>4. Décision de l'admin</strong> — une fois que l'administrateur a traité sa demande :<br>
     &nbsp;&nbsp;&nbsp;&nbsp;✅ <strong>Validée</strong> → il reçoit un email de confirmation avec le récapitulatif complet de son dossier<br>
     &nbsp;&nbsp;&nbsp;&nbsp;❌ <strong>Refusée</strong> → il reçoit un email l'informant du refus
   </div>
@@ -388,7 +390,8 @@
     <ol>
       <li>Se connecter au site avec son compte admin</li>
       <li>Aller dans <strong>"Gestion des membres"</strong> (icône bouclier en haut à droite)</li>
-      <li>Dans la section <strong>"Inscriptions aux disciplines en attente"</strong>, voir les dossiers à traiter</li>
+      <li>L'onglet <strong>"En attente"</strong> affiche les dossiers à traiter</li>
+      <li>Cliquer sur un dossier pour voir les informations complètes (avec coordonnées parents pour les mineurs)</li>
       <li>Cliquer sur ✅ <strong>Valider</strong> ou ❌ <strong>Refuser</strong></li>
     </ol>
   </div>
@@ -404,7 +407,7 @@
     🖥️ <strong>À montrer en live</strong> — démontrer la connexion et la galerie privée.
   </div>
 
-  <p>L'espace membre permet aux adhérents d'accéder à la <strong>galerie photos privée</strong> du club.</p>
+  <p>L'espace membre permet aux adhérents d'accéder à la <strong>galerie photos privée</strong> du club, filtrée selon leur discipline.</p>
 
   <h3>Créer un compte et demander l'accès</h3>
   <div class="schema">
@@ -412,7 +415,7 @@
     <strong>2. Demander l'accès</strong> — une fois connecté, il voit un message "Accès en attente". Il peut cliquer sur <strong>"Rejoindre l'espace membre"</strong> pour soumettre sa demande.<br><br>
     <strong>3. Notification à l'admin</strong> — vous recevez un email de notification.<br><br>
     <strong>4. Décision de l'admin</strong> :<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;✅ <strong>Approuvé</strong> → il reçoit un email et peut accéder à la galerie privée<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;✅ <strong>Approuvé</strong> → il reçoit un email et peut accéder à la galerie privée de sa discipline<br>
     &nbsp;&nbsp;&nbsp;&nbsp;❌ <strong>Refusé</strong> → son accès est bloqué
   </div>
 
@@ -427,10 +430,18 @@
       <td>Tout visiteur du site</td>
     </tr>
     <tr>
-      <td>Album privé 🔒</td>
-      <td>Uniquement les membres dont l'accès a été approuvé par l'admin</td>
+      <td>Album privé 🔒 sans discipline</td>
+      <td>Tous les membres approuvés</td>
+    </tr>
+    <tr>
+      <td>Album privé 🔒 avec discipline</td>
+      <td>Uniquement les membres de cette discipline (ex: album "Karaté" → visible uniquement par les membres inscrits en Karaté)</td>
     </tr>
   </table>
+
+  <div class="conseil">
+    💡 Les disciplines d'un membre sont automatiquement renseignées quand son inscription aux disciplines est validée. Un membre "Karaté + Judo" verra les albums privés de ces deux disciplines.
+  </div>
 
   <!-- 6. ESPACE ADMIN -->
   <div class="page-break"></div>
@@ -444,40 +455,56 @@
 
   <h3>Ce que contient la page "Gestion des membres"</h3>
 
+  <p>La page est organisée en <strong>4 onglets</strong> :</p>
   <table>
     <tr>
-      <th>Section</th>
+      <th>Onglet</th>
       <th>Ce qu'on y voit</th>
       <th>Actions disponibles</th>
     </tr>
     <tr>
-      <td><strong>Inscriptions aux disciplines en attente</strong></td>
-      <td>Dossiers soumis via le formulaire d'inscription, non encore traités</td>
-      <td>✅ Valider &nbsp; ❌ Refuser</td>
+      <td><strong>En attente</strong></td>
+      <td>Dossiers d'inscription + demandes d'accès membre à traiter (badge rouge = nombre en attente)</td>
+      <td>✅ Valider/Approuver &nbsp; ❌ Refuser</td>
     </tr>
     <tr>
-      <td><strong>Demandes d'accès espace membre</strong></td>
-      <td>Comptes membres en attente d'approbation</td>
-      <td>✅ Approuver &nbsp; ❌ Refuser</td>
+      <td><strong>Actifs</strong></td>
+      <td>Membres approuvés et leurs inscriptions aux disciplines liées</td>
+      <td>Promouvoir admin / Admin discipline / Imprimer fiche</td>
     </tr>
     <tr>
-      <td><strong>Tous les membres</strong></td>
-      <td>Liste complète des comptes créés sur le site</td>
-      <td>Promouvoir en admin / Retirer les droits</td>
+      <td><strong>Sans compte</strong></td>
+      <td>Inscriptions reçues via formulaire sans compte espace membre correspondant</td>
+      <td>Lier à un profil existant</td>
+    </tr>
+    <tr>
+      <td><strong>Tous</strong></td>
+      <td>Vue complète avec barre de recherche</td>
+      <td>Recherche par nom / prénom / email</td>
     </tr>
   </table>
 
-  <h3>Promouvoir un administrateur</h3>
-  <p>Si un autre membre doit aussi avoir les droits admin (pour vous remplacer ou vous seconder) :</p>
-  <div class="etapes">
-    <ol>
-      <li>Dans "Tous les membres", cliquer sur le nom du membre pour dérouler sa fiche</li>
-      <li>Cliquer sur <strong>"Promouvoir en admin"</strong> (bouton bleu)</li>
-      <li>Confirmer dans la fenêtre qui s'ouvre</li>
-    </ol>
+  <div class="conseil">
+    💡 Le bouton <strong>"Exporter"</strong> (en haut) télécharge un fichier Excel avec tous les dossiers visibles. Un bouton <strong>imprimer</strong> sur chaque fiche permet d'imprimer ou d'enregistrer en PDF.
   </div>
+
+  <h3>Deux niveaux d'administration</h3>
+  <table>
+    <tr>
+      <th>Rôle</th>
+      <th>Ce qu'il peut faire</th>
+    </tr>
+    <tr>
+      <td><strong>Admin</strong></td>
+      <td>Voit et gère tout — toutes les disciplines, tous les membres, peut exporter et modifier les rôles</td>
+    </tr>
+    <tr>
+      <td><strong>Admin de discipline</strong></td>
+      <td>Voit uniquement les membres et inscriptions de sa discipline — rôle idéal pour un responsable de section</td>
+    </tr>
+  </table>
   <div class="attention">
-    ⚠️ Un administrateur peut gérer tous les membres du site. Ne donnez ce rôle qu'à des personnes de confiance.
+    ⚠️ Un administrateur complet peut gérer tous les membres du site. Ne donnez ce rôle qu'à des personnes de confiance.
   </div>
 
   <!-- 7. EMAILS AUTOMATIQUES -->
@@ -563,12 +590,22 @@
     </tr>
     <tr>
       <td>Je reçois un email "nouvelle demande d'inscription"</td>
-      <td>Me connecter au site → Gestion des membres → Valider ou Refuser</td>
+      <td>Site → Gestion des membres → onglet En attente → Valider ou Refuser</td>
       <td>Site AMSP</td>
     </tr>
     <tr>
       <td>Je reçois un email "nouvelle demande d'accès membre"</td>
-      <td>Me connecter au site → Gestion des membres → Approuver ou Refuser</td>
+      <td>Site → Gestion des membres → onglet En attente → Approuver ou Refuser</td>
+      <td>Site AMSP</td>
+    </tr>
+    <tr>
+      <td>Je veux imprimer un dossier d'inscription</td>
+      <td>Site → Gestion des membres → ouvrir le dossier → icône imprimer</td>
+      <td>Site AMSP</td>
+    </tr>
+    <tr>
+      <td>Je veux exporter toutes les inscriptions</td>
+      <td>Site → Gestion des membres → bouton Exporter (Excel)</td>
       <td>Site AMSP</td>
     </tr>
     <tr>
