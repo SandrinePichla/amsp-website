@@ -328,6 +328,10 @@ const AdminMembres = () => {
       toast.error("Le nom et le prénom du parent / tuteur 1 sont obligatoires.");
       return;
     }
+    if (papierForm.typeInscription === "mineur" && !papierForm.autorisationParentale) {
+      toast.error("L'autorisation parentale est obligatoire pour un mineur.");
+      return;
+    }
     setSavingPapier(true);
     const urgenceNomComplet = [papierForm.urgencePrenom, papierForm.urgenceNom].filter(Boolean).join(" ");
     const urgenceContact = [urgenceNomComplet, papierForm.urgenceTel].filter(Boolean).join(" — ");
@@ -1750,7 +1754,7 @@ const AdminMembres = () => {
                     {papierForm.typeInscription === "mineur" && (
                       <label className="flex cursor-pointer items-center gap-3">
                         <Checkbox checked={papierForm.autorisationParentale} onCheckedChange={v => setPapierForm(f => ({ ...f, autorisationParentale: v as boolean }))} />
-                        <span className="text-sm">Autorisation parentale signée</span>
+                        <span className="text-sm">Autorisation parentale signée *</span>
                       </label>
                     )}
                     <label className="flex cursor-pointer items-center gap-3">
