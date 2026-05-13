@@ -596,6 +596,7 @@ const AdminMembres = () => {
   };
 
   const handleExportCSV = async () => {
+    try {
     const { data: rawData, error } = await supabase.from('inscriptions').select('*').order('created_at', { ascending: false });
     if (error || !rawData) { toast.error("Erreur lors de l'export."); return; }
     const data = isSuperAdmin ? rawData : rawData.filter(i => disciplineMatch(i.disciplines, currentUserDisciplines));
@@ -713,6 +714,9 @@ const AdminMembres = () => {
     const a = document.createElement('a'); a.href = url;
     a.download = `AMSP_inscriptions_${new Date().toISOString().slice(0, 10)}.xlsx`;
     a.click(); URL.revokeObjectURL(url);
+    } catch (e: unknown) {
+      toast.error("Erreur lors de l'export : " + (e instanceof Error ? e.message : String(e)));
+    }
   };
 
   // --- Calcul des lignes ---
@@ -917,9 +921,7 @@ const AdminMembres = () => {
                             <p className="text-xs text-muted-foreground">{insc.disciplines || "—"} · {insc.saison || "—"} · reçue le {new Date(insc.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}</p>
                           </div>
                           <div className="flex gap-2 shrink-0">
-                            {insc.source === "papier" && (
-                              <Button size="sm" variant="outline" onClick={() => openPapierEdit(insc)} disabled={processing === `insc-${insc.id}`} className="gap-1 text-muted-foreground"><Pencil size={13} /> Modifier</Button>
-                            )}
+                            <Button size="sm" variant="outline" onClick={() => openPapierEdit(insc)} disabled={processing === `insc-${insc.id}`} className="gap-1 text-muted-foreground"><Pencil size={13} /> Modifier</Button>
                             <Button size="sm" onClick={() => handleValiderInscription(insc.id)} disabled={processing === `insc-${insc.id}`} className="gap-1"><CheckCircle size={13} /> Valider</Button>
                             <Button size="sm" variant="outline" onClick={() => handleRefuserInscription(insc.id)} disabled={processing === `insc-${insc.id}`} className="gap-1 text-destructive hover:text-destructive"><XCircle size={13} /> Refuser</Button>
                           </div>
