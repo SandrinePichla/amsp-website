@@ -7,10 +7,12 @@
 
 1. [Se connecter à l'espace admin du site](#1-se-connecter-à-lespace-admin-du-site)
 2. [Valider ou refuser une demande de membre](#2-valider-ou-refuser-une-demande-de-membre)
-3. [Promouvoir un membre en administrateur](#3-promouvoir-un-membre-en-administrateur)
-4. [Modifier le contenu du site avec Sanity](#4-modifier-le-contenu-du-site-avec-sanity)
-5. [Vérifier que les modifications sont bien en ligne](#5-vérifier-que-les-modifications-sont-bien-en-ligne)
-6. [Modifier les emails automatiques avec EmailJS](#6-modifier-les-emails-automatiques-avec-emailjs)
+3. [Promouvoir un membre (admin ou admin de discipline)](#3-promouvoir-un-membre-admin-ou-admin-de-discipline)
+4. [Lire le tableau des inscrits](#4-lire-le-tableau-des-inscrits)
+5. [Saisir une inscription papier et créer un espace membre](#5-saisir-une-inscription-papier-et-créer-un-espace-membre)
+6. [Modifier le contenu du site avec Sanity](#6-modifier-le-contenu-du-site-avec-sanity)
+7. [Vérifier que les modifications sont bien en ligne](#7-vérifier-que-les-modifications-sont-bien-en-ligne)
+8. [Modifier les emails automatiques avec EmailJS](#8-modifier-les-emails-automatiques-avec-emailjs)
 
 ---
 
@@ -56,23 +58,97 @@ Lorsqu'une personne s'inscrit via la page **"Rejoindre l'espace membre"**, vous 
 
 ---
 
-## 3. Promouvoir un membre en administrateur
+## 3. Promouvoir un membre (admin ou admin de discipline)
 
-Pour donner les droits admin à un membre existant (il pourra gérer les autres membres) :
+Il existe deux niveaux d'administration :
 
-1. Aller dans **"Gestion des membres"**
-2. Dans la section **"Membres actifs"**, cliquer sur le nom du membre pour dérouler sa fiche
-3. Cliquer sur **"Promouvoir en admin"** (bouton bleu)
-4. Une fenêtre de confirmation s'ouvre avec le nom et l'email du membre
-5. Cliquer sur **"Confirmer"** pour valider
+| Rôle | Ce qu'il voit | Ce qu'il peut faire |
+|------|---------------|---------------------|
+| **Admin** | Tous les membres, toutes les disciplines | Tout gérer, exporter, modifier les rôles |
+| **Admin de discipline** | Uniquement les membres et inscriptions de sa discipline | Valider/refuser les inscriptions, saisir des inscriptions papier |
 
-> ⚠️ Un administrateur peut gérer tous les membres du site. Ne donner ce rôle qu'à des personnes de confiance.
+### Promouvoir en admin complet
 
-Pour **retirer les droits admin** d'un administrateur, même procédure → bouton **"Retirer les droits admin"** (rouge).
+1. Aller dans **"Gestion des membres"** → ouvrir la fiche du membre → onglet **"Paramètres"**
+2. Cliquer sur **"Promouvoir en admin"**
+3. Confirmer
+
+> ⚠️ Un administrateur complet peut gérer tous les membres du site. Ne donner ce rôle qu'à des personnes de confiance.
+
+### Promouvoir en admin de discipline
+
+1. Aller dans **"Gestion des membres"** → ouvrir la fiche → onglet **"Paramètres"**
+2. Cliquer sur **"Admin discipline"**
+3. Dans la fenêtre, **cocher la ou les disciplines** que cette personne gère
+4. Confirmer
+
+La discipline affectée apparaît en gris à côté du badge "Admin discipline" dans sa fiche.
+
+L'admin de discipline se connecte normalement sur le site — il voit automatiquement **uniquement les inscrits de sa discipline**, avec le même tableau que l'admin complet.
+
+Pour **retirer les droits**, onglet **"Paramètres"** → bouton **"Retirer les droits discipline"** (rouge).
 
 ---
 
-## 4. Modifier le contenu du site avec Sanity
+## 4. Lire le tableau des inscrits
+
+Le tableau de la page "Gestion des membres" présente chaque inscrit sur une ligne avec :
+
+- **Un numéro** à gauche (position dans la liste filtrée courante) dont la couleur indique l'âge :
+  - 🟢 **Vert** = adulte (≥ 18 ans)
+  - 🔵 **Bleu** = mineur (< 18 ans)
+  - ⚪ **Gris** = date de naissance non renseignée
+- **Une colonne "Âge"** avec le badge Adulte ou Mineur
+- Les enfants/mineurs apparaissent comme des **lignes séparées** (pas dans la fiche de leur parent)
+
+### Colonnes du tableau
+
+| Colonne | Ce qu'elle contient |
+|---------|---------------------|
+| **Membre** | Nom, prénom, email |
+| **Statut** | Admin / Membre / En attente / Validée… |
+| **Âge** | Adulte ou Mineur (calculé depuis la date de naissance) |
+| **Disciplines actives** | Disciplines des inscriptions validées |
+| **Accès web** | Bouton pour ouvrir la fiche ou créer un espace |
+
+### Export Excel
+
+Le bouton **"Exporter"** en haut de page génère un fichier Excel avec les colonnes dans cet ordre :
+Numéro · Nom · Prénom · Date naissance · Type · Adresse · Téléphone · Email · Discipline(s) · Niveau · Groupe sanguin · Allergie(s) · Urgence · Paiement · Pass Sport · Droit image · Autorisation parentale · Parent 1 · Parent 1 email · Parent 1 tél · Parent 2 · Saison · Statut · Source · Reçue le
+
+---
+
+## 5. Saisir une inscription papier et créer un espace membre
+
+### Saisir une inscription papier
+
+1. Aller dans **"Gestion des membres"** → bouton **"+ Saisir inscription papier"**
+2. Remplir le formulaire (choisir Adulte ou Mineur en haut)
+3. Pour un **mineur** : renseigner les coordonnées du parent 1 (et éventuellement parent 2)
+4. Cliquer sur **"Enregistrer"**
+
+### Créer un espace membre
+
+Après qu'une inscription est **validée**, vous pouvez créer un espace membre (accès galerie) :
+
+1. Cliquer sur la ligne de l'inscrit → onglet **"Espace web"**
+2. Selon le cas :
+
+| Cas | Ce que vous voyez | Action |
+|-----|-------------------|--------|
+| Adulte | Bloc "Titulaire" avec son email | Cliquer **"Créer l'espace web"** |
+| Mineur avec parent 1 | Bloc "Parent / tuteur 1" | Cliquer **"Créer l'espace web"** |
+| Mineur avec parent 2 | Bloc "Parent / tuteur 2" (si email renseigné) | Cliquer **"Créer l'espace web"** |
+
+> 💡 Pour des **parents divorcés**, vous pouvez créer un espace séparé pour chaque parent. Chacun aura ses propres identifiants pour se connecter.
+
+Chaque parent reçoit automatiquement un email avec un lien pour définir son mot de passe.
+
+Si un espace existe déjà, un bouton **"Renvoyer l'invitation / reset mot de passe"** permet de renvoyer le lien de connexion.
+
+---
+
+## 6. Modifier le contenu du site avec Sanity
 
 Sanity est l'outil qui permet de modifier le contenu du site (textes, photos, actualités, disciplines, etc.) **sans toucher au code**.
 
@@ -122,7 +198,7 @@ Sanity est l'outil qui permet de modifier le contenu du site (textes, photos, ac
 
 ---
 
-## 5. Vérifier que les modifications sont bien en ligne
+## 7. Vérifier que les modifications sont bien en ligne
 
 ### Pour les modifications de contenu Sanity
 
@@ -154,7 +230,7 @@ Sur **https://github.com/SandrinePichla/amsp-website** :
 
 ---
 
-## 6. Modifier les emails automatiques avec EmailJS
+## 8. Modifier les emails automatiques avec EmailJS
 
 EmailJS gère les emails envoyés automatiquement par le site :
 - Email reçu quand quelqu'un remplit le formulaire d'**inscription**
@@ -201,9 +277,13 @@ Si vous dépassez 200 emails/mois, il faudra passer à un abonnement payant sur 
 
 | Tâche | Outil | Compétences requises |
 |-------|-------|----------------------|
-| Valider/refuser des membres | Site AMSP | Aucune |
-| Promouvoir un admin | Site AMSP | Aucune |
+| Valider/refuser des inscriptions | Site AMSP | Aucune |
+| Saisir une inscription papier | Site AMSP | Aucune |
+| Créer un espace membre (adulte ou parent) | Site AMSP | Aucune |
+| Promouvoir un admin ou admin de discipline | Site AMSP | Aucune |
+| Exporter les inscriptions en Excel | Site AMSP | Aucune |
 | Modifier textes et photos | Sanity Studio | Aucune |
 | Modifier les emails automatiques | EmailJS | Aucune |
 | Modifier le code du site | VSCode + GitHub | Développeur |
 | Déployer une mise à jour de code | Terminal | Développeur |
+| Modifier les politiques d'accès Supabase | Supabase SQL Editor | Développeur |

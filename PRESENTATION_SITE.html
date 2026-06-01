@@ -210,7 +210,7 @@
 <body>
 
   <h1>Présentation du site AMSP</h1>
-  <p class="subtitle">Réunion de passation — mai 2026</p>
+  <p class="subtitle">Réunion de passation — mai 2026 &nbsp;|&nbsp; <em>Mis à jour juin 2026</em></p>
 
   <div class="intro">
     <strong>Objectif de cette réunion :</strong> présenter le site dans son ensemble — les pages, le fonctionnement pour les adhérents, les outils de gestion du contenu, et le rôle de l'administrateur au quotidien.<br><br>
@@ -424,24 +424,31 @@
     <tr>
       <th>Type d'album</th>
       <th>Visible par</th>
+      <th>Ordre d'affichage</th>
     </tr>
     <tr>
       <td>Album public</td>
       <td>Tout visiteur du site</td>
+      <td>Après les albums privés (pour les membres)</td>
     </tr>
     <tr>
       <td>Album privé 🔒 sans discipline</td>
       <td>Tous les membres approuvés</td>
+      <td>En premier pour les membres connectés</td>
     </tr>
     <tr>
       <td>Album privé 🔒 avec discipline</td>
       <td>Uniquement les membres de cette discipline (ex: album "Karaté" → visible uniquement par les membres inscrits en Karaté)</td>
+      <td>En premier pour les membres concernés</td>
     </tr>
   </table>
 
   <div class="conseil">
-    💡 Les disciplines d'un membre sont automatiquement renseignées quand son inscription aux disciplines est validée. Un membre "Karaté + Judo" verra les albums privés de ces deux disciplines.
+    💡 Les disciplines d'un membre sont automatiquement renseignées quand son inscription aux disciplines est validée. Un membre "Karaté + Judo" verra les albums privés de ces deux disciplines, affichés <strong>en premier</strong> dans sa galerie.
   </div>
+
+  <h3>Espace membre pour les familles</h3>
+  <p>Pour les inscriptions de mineurs, l'administrateur peut ouvrir un espace membre à <strong>chacun des deux parents</strong> (cas de parents divorcés par exemple). Chaque parent reçoit ses propres identifiants et accède à la galerie de la discipline de son enfant.</p>
 
   <!-- 6. ESPACE ADMIN -->
   <div class="page-break"></div>
@@ -464,7 +471,7 @@
     </tr>
     <tr>
       <td><strong>En attente</strong></td>
-      <td>Dossiers d'inscription + demandes d'accès membre à traiter (badge rouge = nombre en attente)</td>
+      <td>Dossiers d'inscription + demandes d'accès membre à traiter (badge orange = nombre en attente)</td>
       <td>✅ Valider/Approuver &nbsp; ❌ Refuser</td>
     </tr>
     <tr>
@@ -475,32 +482,57 @@
     <tr>
       <td><strong>Sans compte</strong></td>
       <td>Inscriptions reçues via formulaire sans compte espace membre correspondant</td>
-      <td>Lier à un profil existant</td>
+      <td>Créer espace / Lier à un profil existant</td>
     </tr>
     <tr>
       <td><strong>Tous</strong></td>
-      <td>Vue complète avec barre de recherche</td>
+      <td>Vue complète avec barre de recherche et filtre discipline</td>
       <td>Recherche par nom / prénom / email</td>
     </tr>
   </table>
 
+  <h3>Lecture du tableau — code couleur âge</h3>
+  <p>Chaque inscrit a un <strong>numéro</strong> à gauche de sa ligne (position dans la liste filtrée). La couleur du numéro indique l'âge :</p>
+  <table>
+    <tr>
+      <th>Couleur</th>
+      <th>Signification</th>
+    </tr>
+    <tr>
+      <td style="color:#059669;font-weight:bold;">● Vert</td>
+      <td>Adulte (≥ 18 ans au jour d'aujourd'hui)</td>
+    </tr>
+    <tr>
+      <td style="color:#0284c7;font-weight:bold;">● Bleu</td>
+      <td>Mineur (< 18 ans)</td>
+    </tr>
+    <tr>
+      <td style="color:#999;font-weight:bold;">● Gris</td>
+      <td>Date de naissance non renseignée</td>
+    </tr>
+  </table>
+  <p>Une colonne <strong>"Âge"</strong> affiche également le badge Adulte/Mineur. Les enfants apparaissent toujours comme des <strong>lignes indépendantes</strong> dans le tableau — ils ne sont pas regroupés dans la fiche de leur parent.</p>
+
   <div class="conseil">
-    💡 Le bouton <strong>"Exporter"</strong> (en haut) télécharge un fichier Excel avec tous les dossiers visibles. Un bouton <strong>imprimer</strong> sur chaque fiche permet d'imprimer ou d'enregistrer en PDF.
+    💡 Le bouton <strong>"Exporter"</strong> (en haut) télécharge un fichier Excel avec les colonnes dans un ordre logique : Numéro, Nom, Prénom, Date naissance, Type (adulte/mineur), coordonnées, disciplines, informations médicales, parents, puis Saison / Statut / Source en fin de fichier.
   </div>
 
   <h3>Deux niveaux d'administration</h3>
   <table>
     <tr>
       <th>Rôle</th>
+      <th>Ce qu'il voit</th>
       <th>Ce qu'il peut faire</th>
     </tr>
     <tr>
       <td><strong>Admin</strong></td>
-      <td>Voit et gère tout — toutes les disciplines, tous les membres, peut exporter et modifier les rôles</td>
+      <td>Tous les membres, toutes les disciplines</td>
+      <td>Tout gérer — exporter, modifier les rôles, valider toutes les inscriptions</td>
     </tr>
     <tr>
       <td><strong>Admin de discipline</strong></td>
-      <td>Voit uniquement les membres et inscriptions de sa discipline — rôle idéal pour un responsable de section</td>
+      <td>Uniquement les membres et inscriptions de <strong>sa discipline</strong> (affichée dans son badge)</td>
+      <td>Valider/refuser, saisir des inscriptions papier, créer des espaces membres — uniquement pour sa discipline</td>
     </tr>
   </table>
   <div class="attention">
@@ -702,7 +734,7 @@
   </div>
 
   <div class="footer">
-    Présentation du site AMSP — Réunion de passation, mai 2026 &nbsp;|&nbsp; Document à conserver
+    Présentation du site AMSP — Réunion de passation, mai 2026 — Mis à jour juin 2026 &nbsp;|&nbsp; Document à conserver
   </div>
 
 </body>

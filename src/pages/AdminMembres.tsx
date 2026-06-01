@@ -591,8 +591,15 @@ const AdminMembres = () => {
     setConfirmAdminDisciplineDiscs([]);
   };
 
-  const handleCreerCompteDepuisInscription = async (insc: Inscription): Promise<Membre | null> => {
-    if (!insc.email) return null;
+  const handleCreerCompteDepuisInscription = async (
+    insc: Inscription,
+    opts?: { email?: string; nom?: string | null; prenom?: string | null; lierInscription?: boolean }
+  ): Promise<Membre | null> => {
+    const email = opts?.email ?? insc.email;
+    if (!email) return null;
+    const nom = opts?.nom !== undefined ? opts.nom : insc.nom;
+    const prenom = opts?.prenom !== undefined ? opts.prenom : insc.prenom;
+    const lierInscription = opts?.lierInscription !== false;
 
     // Sauvegarder la session admin — signUp() connecte automatiquement le nouvel utilisateur
     preventRedirectRef.current = true;
@@ -601,7 +608,7 @@ const AdminMembres = () => {
     const tempPassword = Array.from(crypto.getRandomValues(new Uint8Array(18)))
       .map(b => b.toString(36)).join('').slice(0, 20);
     const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-      email: insc.email,
+      email,
       password: tempPassword,
     });
 
@@ -617,9 +624,9 @@ const AdminMembres = () => {
     // Upsert (pas insert) : un trigger Supabase crée peut-être déjà une ligne en_attente
     await supabase.from("profils").upsert({
       id: newUserId,
-      email: insc.email,
-      nom: insc.nom,
-      prenom: insc.prenom,
+      email,
+      nom,
+      prenom,
       adresse: insc.adresse,
       telephone: insc.tel_mobile,
       role: "membre",
@@ -629,24 +636,20 @@ const AdminMembres = () => {
     if (adminSession) await supabase.auth.setSession({ access_token: adminSession.access_token, refresh_token: adminSession.refresh_token });
     preventRedirectRef.current = false;
 
-    await supabase.from("inscriptions").update({ user_id: newUserId }).eq("id", insc.id);
-    await supabase.auth.resetPasswordForEmail(insc.email, {
+    if (lierInscription) {
+      await supabase.from("inscriptions").update({ user_id: newUserId }).eq("id", insc.id);
+      setInscriptions(prev => prev.map(i => i.id === insc.id ? { ...i, user_id: newUserId } : i));
+    }
+    await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/amsp-website/reinitialisation-mot-de-passe`,
     });
 
     const newMembre: Membre = {
-      id: newUserId,
-      email: insc.email,
-      prenom: insc.prenom,
-      nom: insc.nom,
-      adresse: insc.adresse,
-      telephone: insc.tel_mobile,
-      role: "membre",
-      disciplines: null,
-      created_at: new Date().toISOString(),
+      id: newUserId, email, prenom, nom,
+      adresse: insc.adresse, telephone: insc.tel_mobile,
+      role: "membre", disciplines: null, created_at: new Date().toISOString(),
     };
     setMembres(prev => [...prev, newMembre]);
-    setInscriptions(prev => prev.map(i => i.id === insc.id ? { ...i, user_id: newUserId } : i));
     return newMembre;
   };
 
@@ -1284,7 +1287,7 @@ const AdminMembres = () => {
                                   </div>
                                 </td>
                                 <td className="py-3 pl-4 text-right" onClick={e => e.stopPropagation()}>
-                                  {!insc.user_id && insc.email ? (
+                                  {!insc.user_id && (insc.email || insc.parent1_email) ? (
                                     <Button size="sm" className="h-7 px-3 text-xs gap-1.5 font-medium bg-emerald-600 hover:bg-emerald-700 text-white border-0" onClick={(e) => { e.stopPropagation(); setModalTab("espace"); setSelectedKey(key); }}>
                                       <Plus size={12} /> Créer espace
                                     </Button>
@@ -1796,91 +1799,109 @@ const AdminMembres = () => {
 
                       {/* ——— Espace web ——— */}
                       <TabsContent value="espace" className="m-0 p-6 space-y-5">
-                        {insc.email ? (
-                          <>
-                            {!insc.user_id ? (
-                              <div className="rounded-xl border border-border/40 p-5 space-y-3">
-                                <div className="flex items-center gap-2">
-                                  <span className="inline-block h-2 w-2 rounded-full bg-muted-foreground/40"></span>
-                                  <span className="text-sm text-muted-foreground">Aucun espace web associé à ce membre.</span>
-                                </div>
-                                {insc.statut === "validee" ? (
-                                  <Button
-                                    className="gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white border-0"
-                                    disabled={!!processing}
-                                    onClick={async () => {
-                                      setProcessing(`insc-${insc.id}`);
-                                      await handleCreerCompteDepuisInscription(insc);
-                                      toast.success("Compte créé — email d'invitation envoyé.");
-                                      setProcessing(null);
-                                    }}
-                                  >
-                                    <Plus size={12} /> Créer l'espace web
+                        {(() => {
+                          const isMineur = insc.type_inscription === "mineur" || !!insc.parent1_email;
+                          // Parent 1 : pour un mineur papier, insc.email est vide → utiliser parent1_email
+                          const p1Email = insc.email || insc.parent1_email || null;
+                          const p1Nom = insc.parent1_nom || (isMineur ? null : insc.nom);
+                          const p1Prenom = insc.parent1_prenom || (isMineur ? null : insc.prenom);
+                          const p1Profil = p1Email ? membres.find(m => m.email?.toLowerCase() === p1Email.toLowerCase()) : null;
+                          // Parent 2
+                          const p2Email = insc.parent2_email || null;
+                          const p2Nom = insc.parent2_nom || null;
+                          const p2Prenom = insc.parent2_prenom || null;
+                          const p2Profil = p2Email ? membres.find(m => m.email?.toLowerCase() === p2Email.toLowerCase()) : null;
+
+                          const EspaceBlock = ({ label, email, nom, prenom, profil, lierInscription }: {
+                            label: string; email: string; nom: string | null; prenom: string | null;
+                            profil: Membre | undefined; lierInscription: boolean;
+                          }) => (
+                            <div className="rounded-xl border border-border/40 p-4 space-y-2.5">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+                              <p className="text-sm font-medium">{[nom, prenom].filter(Boolean).join(" ") || <span className="italic text-muted-foreground">Sans nom</span>}</p>
+                              <p className="text-xs text-muted-foreground">{email}</p>
+                              {profil ? (
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="inline-block h-2 w-2 rounded-full bg-emerald-500"></span>
+                                    <span className="text-sm font-medium text-emerald-700">Espace web actif</span>
+                                  </div>
+                                  <Button size="sm" variant="outline" className="gap-1.5 text-xs text-muted-foreground"
+                                    disabled={processing === `invitation-${email}`}
+                                    onClick={() => handleRenvoyerInvitation(email)}>
+                                    <Upload size={12} /> Renvoyer l'invitation / reset mot de passe
                                   </Button>
-                                ) : (
-                                  <p className="text-xs text-muted-foreground italic">L'inscription doit être validée avant de créer un espace web.</p>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="rounded-xl border border-border/40 p-5 space-y-3">
-                                <div className="flex items-center gap-2">
-                                  <span className="inline-block h-2 w-2 rounded-full bg-emerald-500"></span>
-                                  <span className="text-sm font-medium text-emerald-700">Espace web actif</span>
                                 </div>
-                                <Button
-                                  size="sm" variant="outline"
-                                  className="gap-1.5 text-xs text-muted-foreground"
-                                  disabled={processing === `invitation-${insc.email}`}
-                                  onClick={() => handleRenvoyerInvitation(insc.email!)}
-                                >
-                                  <Upload size={12} /> Renvoyer l'invitation / reset mot de passe
-                                </Button>
-                              </div>
-                            )}
-                            <div>
-                              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Lier à un compte membre existant</h3>
-                              {!linkingInscToProfilMode ? (
-                                <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => setLinkingInscToProfilMode(true)}>
-                                  <Link2 size={12} /> Lier à un compte existant
+                              ) : insc.statut === "validee" ? (
+                                <Button className="gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white border-0"
+                                  disabled={!!processing}
+                                  onClick={async () => {
+                                    setProcessing(`insc-${insc.id}-${email}`);
+                                    await handleCreerCompteDepuisInscription(insc, { email, nom, prenom, lierInscription });
+                                    toast.success("Compte créé — email d'invitation envoyé.");
+                                    setProcessing(null);
+                                  }}>
+                                  <Plus size={12} /> Créer l'espace web
                                 </Button>
                               ) : (
-                                <div className="space-y-2">
-                                  <select
-                                    className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm"
-                                    value={linkingInscToProfilId}
-                                    onChange={(e) => setLinkingInscToProfilId(e.target.value)}
-                                  >
-                                    <option value="">-- Choisir un membre --</option>
-                                    {membres.map(m => (
-                                      <option key={m.id} value={m.id}>
-                                        {[m.nom, m.prenom].filter(Boolean).join(" ") || m.email}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <div className="flex gap-2">
-                                    <Button
-                                      size="sm"
-                                      className="text-xs gap-1"
-                                      disabled={!linkingInscToProfilId || processing === `insc-${insc.id}`}
-                                      onClick={async () => {
-                                        await handleLierInscription(insc.id, linkingInscToProfilId, insc.disciplines);
-                                        setLinkingInscToProfilMode(false);
-                                        setLinkingInscToProfilId("");
-                                      }}
-                                    >
-                                      <Link2 size={12} /> Confirmer le lien
-                                    </Button>
-                                    <Button size="sm" variant="ghost" className="text-xs" onClick={() => { setLinkingInscToProfilMode(false); setLinkingInscToProfilId(""); }}>
-                                      Annuler
-                                    </Button>
-                                  </div>
-                                </div>
+                                <p className="text-xs text-muted-foreground italic">L'inscription doit être validée avant de créer un espace web.</p>
                               )}
                             </div>
-                          </>
-                        ) : (
-                          <p className="text-sm text-muted-foreground italic">Aucun email renseigné — impossible de créer un espace web.</p>
-                        )}
+                          );
+
+                          return (
+                            <>
+                              {p1Email ? (
+                                <EspaceBlock
+                                  label={isMineur ? "Parent / tuteur 1" : "Titulaire"}
+                                  email={p1Email} nom={p1Nom} prenom={p1Prenom}
+                                  profil={p1Profil} lierInscription={true}
+                                />
+                              ) : (
+                                <p className="text-sm text-muted-foreground italic">Aucun email renseigné — impossible de créer un espace web.</p>
+                              )}
+                              {p2Email && (
+                                <EspaceBlock
+                                  label="Parent / tuteur 2"
+                                  email={p2Email} nom={p2Nom} prenom={p2Prenom}
+                                  profil={p2Profil} lierInscription={false}
+                                />
+                              )}
+                              <div>
+                                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Lier à un compte membre existant</h3>
+                                {!linkingInscToProfilMode ? (
+                                  <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => setLinkingInscToProfilMode(true)}>
+                                    <Link2 size={12} /> Lier à un compte existant
+                                  </Button>
+                                ) : (
+                                  <div className="space-y-2">
+                                    <select className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm"
+                                      value={linkingInscToProfilId} onChange={(e) => setLinkingInscToProfilId(e.target.value)}>
+                                      <option value="">-- Choisir un membre --</option>
+                                      {membres.map(m => (
+                                        <option key={m.id} value={m.id}>{[m.nom, m.prenom].filter(Boolean).join(" ") || m.email}</option>
+                                      ))}
+                                    </select>
+                                    <div className="flex gap-2">
+                                      <Button size="sm" className="text-xs gap-1"
+                                        disabled={!linkingInscToProfilId || processing === `insc-${insc.id}`}
+                                        onClick={async () => {
+                                          await handleLierInscription(insc.id, linkingInscToProfilId, insc.disciplines);
+                                          setLinkingInscToProfilMode(false); setLinkingInscToProfilId("");
+                                        }}>
+                                        <Link2 size={12} /> Confirmer le lien
+                                      </Button>
+                                      <Button size="sm" variant="ghost" className="text-xs"
+                                        onClick={() => { setLinkingInscToProfilMode(false); setLinkingInscToProfilId(""); }}>
+                                        Annuler
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </>
+                          );
+                        })()}
                       </TabsContent>
 
                       {/* ——— Actions ——— */}

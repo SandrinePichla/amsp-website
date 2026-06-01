@@ -115,6 +115,19 @@ Cela sauvegarde le code source sur GitHub (en plus du site déployé).
 2. Sélectionner la table
 3. Modifier ou créer une politique
 
+> ⚠️ **CRITIQUE — table `profils`** : Ne jamais écrire une policy sur `profils` qui fait `EXISTS (SELECT 1 FROM profils ...)` en sous-requête. Cela crée une récursion infinie qui bloque **toutes** les queries sur la table (y compris la connexion admin). Utiliser à la place la fonction `SECURITY DEFINER` :
+> ```sql
+> CREATE OR REPLACE FUNCTION public.get_auth_user_role()
+> RETURNS TEXT LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public
+> AS $$ SELECT role FROM profils WHERE id = auth.uid(); $$;
+>
+> CREATE POLICY "mon_role_all" ON profils
+>   FOR ALL TO authenticated
+>   USING (public.get_auth_user_role() = 'mon_role')
+>   WITH CHECK (public.get_auth_user_role() = 'mon_role');
+> ```
+> Les migrations SQL sont dans `supabase/migrations/` — s'y référer avant toute modification.
+
 ---
 
 ## 6. EmailJS
