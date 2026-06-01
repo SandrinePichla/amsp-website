@@ -186,7 +186,7 @@ const AdminMembres = () => {
   const [enfantsData, setEnfantsData] = useState<{ id: string; nom: string; prenom: string; date_naissance: string | null; groupe_sanguin: string | null; allergie: string | null }[]>([]);
   const [liensData, setLiensData] = useState<{ id: string; compte_id: string; enfant_id: string; type_acces: string; enfant?: { id: string; nom: string; prenom: string; date_naissance: string | null } }[]>([]);
   const [connexionsLog, setConnexionsLog] = useState<ConnexionLog[]>([]);
-  const [modalTab, setModalTab] = useState("details");
+  const [modalTab, setModalTab] = useState("adhesions");
   const [adminSection, setAdminSection] = useState<"membres" | "familles" | "galeries" | "tiers">("membres");
   const [expandedInscIds, setExpandedInscIds] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<ActiveTab>("tous");
@@ -197,6 +197,7 @@ const AdminMembres = () => {
   const [adminRecapInsc, setAdminRecapInsc] = useState<Inscription | null>(null);
   const adminRecapRef = useRef<HTMLDivElement>(null);
   const dataLoadedRef = useRef(false);
+  const preventRedirectRef = useRef(false);
 
   useEffect(() => {
     if (!adminRecapInsc || !adminRecapRef.current) return;
@@ -277,7 +278,9 @@ const AdminMembres = () => {
 
   useEffect(() => {
     if (!user) { navigate("/connexion"); return; }
+    if (preventRedirectRef.current) return;
     supabase.from("profils").select("role").eq("id", user.id).single().then(({ data }) => {
+      if (preventRedirectRef.current) return;
       if (data?.role !== "admin" && data?.role !== "admin_discipline") { navigate("/"); return; }
       setIsAdmin(true);
       setCheckingRole(false);
@@ -562,6 +565,7 @@ const AdminMembres = () => {
     if (!insc.email) return null;
 
     // Sauvegarder la session admin — signUp() connecte automatiquement le nouvel utilisateur
+    preventRedirectRef.current = true;
     const { data: { session: adminSession } } = await supabase.auth.getSession();
 
     const tempPassword = Array.from(crypto.getRandomValues(new Uint8Array(18)))
@@ -572,8 +576,8 @@ const AdminMembres = () => {
     });
 
     if (signUpError || !signUpData.user) {
-      // Restaurer la session admin même en cas d'erreur
       if (adminSession) await supabase.auth.setSession({ access_token: adminSession.access_token, refresh_token: adminSession.refresh_token });
+      preventRedirectRef.current = false;
       toast.warning(signUpError ? `Impossible de créer le compte : ${signUpError.message}` : "Impossible de créer le compte (email déjà utilisé ?).");
       return null;
     }
@@ -593,6 +597,7 @@ const AdminMembres = () => {
 
     // Restaurer la session admin avant les opérations suivantes
     if (adminSession) await supabase.auth.setSession({ access_token: adminSession.access_token, refresh_token: adminSession.refresh_token });
+    preventRedirectRef.current = false;
 
     await supabase.from("inscriptions").update({ user_id: newUserId }).eq("id", insc.id);
     await supabase.auth.resetPasswordForEmail(insc.email, {
@@ -657,15 +662,18 @@ const AdminMembres = () => {
       : i
     ));
 
-    // Suggestions d'accès galerie
+    // Activer l'accès galerie pour les disciplines de l'inscription validée
     if (matchedProfil && insc?.disciplines) {
       const discIds = insc.disciplines.split(",").map(s => s.trim()).filter(Boolean);
       for (const discId of discIds) {
         const { data } = await supabase.from("acces_galerie").upsert(
-          { compte_id: matchedProfil.id, discipline_sanity_id: discId, actif: false, source: "suggestion_auto", inscription_id: id },
-          { onConflict: "compte_id,discipline_sanity_id", ignoreDuplicates: true }
+          { compte_id: matchedProfil.id, discipline_sanity_id: discId, actif: true, source: "suggestion_auto", inscription_id: id },
+          { onConflict: "compte_id,discipline_sanity_id", ignoreDuplicates: false }
         ).select().single();
-        if (data) setAccesGalerieData(prev => prev.some(a => a.id === data.id) ? prev : [...prev, data]);
+        if (data) setAccesGalerieData(prev => {
+          const exists = prev.some(a => a.id === data.id);
+          return exists ? prev.map(a => a.id === data.id ? data : a) : [...prev, data];
+        });
       }
     }
 
@@ -1154,7 +1162,7 @@ const AdminMembres = () => {
                               const profilDiscs = (profil.disciplines || "").split(",").map(s => s.trim()).filter(Boolean);
 
                               return (
-                                <tr key={key} className={`group transition-colors hover:bg-primary/[0.03] cursor-pointer ${isEven ? "bg-transparent" : "bg-secondary/20"}`} onClick={() => { setModalTab("details"); setSelectedKey(key); }}>
+                                <tr key={key} className={`group transition-colors hover:bg-primary/[0.03] cursor-pointer ${isEven ? "bg-transparent" : "bg-secondary/20"}`} onClick={() => { setModalTab("adhesions"); setSelectedKey(key); }}>
                                   <td className="py-3 pr-4">
                                     <div className="flex items-center gap-3">
                                       <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${avatarBg(nom || prenom || "?")}`}>{initials}</div>
@@ -1183,7 +1191,7 @@ const AdminMembres = () => {
                                     </div>
                                   </td>
                                   <td className="py-3 pl-4 text-right" onClick={e => e.stopPropagation()}>
-                                    <Button size="sm" variant="outline" className="h-7 px-3 text-xs gap-1.5 font-medium" onClick={() => { setModalTab("details"); setSelectedKey(key); }}>
+                                    <Button size="sm" variant="outline" className="h-7 px-3 text-xs gap-1.5 font-medium" onClick={() => { setModalTab("adhesions"); setSelectedKey(key); }}>
                                       <ChevronDown size={12} className="-rotate-90" /> Paramètres
                                     </Button>
                                   </td>
@@ -1324,66 +1332,17 @@ const AdminMembres = () => {
                         </div>
                       </div>
                       <TabsList className="h-9 mb-0 rounded-none border-0 bg-transparent p-0 gap-0">
-                        <TabsTrigger value="details" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs px-4 h-9">Détails</TabsTrigger>
                         <TabsTrigger value="adhesions" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs px-4 h-9">
                           Adhésions {pInsc.length > 0 && <span className="ml-1.5 rounded-full bg-primary/10 px-1.5 text-primary text-[10px] font-semibold">{pInsc.length}</span>}
                         </TabsTrigger>
                         <TabsTrigger value="galeries" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs px-4 h-9">Galeries</TabsTrigger>
                         <TabsTrigger value="parametres" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs px-4 h-9">Paramètres</TabsTrigger>
+                        <TabsTrigger value="details" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs px-4 h-9">Détails</TabsTrigger>
                       </TabsList>
                     </div>
 
                     {/* Scrollable content */}
                     <div className="flex-1 overflow-y-auto">
-
-                      {/* ——— Détails ——— */}
-                      <TabsContent value="details" className="m-0 p-6 space-y-5">
-                        <div>
-                          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Coordonnées</h3>
-                          <div className="rounded-xl border border-border/40 bg-secondary/20 divide-y divide-border/30">
-                            <div className="px-4 py-3 text-sm flex items-center gap-3">
-                              <span className="text-muted-foreground w-24 shrink-0 text-xs">Email</span>
-                              <span className="truncate font-medium">{profil.email}</span>
-                            </div>
-                            {profil.telephone && (
-                              <div className="px-4 py-3 text-sm flex items-center gap-3">
-                                <span className="text-muted-foreground w-24 shrink-0 text-xs">Téléphone</span>
-                                <span>{profil.telephone}</span>
-                              </div>
-                            )}
-                            {profil.adresse && (
-                              <div className="px-4 py-3 text-sm flex items-center gap-3">
-                                <span className="text-muted-foreground w-24 shrink-0 text-xs">Adresse</span>
-                                <span>{profil.adresse}</span>
-                              </div>
-                            )}
-                            <div className="px-4 py-3 text-sm flex items-center gap-3">
-                              <span className="text-muted-foreground w-24 shrink-0 text-xs">Membre depuis</span>
-                              <span>{new Date(profil.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}</span>
-                            </div>
-                          </div>
-                        </div>
-                        {(() => {
-                          const logs = connexionsLog.filter(l => l.user_id === profil.id).slice(0, 8);
-                          return (
-                            <div>
-                              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Connexions récentes</h3>
-                              {logs.length === 0 ? (
-                                <p className="text-sm text-muted-foreground italic">Aucune connexion enregistrée.</p>
-                              ) : (
-                                <div className="rounded-xl border border-border/40 bg-secondary/20 divide-y divide-border/30">
-                                  {logs.map(log => (
-                                    <div key={log.id} className="px-4 py-2.5 text-xs flex items-center gap-3 text-muted-foreground">
-                                      <Clock size={12} className="shrink-0" />
-                                      {new Date(log.created_at).toLocaleString("fr-FR", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })()}
-                      </TabsContent>
 
                       {/* ——— Adhésions ——— */}
                       <TabsContent value="adhesions" className="m-0 p-6 space-y-5">
@@ -1524,15 +1483,20 @@ const AdminMembres = () => {
                                 const isSuggestion = acces && !acces.actif && acces.source === "suggestion_auto";
                                 const isActive = acces?.actif === true;
                                 return (
-                                  <label key={disc._id} className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-secondary/40 ${isSuggestion ? "bg-amber-50/60 dark:bg-amber-950/20" : ""}`}>
+                                  <div
+                                    key={disc._id}
+                                    className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-secondary/40 ${isSuggestion ? "bg-amber-50/60 dark:bg-amber-950/20" : ""}`}
+                                    onClick={() => handleToggleProfilDiscipline(profil.id, disc._id, null, !isActive)}
+                                  >
                                     <Checkbox
                                       checked={isActive}
+                                      onClick={e => e.stopPropagation()}
                                       onCheckedChange={(v) => handleToggleProfilDiscipline(profil.id, disc._id, null, !!v)}
                                     />
                                     <span className="text-sm flex-1">{disc.nom}</span>
                                     {isSuggestion && <span className="text-[10px] text-amber-600 font-medium bg-amber-100/60 rounded-full px-2 py-0.5">Suggestion auto</span>}
                                     {isActive && <span className="text-[10px] text-emerald-600 font-medium">✓ Actif</span>}
-                                  </label>
+                                  </div>
                                 );
                               })}
                             </div>
@@ -1633,6 +1597,55 @@ const AdminMembres = () => {
                             </div>
                           </div>
                         )}
+                      </TabsContent>
+
+                      {/* ——— Détails ——— */}
+                      <TabsContent value="details" className="m-0 p-6 space-y-5">
+                        <div>
+                          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Coordonnées</h3>
+                          <div className="rounded-xl border border-border/40 bg-secondary/20 divide-y divide-border/30">
+                            <div className="px-4 py-3 text-sm flex items-center gap-3">
+                              <span className="text-muted-foreground w-24 shrink-0 text-xs">Email</span>
+                              <span className="truncate font-medium">{profil.email}</span>
+                            </div>
+                            {profil.telephone && (
+                              <div className="px-4 py-3 text-sm flex items-center gap-3">
+                                <span className="text-muted-foreground w-24 shrink-0 text-xs">Téléphone</span>
+                                <span>{profil.telephone}</span>
+                              </div>
+                            )}
+                            {profil.adresse && (
+                              <div className="px-4 py-3 text-sm flex items-center gap-3">
+                                <span className="text-muted-foreground w-24 shrink-0 text-xs">Adresse</span>
+                                <span>{profil.adresse}</span>
+                              </div>
+                            )}
+                            <div className="px-4 py-3 text-sm flex items-center gap-3">
+                              <span className="text-muted-foreground w-24 shrink-0 text-xs">Membre depuis</span>
+                              <span>{new Date(profil.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}</span>
+                            </div>
+                          </div>
+                        </div>
+                        {(() => {
+                          const logs = connexionsLog.filter(l => l.user_id === profil.id).slice(0, 8);
+                          return (
+                            <div>
+                              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Connexions récentes</h3>
+                              {logs.length === 0 ? (
+                                <p className="text-sm text-muted-foreground italic">Aucune connexion enregistrée.</p>
+                              ) : (
+                                <div className="rounded-xl border border-border/40 bg-secondary/20 divide-y divide-border/30">
+                                  {logs.map(log => (
+                                    <div key={log.id} className="px-4 py-2.5 text-xs flex items-center gap-3 text-muted-foreground">
+                                      <Clock size={12} className="shrink-0" />
+                                      {new Date(log.created_at).toLocaleString("fr-FR", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </TabsContent>
 
                     </div>
