@@ -3,9 +3,15 @@
   <head>
     <meta charset="utf-8">
     <script>
-      var path = window.location.pathname;
-      sessionStorage.setItem('redirect', path);
-      window.location.replace('/');
+      var base = '/amsp-website/';
+      var pathname = window.location.pathname;
+      // Save only the part after /amsp-website/ (e.g. "reinitialisation-mot-de-passe")
+      var relPath = pathname.slice(base.length);
+      if (relPath) {
+        sessionStorage.setItem('redirect', relPath + window.location.search);
+      }
+      // Redirect to app base, preserving the hash (contains Supabase auth tokens)
+      window.location.replace(window.location.origin + base + window.location.hash);
     </script>
   </head>
   <body></body>

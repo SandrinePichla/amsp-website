@@ -13,10 +13,11 @@
   var redirect = sessionStorage.getItem('redirect');
   if (redirect) {
     sessionStorage.removeItem('redirect');
-    window.history.replaceState(null, null, redirect);
+    // Restore path + preserve hash (needed for Supabase auth tokens: #access_token=...)
+    window.history.replaceState(null, null, '/amsp-website/' + redirect + window.location.hash);
   }
 </script>
-    <script type="module" crossorigin src="/amsp-website/assets/index-Bj-fYSmC.js"></script>
+    <script type="module" crossorigin src="/amsp-website/assets/index-D24wuEa0.js"></script>
     <link rel="stylesheet" crossorigin href="/amsp-website/assets/index-68bxZS-6.css">
   </head>
   <body>
