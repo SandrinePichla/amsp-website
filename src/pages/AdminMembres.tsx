@@ -441,16 +441,32 @@ const AdminMembres = () => {
     const existing = accesGalerieData.find(a => a.compte_id === profilId && a.discipline_sanity_id === disc);
     if (checked) {
       if (existing) {
-        await supabase.from("acces_galerie").update({ actif: true, source: "admin_manuel" }).eq("id", existing.id);
+        // Mise à jour optimiste
         setAccesGalerieData(prev => prev.map(a => a.id === existing.id ? { ...a, actif: true, source: "admin_manuel" } : a));
+        const { error } = await supabase.from("acces_galerie").update({ actif: true, source: "admin_manuel" }).eq("id", existing.id);
+        if (error) {
+          setAccesGalerieData(prev => prev.map(a => a.id === existing.id ? { ...a, actif: false } : a));
+          toast.error("Erreur activation galerie : " + error.message);
+        }
       } else {
-        const { data } = await supabase.from("acces_galerie").insert({ compte_id: profilId, discipline_sanity_id: disc, actif: true, source: "admin_manuel" }).select().single();
-        if (data) setAccesGalerieData(prev => [...prev, data]);
+        const tempId = `tmp-${profilId}-${disc}`;
+        setAccesGalerieData(prev => [...prev, { id: tempId, compte_id: profilId, discipline_sanity_id: disc, actif: true, source: "admin_manuel" }]);
+        const { data, error } = await supabase.from("acces_galerie").insert({ compte_id: profilId, discipline_sanity_id: disc, actif: true, source: "admin_manuel" }).select().single();
+        if (error) {
+          setAccesGalerieData(prev => prev.filter(a => a.id !== tempId));
+          toast.error("Erreur activation galerie : " + error.message);
+        } else if (data) {
+          setAccesGalerieData(prev => prev.map(a => a.id === tempId ? data : a));
+        }
       }
     } else {
       if (existing) {
-        await supabase.from("acces_galerie").update({ actif: false }).eq("id", existing.id);
         setAccesGalerieData(prev => prev.map(a => a.id === existing.id ? { ...a, actif: false } : a));
+        const { error } = await supabase.from("acces_galerie").update({ actif: false }).eq("id", existing.id);
+        if (error) {
+          setAccesGalerieData(prev => prev.map(a => a.id === existing.id ? { ...a, actif: true } : a));
+          toast.error("Erreur désactivation galerie : " + error.message);
+        }
       }
     }
   };
@@ -666,14 +682,18 @@ const AdminMembres = () => {
     if (matchedProfil && insc?.disciplines) {
       const discIds = insc.disciplines.split(",").map(s => s.trim()).filter(Boolean);
       for (const discId of discIds) {
-        const { data } = await supabase.from("acces_galerie").upsert(
+        const { data, error: upsertErr } = await supabase.from("acces_galerie").upsert(
           { compte_id: matchedProfil.id, discipline_sanity_id: discId, actif: true, source: "suggestion_auto", inscription_id: id },
           { onConflict: "compte_id,discipline_sanity_id", ignoreDuplicates: false }
         ).select().single();
-        if (data) setAccesGalerieData(prev => {
-          const exists = prev.some(a => a.id === data.id);
-          return exists ? prev.map(a => a.id === data.id ? data : a) : [...prev, data];
-        });
+        if (upsertErr) {
+          toast.warning("Inscription validée mais erreur galerie : " + upsertErr.message);
+        } else if (data) {
+          setAccesGalerieData(prev => {
+            const exists = prev.some(a => a.id === data.id);
+            return exists ? prev.map(a => a.id === data.id ? data : a) : [...prev, data];
+          });
+        }
       }
     }
 
@@ -1490,10 +1510,9 @@ const AdminMembres = () => {
                                   >
                                     <Checkbox
                                       checked={isActive}
-                                      onClick={e => e.stopPropagation()}
-                                      onCheckedChange={(v) => handleToggleProfilDiscipline(profil.id, disc._id, null, !!v)}
+                                      onCheckedChange={() => {}}
                                     />
-                                    <span className="text-sm flex-1">{disc.nom}</span>
+                                    <span className="text-sm flex-1 select-none">{disc.nom}</span>
                                     {isSuggestion && <span className="text-[10px] text-amber-600 font-medium bg-amber-100/60 rounded-full px-2 py-0.5">Suggestion auto</span>}
                                     {isActive && <span className="text-[10px] text-emerald-600 font-medium">✓ Actif</span>}
                                   </div>
