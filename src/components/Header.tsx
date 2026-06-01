@@ -151,15 +151,17 @@ const UserMenu = ({
               </Link>
             )}
 
-            {/* Mon profil */}
-            <Link
-              to="/profil"
-              onClick={() => setOpen(false)}
-              className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-            >
-              <User size={14} />
-              Mon profil
-            </Link>
+            {/* Mon espace membre */}
+            {role !== "tiers" && (
+              <Link
+                to="/espace-membre"
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                <User size={14} />
+                Mon espace membre
+              </Link>
+            )}
 
             {/* Galerie membres */}
             <Link
@@ -359,14 +361,16 @@ const Header = () => {
           Gestion des membres
         </Link>
       )}
-      <Link
-        to="/profil"
-        onClick={() => setMobileOpen(false)}
-        className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary"
-      >
-        <User size={14} />
-        Mon profil
-      </Link>
+      {role !== "tiers" && (
+        <Link
+          to="/espace-membre"
+          onClick={() => setMobileOpen(false)}
+          className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary"
+        >
+          <User size={14} />
+          Mon espace membre
+        </Link>
+      )}
       <Link
         to="/galerie"
         onClick={() => setMobileOpen(false)}

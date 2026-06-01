@@ -234,7 +234,8 @@ const Inscription = () => {
 
     setSending(true);
 
-    const disciplinesChoisies = selectedDisciplines
+    const disciplinesIds = selectedDisciplines.join(",");
+    const disciplinesNoms = selectedDisciplines
       .map((id) => disciplines.find((d) => d._id === id)?.nom)
       .filter(Boolean)
       .join(", ");
@@ -251,7 +252,7 @@ const Inscription = () => {
         tel_mobile: typeInscription === 'mineur' ? '' : form.telMobile,
         email: typeInscription === 'mineur' ? (parent1.email.trim() || '') : form.email,
         urgence_contact: [[form.urgencePrenom, form.urgenceNom].filter(Boolean).join(" "), form.urgenceTel].filter(Boolean).join(" — "),
-        disciplines: disciplinesChoisies,
+        disciplines: disciplinesIds,
         niveau: form.niveau || null,
         autorisation_parentale: typeInscription === 'mineur' ? autorisationParentale : false,
         droit_image: droitImage,
@@ -274,45 +275,51 @@ const Inscription = () => {
 
       if (error) throw error;
 
-      // Mettre à jour les disciplines galerie du profil connecté
-      if (user && disciplinesChoisies) {
-        supabase.from("profils").select("disciplines").eq("id", user.id).single()
-          .then(({ data }) => {
-            const existing = (data?.disciplines || "").split(",").map((s: string) => s.trim()).filter(Boolean);
-            const added = disciplinesChoisies.split(",").map(s => s.trim()).filter(Boolean);
-            const merged = [...new Set([...existing, ...added])].join(", ");
-            if (merged !== (data?.disciplines || "")) {
-              supabase.from("profils").update({ disciplines: merged }).eq("id", user.id);
-            }
-          });
+      // Créer des suggestions d'accès galerie (actif=false, en attente validation admin)
+      if (user && disciplinesIds) {
+        for (const discId of selectedDisciplines) {
+          supabase.from("acces_galerie").upsert({
+            compte_id: user.id,
+            discipline_sanity_id: discId,
+            actif: false,
+            source: "suggestion_auto",
+          }, { onConflict: "compte_id,discipline_sanity_id", ignoreDuplicates: true });
+        }
       }
 
-      await sendBrevoEmail(TEMPLATES.INSCRIPTION, { email: form.email, name: `${form.prenom} ${form.nom}` }, {
-        nom: form.nom,
-        prenom: form.prenom,
-        adresse: adresseComplete,
-        tel_mobile: form.telMobile,
-        email: form.email,
-        date_naissance: form.dateNaissance || "",
-        groupe_sanguin: form.groupeSanguin || "",
-        allergie: form.allergie || "Aucune",
-        niveau: form.niveau || "Non précisé",
-        urgence_contact: [[form.urgencePrenom, form.urgenceNom].filter(Boolean).join(" "), form.urgenceTel].filter(Boolean).join(" — "),
-        disciplines: disciplinesChoisies,
-        autorisation_parentale: autorisationParentale ? "Oui" : "Non / Non concerné",
-        droit_image: droitImage ? "Oui" : "Non",
-        saison,
-      });
+      const contactEmail = typeInscription === 'mineur' ? (parent1.email.trim() || form.email) : form.email;
+      const contactName = typeInscription === 'mineur'
+        ? `${parent1.prenom} ${parent1.nom}`.trim() || `${form.prenom} ${form.nom}`
+        : `${form.prenom} ${form.nom}`;
+
+      if (contactEmail) {
+        await sendBrevoEmail(TEMPLATES.INSCRIPTION, { email: contactEmail, name: contactName }, {
+          nom: form.nom,
+          prenom: form.prenom,
+          adresse: adresseComplete,
+          tel_mobile: typeInscription === 'mineur' ? (parent1.tel.trim() || form.telMobile) : form.telMobile,
+          email: contactEmail,
+          date_naissance: form.dateNaissance || "",
+          groupe_sanguin: form.groupeSanguin || "",
+          allergie: form.allergie || "Aucune",
+          niveau: form.niveau || "Non précisé",
+          urgence_contact: [[form.urgencePrenom, form.urgenceNom].filter(Boolean).join(" "), form.urgenceTel].filter(Boolean).join(" — "),
+          disciplines: disciplinesNoms,
+          autorisation_parentale: autorisationParentale ? "Oui" : "Non / Non concerné",
+          droit_image: droitImage ? "Oui" : "Non",
+          saison,
+        });
+      }
 
       try {
         await sendBrevoEmail(TEMPLATES.INSCRIPTION_ADMIN, { email: import.meta.env.VITE_BREVO_ADMIN_EMAIL, name: "AMSP" }, {
           nom: form.nom,
           prenom: form.prenom,
-          email: form.email,
-          tel_mobile: form.telMobile,
+          email: contactEmail,
+          tel_mobile: typeInscription === 'mineur' ? (parent1.tel.trim() || form.telMobile) : form.telMobile,
           date_naissance: form.dateNaissance || "",
           niveau: form.niveau || "Non précisé",
-          disciplines: disciplinesChoisies,
+          disciplines: disciplinesNoms,
           saison,
         });
       } catch {
@@ -330,7 +337,7 @@ const Inscription = () => {
         allergie: form.allergie,
         niveau: form.niveau,
         urgenceContact: [[form.urgencePrenom, form.urgenceNom].filter(Boolean).join(' '), form.urgenceTel].filter(Boolean).join(' — '),
-        disciplines: disciplinesChoisies,
+        disciplines: disciplinesNoms,
         saison,
         typeInscription,
         passSport,

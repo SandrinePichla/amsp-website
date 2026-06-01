@@ -17,7 +17,7 @@ interface Album {
   titre?: string;
   date: string;
   prive: boolean;
-  discipline?: { nom: string; nomCourt: string };
+  discipline?: { _id: string; nom: string; nomCourt: string };
   photos: Photo[];
 }
 
@@ -27,13 +27,13 @@ const Galerie = () => {
   const [openAlbum, setOpenAlbum] = useState<Album | null>(null);
   const [lightbox, setLightbox] = useState<{ album: Album; index: number } | null>(null);
   const [loading, setLoading] = useState(true);
-  const { user, role, disciplines } = useAuth();
+  const { user, role, accesGalerie } = useAuth();
 
   useEffect(() => {
     client
       .fetch(`*[_type == "galerie" && publie == true] | order(date desc) {
         _id, titre, date, prive,
-        discipline-> { nom, nomCourt },
+        discipline-> { _id, nom, nomCourt },
         photos[] { _key, legende, asset }
       }`)
       .then((data) => {
@@ -42,16 +42,12 @@ const Galerie = () => {
       });
   }, []);
 
-  const userDiscs = (disciplines || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
-
   const albumsVisibles = albums.filter((a) => {
     if (!a.prive) return true;
     if (!user) return false;
     if (role === "admin") return true;
-    if (!a.discipline) return true; // album "toute discipline" → tous les membres
-    const albumDisc = a.discipline.nom.toLowerCase();
-    const albumDiscCourt = a.discipline.nomCourt?.toLowerCase() ?? "";
-    return userDiscs.some(d => d === albumDisc || d === albumDiscCourt);
+    if (!a.discipline) return true; // album "toute discipline" → tous les membres connectés
+    return accesGalerie.includes(a.discipline._id);
   });
 
   const disciplinesFiltres = [
