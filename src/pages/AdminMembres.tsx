@@ -150,6 +150,20 @@ const PAIEMENT_LABELS: Record<string, string> = {
 };
 
 
+const calcAge = (dateNaissance: string | null): number | null => {
+  if (!dateNaissance) return null;
+  const birth = new Date(dateNaissance);
+  const today = new Date();
+  return today.getFullYear() - birth.getFullYear()
+    - (today < new Date(today.getFullYear(), birth.getMonth(), birth.getDate()) ? 1 : 0);
+};
+
+const ageBadgeCls = (dateNaissance: string | null) => {
+  const age = calcAge(dateNaissance);
+  if (age === null) return "bg-secondary text-muted-foreground";
+  return age < 18 ? "bg-sky-100 text-sky-700" : "bg-emerald-100 text-emerald-700";
+};
+
 const getInitials = (prenom: string | null, nom: string | null) =>
   [(prenom || "").charAt(0), (nom || "").charAt(0)].filter(Boolean).join("").toUpperCase() || "?";
 
@@ -787,7 +801,7 @@ const AdminMembres = () => {
     const AMBRE_FG = 'FF92400e';
     const GRIS_BG = 'FFf3f4f6';
     const GRIS_FG = 'FF6b7280';
-    const NB_COLS = 24;
+    const NB_COLS = 25;
 
     sheet.mergeCells(1, 1, 1, NB_COLS);
     const titreCell = sheet.getCell(1, 1);
@@ -808,11 +822,11 @@ const AdminMembres = () => {
     sheet.addRow([]);
 
     const headers = [
-      'Statut', 'Source', 'Saison', 'Type', 'Nom', 'Prénom', 'Date naissance',
-      'Adresse', 'Téléphone', 'Email', 'Discipline(s)', 'Niveau', 'Groupe sanguin',
-      'Allergie(s)', 'Urgence', 'Paiement', 'Pass Sport', 'Droit image',
-      'Autorisation parentale', 'Parent 1', 'Parent 1 email', 'Parent 1 tél',
-      'Parent 2', 'Reçue le',
+      'Numéro', 'Nom', 'Prénom', 'Date naissance', 'Type',
+      'Adresse', 'Téléphone', 'Email', 'Discipline(s)', 'Niveau',
+      'Groupe sanguin', 'Allergie(s)', 'Urgence', 'Paiement', 'Pass Sport',
+      'Droit image', 'Autorisation parentale', 'Parent 1', 'Parent 1 email', 'Parent 1 tél',
+      'Parent 2', 'Saison', 'Statut', 'Source', 'Reçue le',
     ];
     const headerRow = sheet.addRow(headers);
     headerRow.height = 22;
@@ -835,13 +849,11 @@ const AdminMembres = () => {
       const rowBg = isEven ? GRIS_CLAIR : BLANC;
       const statut = i.statut || 'en_attente';
       const row = sheet.addRow([
-        { validee: 'Validée', refusee: 'Refusée', en_attente: 'En attente', supprimee: 'Supprimée' }[statut] ?? statut,
-        i.source === 'papier' ? 'Papier' : 'En ligne',
-        i.saison || '',
-        i.type_inscription === 'mineur' ? 'Mineur' : 'Adulte',
+        idx + 1,
         i.nom || '',
         i.prenom || '',
         i.date_naissance ? new Date(i.date_naissance).toLocaleDateString('fr-FR') : '',
+        i.type_inscription === 'mineur' ? 'Mineur' : 'Adulte',
         i.adresse || '',
         i.tel_mobile || '',
         i.email || '',
@@ -858,12 +870,15 @@ const AdminMembres = () => {
         i.parent1_email || '',
         i.parent1_tel || '',
         [i.parent2_prenom, i.parent2_nom].filter(Boolean).join(' ') || '',
+        i.saison || '',
+        { validee: 'Validée', refusee: 'Refusée', en_attente: 'En attente', supprimee: 'Supprimée' }[statut] ?? statut,
+        i.source === 'papier' ? 'Papier' : 'En ligne',
         new Date(i.created_at).toLocaleDateString('fr-FR'),
       ]);
       row.height = 18;
       const sc = statutColors[statut] || { bg: rowBg, fg: '00000000' };
       row.eachCell((cell, colNum) => {
-        if (colNum === 1) {
+        if (colNum === 23) {
           cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: sc.fg } };
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: sc.bg } };
         } else {
@@ -874,7 +889,8 @@ const AdminMembres = () => {
       });
     });
 
-    const colWidths = [12, 9, 10, 8, 16, 16, 14, 30, 14, 28, 20, 14, 12, 18, 24, 14, 10, 10, 14, 22, 24, 14, 22, 12];
+    //               N°   Nom  Prén  DdN  Type  Adr  Tel  Email  Disc  Niv  GS   Allerg  Urg  Paiem  PS   DI   AP   P1   P1mail P1tel P2   Sais  Stat  Src  Reçu
+    const colWidths = [7,  16,  14,   13,  10,   30,  14,  28,   20,   12,  12,  18,     24,  14,    9,   9,   14,  22,  24,    13,   22,  12,   12,   9,   12];
     colWidths.forEach((w, i) => { sheet.getColumn(i + 1).width = w; });
 
     const buf = await workbook.xlsx.writeBuffer();
@@ -904,10 +920,15 @@ const AdminMembres = () => {
       i.email.toLowerCase() === profil.email.toLowerCase()
     );
 
-  const matchInscToProfilFull = (i: Inscription, profil: Membre) =>
-    matchInscToProfil(i, profil) ||
-    // Email-match uniquement pour les inscriptions non en_attente (sinon elles disparaissent du tableau)
-    (!i.user_id && i.source !== "papier" && !!i.email && i.statut !== "en_attente" && i.email.toLowerCase() === profil.email.toLowerCase());
+  const matchInscToProfilFull = (i: Inscription, profil: Membre) => {
+    const sameNom = (i.nom || "").trim().toLowerCase() === (profil.nom || "").trim().toLowerCase();
+    const samePrenom = (i.prenom || "").trim().toLowerCase() === (profil.prenom || "").trim().toLowerCase();
+    // user_id match : seulement si c'est la même personne (même nom+prénom)
+    // → les inscriptions d'enfants/tiers liées au compte d'un parent restent en ligne séparée
+    return (matchInscToProfil(i, profil) && sameNom && samePrenom) ||
+      // Email-match uniquement pour les inscriptions non en_attente (sinon elles disparaissent du tableau)
+      (!i.user_id && i.source !== "papier" && !!i.email && i.statut !== "en_attente" && i.email.toLowerCase() === profil.email.toLowerCase());
+  };
 
   const lignes: Ligne[] = [];
   if (isSuperAdmin) {
@@ -1126,7 +1147,7 @@ const AdminMembres = () => {
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
                         className="pl-8 h-9 text-sm"
-                        autoComplete="off"
+                        autoComplete="new-password"
                       />
                     </div>
                     {disciplinesSanity.length > 0 && (
@@ -1163,6 +1184,7 @@ const AdminMembres = () => {
                           <tr className="border-b border-border/60">
                             <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap min-w-[200px]">Membre</th>
                             <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap min-w-[140px]">Statut</th>
+                            <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap w-24">Âge</th>
                             <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Disciplines actives</th>
                             <th className="text-right pb-3 pl-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap w-36">Accès Web</th>
                           </tr>
@@ -1180,12 +1202,13 @@ const AdminMembres = () => {
                               const roleBdg = roleBadge(profil.role);
                               const pendingCount = pInsc.filter(i => i.statut === "en_attente").length;
                               const profilDiscs = (profil.disciplines || "").split(",").map(s => s.trim()).filter(Boolean);
+                              const dateNaissance = pInsc.find(i => i.date_naissance)?.date_naissance ?? null;
 
                               return (
                                 <tr key={key} className={`group transition-colors hover:bg-primary/[0.03] cursor-pointer ${isEven ? "bg-transparent" : "bg-secondary/20"}`} onClick={() => { setModalTab("adhesions"); setSelectedKey(key); }}>
                                   <td className="py-3 pr-4">
                                     <div className="flex items-center gap-3">
-                                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${avatarBg(nom || prenom || "?")}`}>{initials}</div>
+                                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${ageBadgeCls(dateNaissance)}`}>{idx + 1}</div>
                                       <div className="min-w-0">
                                         <p className="font-semibold text-sm leading-tight truncate max-w-[180px]">{[nom, prenom].filter(Boolean).join(" ") || <span className="italic text-muted-foreground font-normal text-xs">Sans nom</span>}</p>
                                         <p className="text-[11px] text-muted-foreground truncate max-w-[180px]">{profil.email}</p>
@@ -1197,6 +1220,11 @@ const AdminMembres = () => {
                                       <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium w-fit ${roleBdg.cls}`}>{roleBdg.label}</span>
                                       {pendingCount > 0 && <span className="text-[10px] text-amber-600 font-medium">{pendingCount} inscription(s) en attente</span>}
                                     </div>
+                                  </td>
+                                  <td className="py-3 pr-4">
+                                    {calcAge(dateNaissance) !== null
+                                      ? <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium w-fit ${ageBadgeCls(dateNaissance)}`}>{calcAge(dateNaissance)! < 18 ? "Mineur" : "Adulte"}</span>
+                                      : <span className="text-xs text-muted-foreground italic">—</span>}
                                   </td>
                                   <td className="py-3 pr-4">
                                     <div className="flex flex-wrap gap-1">
@@ -1230,7 +1258,7 @@ const AdminMembres = () => {
                               <tr key={key} className={`group transition-colors hover:bg-primary/[0.03] cursor-pointer ${isEven ? "bg-transparent" : "bg-secondary/20"}`} onClick={() => { setModalTab("inscription"); setSelectedKey(key); }}>
                                 <td className="py-3 pr-4">
                                   <div className="flex items-center gap-3">
-                                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${avatarBg(nom || prenom || "?")}`}>{initials}</div>
+                                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${ageBadgeCls(insc.date_naissance)}`}>{idx + 1}</div>
                                     <div className="min-w-0">
                                       <p className="font-semibold text-sm leading-tight truncate max-w-[180px]">{[nom, prenom].filter(Boolean).join(" ") || <span className="italic text-muted-foreground font-normal text-xs">Sans nom</span>}</p>
                                       <p className="text-[11px] text-muted-foreground truncate max-w-[180px]">{insc.email || "—"}{insc.source === "papier" && <span className="ml-1 text-blue-600">· papier</span>}</p>
@@ -1239,6 +1267,11 @@ const AdminMembres = () => {
                                 </td>
                                 <td className="py-3 pr-4">
                                   <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium w-fit ${iBdg.cls}`}>{iBdg.label}</span>
+                                </td>
+                                <td className="py-3 pr-4">
+                                  {calcAge(insc.date_naissance) !== null
+                                    ? <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium w-fit ${ageBadgeCls(insc.date_naissance)}`}>{calcAge(insc.date_naissance)! < 18 ? "Mineur" : "Adulte"}</span>
+                                    : <span className="text-xs text-muted-foreground italic">—</span>}
                                 </td>
                                 <td className="py-3 pr-4">
                                   <div className="flex flex-wrap gap-1">
@@ -1343,6 +1376,9 @@ const AdminMembres = () => {
                           </DialogTitle>
                           <div className="flex flex-wrap items-center gap-2 mt-1.5">
                             <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${roleBdg.cls}`}>{roleBdg.label}</span>
+                            {profil.role === "admin_discipline" && profil.disciplines && (
+                              <span className="text-xs text-muted-foreground">· {resolveDiscNoms(profil.disciplines).join(", ")}</span>
+                            )}
                             <span className="text-sm text-muted-foreground truncate">{profil.email}</span>
                           </div>
                           <div className="mt-1.5 flex items-center gap-1.5">
@@ -1593,7 +1629,7 @@ const AdminMembres = () => {
                             <div className="rounded-xl border border-border/40 p-4 space-y-3">
                               <div className="flex items-center gap-2">
                                 <Shield size={14} className="text-muted-foreground" />
-                                <span className="text-sm">Rôle actuel : <span className={`font-medium ${roleBdg.cls} rounded-full px-2 py-0.5`}>{roleBdg.label}</span></span>
+                                <span className="text-sm">Rôle actuel : <span className={`font-medium ${roleBdg.cls} rounded-full px-2 py-0.5`}>{roleBdg.label}</span>{profil.role === "admin_discipline" && profil.disciplines && <span className="ml-1 text-muted-foreground text-xs">· {resolveDiscNoms(profil.disciplines).join(", ")}</span>}</span>
                               </div>
                               <div className="flex flex-wrap gap-2">
                                 {profil.role === "refuse" ? (
