@@ -59,11 +59,15 @@ const Galerie = () => {
     ))
   ];
 
-  const albumsFiltres = filter === "Toutes"
+  const albumsFiltres = (filter === "Toutes"
     ? albumsVisibles
     : albumsVisibles.filter((a) =>
         (a.discipline?.nomCourt || a.discipline?.nom) === filter
-      );
+      )
+  ).sort((a, b) => {
+    if (a.prive === b.prive) return 0;
+    return a.prive ? -1 : 1;
+  });
 
   const goNext = () => {
     if (!lightbox) return;
