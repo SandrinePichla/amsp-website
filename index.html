@@ -13,7 +13,8 @@
   var redirect = sessionStorage.getItem('redirect');
   if (redirect) {
     sessionStorage.removeItem('redirect');
-    window.history.replaceState(null, null, redirect);
+    // Restore path + preserve hash (needed for Supabase auth tokens: #access_token=...)
+    window.history.replaceState(null, null, '/amsp-website/' + redirect + window.location.hash);
   }
 </script>
   </head>
