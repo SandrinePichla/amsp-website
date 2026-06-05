@@ -9,6 +9,9 @@ import { Sparkles } from "lucide-react";
 import { iconesDisciplines } from "@/iconesDisciplines";
 import heroImage from "@/assets/hero-martial-banner-modif4.webp";
 
+const toSlug = (name: string) =>
+  name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+
 interface Discipline {
   _id: string;
   nom: string;
@@ -133,10 +136,11 @@ const Index = () => {
 
               {/* Badge modifié */}
               {a.statut === 'modifie' && (
-                <div className="absolute right-0 top-0 z-20 pointer-events-none">
-                  <span className="block rounded-tr-xl rounded-bl-xl bg-amber-500 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-white shadow">
-                    ⚠ Modifié
-                  </span>
+                <div className="absolute left-0 right-0 top-0 z-20 pointer-events-none">
+                  <div className="flex items-center justify-center gap-2 bg-amber-500 py-2 text-sm font-black uppercase tracking-widest text-white shadow-md rounded-t-xl">
+                    <span>⚠</span>
+                    <span>Modifié</span>
+                  </div>
                 </div>
               )}
 
@@ -213,10 +217,10 @@ const Index = () => {
 
               {/* Événements passés */}
               {past.length > 0 && (
-                <div className="mt-14">
+                <div className="mt-6">
                   <button
                     onClick={() => setShowPast(!showPast)}
-                    className="flex items-center gap-2 mx-auto mb-6 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                    className="flex items-center gap-2 mr-auto mb-6 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <span className={`transition-transform duration-200 ${showPast ? 'rotate-90' : ''}`}>▶</span>
                     Événements passés ({past.length})
@@ -241,6 +245,71 @@ const Index = () => {
           </section>
         );
       })()}
+
+      {/* Disciplines grid */}
+      <section className="pt-2 pb-20">
+        <div className="container mx-auto px-4">
+          <div className="mb-12 text-center">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary/60">Arts pratiqués</p>
+            <h2 className="font-serif text-3xl font-bold md:text-4xl">
+              Nos <span className="text-primary">Disciplines</span>
+            </h2>
+          </div>
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {disciplines.map((d, i) => {
+              const IconeComposant = iconesDisciplines[d.icone] || Sparkles;
+              return (
+                <motion.div
+                  key={d._id}
+                  initial={{ opacity: 0, y: 24 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.08 }}
+                >
+                  <Link
+                    to={`/disciplines/${toSlug(d.nom)}`}
+                    className="group block overflow-hidden rounded-xl border border-border/40 bg-card transition-all duration-300 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10"
+                  >
+                    {/* Header — nom en vedette */}
+                    <div className="relative flex h-28 items-center gap-4 overflow-hidden bg-gradient-to-br from-primary/15 via-primary/8 to-transparent px-5">
+                      <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-primary/8 transition-all duration-500 group-hover:scale-125 group-hover:bg-primary/12" />
+                      <div className="relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/12 ring-1 ring-primary/20 transition-all duration-300 group-hover:bg-primary/22 group-hover:ring-primary/40">
+                        <IconeComposant size={22} className="text-primary" />
+                      </div>
+                      <h3 className="relative z-10 font-serif text-xl font-black leading-tight transition-colors group-hover:text-primary">
+                        {d.nomCourt || d.nom}
+                      </h3>
+                    </div>
+
+                    {/* Corps */}
+                    <div className="p-5">
+                      <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+                        {d.description}
+                      </p>
+                      {d.horaires && (
+                        <p className="mt-2 text-xs font-medium text-primary/70">{d.horaires}</p>
+                      )}
+                      <div className="mt-4 flex items-center gap-1 text-xs font-semibold text-primary opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                        En savoir plus
+                        <ArrowRight size={12} className="transition-transform duration-200 group-hover:translate-x-1" />
+                      </div>
+                    </div>
+                  </Link>
+                </motion.div>
+              );
+            })}
+          </div>
+
+          <div className="mt-10 text-center">
+            <Link
+              to="/disciplines"
+              className="inline-flex items-center gap-2 rounded-lg border border-border/50 bg-secondary/50 px-5 py-2.5 text-sm font-medium transition-all hover:border-primary/40 hover:bg-secondary"
+            >
+              Voir toutes les disciplines <ArrowRight size={14} />
+            </Link>
+          </div>
+        </div>
+      </section>
 
       {/* Modal */}
       <AnimatePresence>
@@ -399,73 +468,6 @@ const Index = () => {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Disciplines grid */}
-      <section className="py-20">
-        <div className="container mx-auto px-4">
-          <div className="mb-12 text-center">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary/60">Arts pratiqués</p>
-            <h2 className="font-serif text-3xl font-bold md:text-4xl">
-              Nos <span className="text-primary">Disciplines</span>
-            </h2>
-          </div>
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {disciplines.map((d, i) => {
-              const IconeComposant = iconesDisciplines[d.icone] || Sparkles;
-              return (
-                <motion.div
-                  key={d._id}
-                  initial={{ opacity: 0, y: 24 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.08 }}
-                >
-                  <Link
-                    to="/disciplines"
-                    className="group block overflow-hidden rounded-xl border border-border/40 bg-card transition-all duration-300 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10"
-                  >
-                    {/* Header — nom en vedette */}
-                    <div className="relative flex h-28 items-center gap-4 overflow-hidden bg-gradient-to-br from-primary/15 via-primary/8 to-transparent px-5">
-                      <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-primary/8 transition-all duration-500 group-hover:scale-125 group-hover:bg-primary/12" />
-                      {/* Icone — secondaire */}
-                      <div className="relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/12 ring-1 ring-primary/20 transition-all duration-300 group-hover:bg-primary/22 group-hover:ring-primary/40">
-                        <IconeComposant size={22} className="text-primary" />
-                      </div>
-                      {/* Nom — héros */}
-                      <h3 className="relative z-10 font-serif text-xl font-black leading-tight transition-colors group-hover:text-primary">
-                        {d.nomCourt || d.nom}
-                      </h3>
-                    </div>
-
-                    {/* Corps */}
-                    <div className="p-5">
-                      <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
-                        {d.description}
-                      </p>
-                      {d.horaires && (
-                        <p className="mt-2 text-xs font-medium text-primary/70">{d.horaires}</p>
-                      )}
-                      <div className="mt-4 flex items-center gap-1 text-xs font-semibold text-primary opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                        En savoir plus
-                        <ArrowRight size={12} className="transition-transform duration-200 group-hover:translate-x-1" />
-                      </div>
-                    </div>
-                  </Link>
-                </motion.div>
-              );
-            })}
-          </div>
-
-          <div className="mt-10 text-center">
-            <Link
-              to="/disciplines"
-              className="inline-flex items-center gap-2 rounded-lg border border-border/50 bg-secondary/50 px-5 py-2.5 text-sm font-medium transition-all hover:border-primary/40 hover:bg-secondary"
-            >
-              Voir toutes les disciplines <ArrowRight size={14} />
-            </Link>
-          </div>
-        </div>
-      </section>
 
       {/* CTA */}
       <section className="border-t border-border/50 bg-secondary/30 py-16">

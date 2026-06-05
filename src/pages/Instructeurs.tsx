@@ -6,7 +6,7 @@ import { client } from "@/sanityClient";
 import { urlFor } from "@/sanityImage";
 
 const toAnchor = (name: string) =>
-  name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+  name.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "").replace(/^-+|-+$/g, "");
 
 interface Lien {
   label: string;
