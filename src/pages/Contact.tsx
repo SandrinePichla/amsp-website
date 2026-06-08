@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { MapPin, Mail, Clock, Phone } from "lucide-react";
+import { MapPin, Mail, Clock, Phone, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import { client } from "@/sanityClient";
+import { supabase } from "@/supabaseClient";
 import { sendBrevoEmail, TEMPLATES } from "@/lib/brevo";
 
 interface Parametres {
@@ -26,6 +27,8 @@ const Contact = () => {
     message: ""
   });
   const [sending, setSending] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState("");
 
   useEffect(() => {
     client
@@ -37,21 +40,50 @@ const Contact = () => {
     setForm({ ...form, [e.target.id]: e.target.value });
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] || null;
+    setFileError("");
+    if (!f) { setFile(null); return; }
+    if (f.size > 5 * 1024 * 1024) {
+      setFileError("Fichier trop volumineux (5 Mo max).");
+      setFile(null);
+      e.target.value = "";
+      return;
+    }
+    setFile(f);
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSending(true);
 
     try {
+      let message = form.message;
+
+      if (file) {
+        const ext = file.name.split(".").pop();
+        const fileName = `contact/${Date.now()}-${form.from_name.replace(/\s+/g, "_").slice(0, 30)}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("contact-attachments")
+          .upload(fileName, file, { upsert: false });
+        if (uploadError) throw uploadError;
+        const { data: urlData } = supabase.storage
+          .from("contact-attachments")
+          .getPublicUrl(fileName);
+        message += `\n\n📎 Pièce jointe : ${urlData.publicUrl}`;
+      }
+
       const adminEmail = parametres?.email || import.meta.env.VITE_BREVO_ADMIN_EMAIL;
       await sendBrevoEmail(TEMPLATES.CONTACT, { email: adminEmail, name: "AMSP" }, {
         from_name: form.from_name,
         from_email: form.from_email,
         subject: form.subject,
-        message: form.message,
+        message,
       });
 
       toast.success("Message envoyé ! Nous vous répondrons dans les meilleurs délais.");
       setForm({ from_name: "", from_email: "", subject: "", message: "" });
+      setFile(null);
     } catch (error) {
       toast.error("Erreur lors de l'envoi. Veuillez réessayer ou nous contacter par email.");
     } finally {
@@ -124,6 +156,27 @@ const Contact = () => {
                   onChange={handleChange}
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="attachment" className="flex items-center gap-1.5">
+                  <Paperclip size={14} className="text-muted-foreground" />
+                  Pièce jointe
+                  <span className="font-normal text-muted-foreground">(facultatif — PDF ou image, 5 Mo max)</span>
+                </Label>
+                <Input
+                  id="attachment"
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  onChange={handleFileChange}
+                  className="cursor-pointer file:mr-3 file:rounded-md file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary hover:file:bg-primary/20"
+                />
+                {fileError && <p className="text-xs text-destructive">{fileError}</p>}
+                {file && !fileError && (
+                  <p className="text-xs text-muted-foreground">
+                    {file.name} — {(file.size / 1024).toFixed(0)} Ko
+                  </p>
+                )}
+              </div>
+
               <Button type="submit" className="w-full" size="lg" disabled={sending}>
                 {sending ? "Envoi en cours..." : "Envoyer"}
               </Button>

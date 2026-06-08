@@ -595,10 +595,11 @@ const Inscription = () => {
                           avec son enfant.
                         </p>
                         <p className="text-muted-foreground">
-                          Si toutes les réponses sont <span className="font-medium">négatives</span>, remettre au club uniquement l'{' '}
+                          Si toutes les réponses sont <span className="font-medium">négatives</span>, remettre au club l'{' '}
                           <a href="/amsp-website/attestation-honneur.pdf" target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline underline-offset-2 hover:text-primary/80">
                             attestation sur l'honneur
-                          </a>.
+                          </a>{' '}
+                          lors des premiers cours.
                         </p>
                         <p className="text-muted-foreground">
                           Si au moins une réponse est <span className="font-medium text-destructive">positive</span>, une consultation médicale est nécessaire avant la pratique.
