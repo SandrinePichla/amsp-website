@@ -43,10 +43,10 @@ const Galerie = () => {
   }, []);
 
   const albumsVisibles = albums.filter((a) => {
-    if (!a.prive) return true;
-    if (!user) return false;
-    if (role === "admin") return true;
-    if (!a.discipline) return true; // album "toute discipline" → tous les membres connectés
+    if (!user) return !a.prive;           // non connecté → publics uniquement
+    if (!a.prive) return false;           // connecté → on masque les publics
+    if (role === "admin" || role === "admin_discipline") return true;
+    if (!a.discipline) return true;       // album "toute discipline" → tous les membres connectés
     return accesGalerie.includes(a.discipline._id);
   });
 
@@ -99,7 +99,7 @@ const Galerie = () => {
             </div>
           ) : (
             <>
-              {disciplinesFiltres.length > 1 && (
+              {disciplinesFiltres.length > 1 && (!user || role === "admin" || role === "admin_discipline") && (
                 <div className="mb-8 flex flex-wrap justify-center gap-2">
                   {disciplinesFiltres.map((d) => (
                     <button

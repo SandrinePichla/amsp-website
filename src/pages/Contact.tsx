@@ -1,15 +1,16 @@
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { MapPin, Mail, Clock, Phone, Paperclip } from "lucide-react";
-import { toast } from "sonner";
+import { MapPin, Mail, Clock, Phone, Paperclip, CheckCircle2 } from "lucide-react";
 import { client } from "@/sanityClient";
 import { supabase } from "@/supabaseClient";
 import { sendBrevoEmail, TEMPLATES } from "@/lib/brevo";
+
+const REGEX_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 interface Parametres {
   adresse: string;
@@ -27,8 +28,12 @@ const Contact = () => {
     message: ""
   });
   const [sending, setSending] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [submitErrorList, setSubmitErrorList] = useState<string[]>([]);
+  const submitErrorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     client
@@ -37,7 +42,10 @@ const Contact = () => {
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setForm({ ...form, [e.target.id]: e.target.value });
+    const { id, value } = e.target;
+    setForm(prev => ({ ...prev, [id]: value }));
+    if (id === "from_email") setEmailError("");
+    setSubmitErrorList([]);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -55,6 +63,31 @@ const Contact = () => {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    // Collecte toutes les erreurs en une seule passe
+    const formErrorList: string[] = [];
+    let newEmailError = "";
+
+    if (!form.from_name.trim()) formErrorList.push("Le nom est obligatoire.");
+    if (!form.from_email.trim()) {
+      formErrorList.push("L'email est obligatoire.");
+      newEmailError = "Champ obligatoire";
+    } else if (!REGEX_EMAIL.test(form.from_email.trim())) {
+      formErrorList.push("L'adresse email est invalide.");
+      newEmailError = "Format invalide — ex : nom@domaine.fr";
+    }
+    if (!form.subject.trim()) formErrorList.push("Le sujet est obligatoire.");
+    if (!form.message.trim()) formErrorList.push("Le message est obligatoire.");
+
+    if (formErrorList.length > 0) {
+      setSubmitErrorList(formErrorList);
+      setEmailError(newEmailError);
+      setTimeout(() => submitErrorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
+      return;
+    }
+
+    setSubmitErrorList([]);
+    setEmailError("");
     setSending(true);
 
     try {
@@ -81,9 +114,9 @@ const Contact = () => {
         message,
       });
 
-      toast.success("Message envoyé ! Nous vous répondrons dans les meilleurs délais.");
       setForm({ from_name: "", from_email: "", subject: "", message: "" });
       setFile(null);
+      setSubmitted(true);
     } catch (error) {
       toast.error("Erreur lors de l'envoi. Veuillez réessayer ou nous contacter par email.");
     } finally {
@@ -102,7 +135,30 @@ const Contact = () => {
             Une question ? N'hésitez pas à nous contacter.
           </p>
 
-          <div className="grid gap-12 md:grid-cols-2">
+          <AnimatePresence mode="wait">
+          {submitted && (
+            <motion.div
+              key="success"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="mx-auto max-w-lg rounded-2xl border-2 border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30 p-10 text-center space-y-5 shadow-sm"
+            >
+              <CheckCircle2 className="mx-auto text-green-500" size={64} />
+              <div>
+                <h2 className="font-serif text-2xl font-bold mb-2">Message envoyé !</h2>
+                <p className="text-muted-foreground text-sm">
+                  Nous avons bien reçu votre message et vous répondrons dans les meilleurs délais.
+                </p>
+              </div>
+              <Button variant="outline" onClick={() => setSubmitted(false)}>
+                Envoyer un autre message
+              </Button>
+            </motion.div>
+          )}
+          </AnimatePresence>
+
+          {!submitted && <div className="grid gap-12 md:grid-cols-2">
             {/* Formulaire */}
             <motion.form
               onSubmit={handleSubmit}
@@ -131,7 +187,14 @@ const Contact = () => {
                   placeholder="votre@email.com"
                   value={form.from_email}
                   onChange={handleChange}
+                  onBlur={() => {
+                    if (!form.from_email.trim()) { setEmailError("Champ obligatoire"); return; }
+                    if (!REGEX_EMAIL.test(form.from_email.trim())) setEmailError("Format invalide — ex : nom@domaine.fr");
+                    else setEmailError("");
+                  }}
+                  className={emailError ? "border-destructive" : ""}
                 />
+                {emailError && <p className="text-xs text-destructive">{emailError}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="subject">Sujet *</Label>
@@ -177,6 +240,15 @@ const Contact = () => {
                 )}
               </div>
 
+              {submitErrorList.length > 0 && (
+                <div ref={submitErrorRef} className="rounded-lg border border-destructive bg-destructive/10 p-4 text-sm text-destructive">
+                  <p className="mb-2 font-semibold">Veuillez corriger les points suivants avant d'envoyer :</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    {submitErrorList.map((err, i) => <li key={i}>{err}</li>)}
+                  </ul>
+                </div>
+              )}
+
               <Button type="submit" className="w-full" size="lg" disabled={sending}>
                 {sending ? "Envoi en cours..." : "Envoyer"}
               </Button>
@@ -205,8 +277,7 @@ const Contact = () => {
                   <Mail size={24} className="mt-1 shrink-0 text-primary" />
                   <div>
                     <h3 className="mb-1 font-serif font-bold">Email</h3>
-                    
-                      <a href={`mailto:${parametres.email}`}
+                    <a href={`mailto:${parametres.email}`}
                       className="text-sm text-muted-foreground hover:text-primary transition-colors"
                     >
                       {parametres.email}
@@ -220,8 +291,7 @@ const Contact = () => {
                   <Phone size={24} className="mt-1 shrink-0 text-primary" />
                   <div>
                     <h3 className="mb-1 font-serif font-bold">Téléphone</h3>
-                    
-                     <a href={`tel:${parametres.telephone}`}
+                    <a href={`tel:${parametres.telephone}`}
                       className="text-sm text-muted-foreground hover:text-primary transition-colors"
                     >
                       {parametres.telephone}
@@ -244,7 +314,7 @@ const Contact = () => {
                 </div>
               )}
             </motion.div>
-          </div>
+          </div>}
         </div>
       </section>
     </Layout>

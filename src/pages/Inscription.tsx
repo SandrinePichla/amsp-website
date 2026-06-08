@@ -448,19 +448,20 @@ const Inscription = () => {
               {submitted ? (
                 <motion.div
                   key="success"
-                  initial={{ opacity: 0, y: 16 }}
+                  initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
-                  className="rounded-lg border border-border/50 bg-card p-8 text-center space-y-6"
+                  className="rounded-2xl border-2 border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30 p-10 text-center space-y-6 shadow-sm"
                 >
-                  <CheckCircle2 className="mx-auto text-green-500" size={48} />
+                  <CheckCircle2 className="mx-auto text-green-500" size={72} />
                   <div>
-                    <h2 className="font-serif text-2xl font-bold mb-2">Inscription envoyée !</h2>
-                    <p className="text-muted-foreground text-sm">
-                      Nous avons bien reçu votre demande. Vous recevrez un email de confirmation et nous vous contacterons prochainement.
+                    <h2 className="font-serif text-3xl font-bold mb-3">Inscription envoyée !</h2>
+                    <p className="text-muted-foreground">
+                      Nous avons bien reçu votre demande.<br />
+                      Vous recevrez un email de confirmation et nous vous contacterons prochainement.
                     </p>
                   </div>
-                  <Button onClick={handleDownloadRecap} disabled={downloadingRecap} variant="outline" size="lg" className="w-full">
+                  <Button onClick={handleDownloadRecap} disabled={downloadingRecap} variant="outline" size="lg" className="w-full border-green-300 hover:bg-green-100 dark:border-green-700 dark:hover:bg-green-900/30">
                     {downloadingRecap ? <Loader2 size={16} className="animate-spin mr-2" /> : <Download size={16} className="mr-2" />}
                     Télécharger mon récapitulatif
                   </Button>

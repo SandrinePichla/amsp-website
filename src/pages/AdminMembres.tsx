@@ -76,7 +76,7 @@ type Ligne =
   | { type: "profil"; profil: Membre; inscriptions: Inscription[] }
   | { type: "inscription_seule"; inscription: Inscription };
 
-type ActiveTab = "tous" | "en_attente" | "actifs" | "sans_compte";
+type ActiveTab = "tous" | "en_attente" | "reglement";
 
 interface ConnexionLog {
   id: string;
@@ -150,6 +150,13 @@ const PAIEMENT_LABELS: Record<string, string> = {
   cheque_4x: "Chèque 4 fois",
   especes: "Espèces",
   virement: "Virement",
+};
+
+const PAIEMENT_BADGE_CLS: Record<string, string> = {
+  cheque_1x: "bg-blue-500/10 text-blue-700",
+  cheque_4x: "bg-orange-500/10 text-orange-700",
+  especes:   "bg-green-500/10 text-green-700",
+  virement:  "bg-violet-500/10 text-violet-700",
 };
 
 
@@ -1016,8 +1023,10 @@ const AdminMembres = () => {
     (l.type === "profil" && (l.profil.role === "en_attente" || l.inscriptions.some(i => i.statut === "en_attente"))) ||
     (l.type === "inscription_seule" && l.inscription.statut === "en_attente")
   ).length;
-  const countActifs = lignes.filter(l => l.type === "profil" && ["membre", "admin", "admin_discipline"].includes(l.profil.role)).length;
-  const countSansCompte = lignes.filter(l => l.type === "inscription_seule").length;
+  const countReglement = inscriptions.filter(i =>
+    i.moyen_paiement && i.statut !== "supprimee" &&
+    (isSuperAdmin || disciplineMatch(i.disciplines, currentUserDisciplines))
+  ).length;
 
   // --- Filtrage ---
   const lignesFiltrees = lignes.filter(ligne => {
@@ -1026,13 +1035,6 @@ const AdminMembres = () => {
       const hasInscEnAttente = ligne.type === "profil" && ligne.inscriptions.some(i => i.statut === "en_attente");
       const isInscEnAttente = ligne.type === "inscription_seule" && ligne.inscription.statut === "en_attente";
       if (!isEnAttenteCompte && !hasInscEnAttente && !isInscEnAttente) return false;
-    }
-    if (activeTab === "actifs") {
-      if (ligne.type !== "profil") return false;
-      if (!["membre", "admin", "admin_discipline"].includes(ligne.profil.role)) return false;
-    }
-    if (activeTab === "sans_compte") {
-      if (ligne.type !== "inscription_seule") return false;
     }
     if (filterDiscipline) {
       if (ligne.type === "profil") {
@@ -1067,6 +1069,28 @@ const AdminMembres = () => {
     }
     return true;
   });
+
+  const reglementItems = activeTab === "reglement"
+    ? inscriptions.filter(i => {
+        if (!i.moyen_paiement || i.statut === "supprimee") return false;
+        if (!isSuperAdmin && !disciplineMatch(i.disciplines, currentUserDisciplines)) return false;
+        if (filterDiscipline && !(i.disciplines || "").split(",").map(s => s.trim()).includes(filterDiscipline)) return false;
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          return (i.nom || "").toLowerCase().includes(q) ||
+                 (i.prenom || "").toLowerCase().includes(q) ||
+                 (i.email || "").toLowerCase().includes(q);
+        }
+        return true;
+      }).sort((a, b) => {
+        if ((b.saison || "") !== (a.saison || "")) return (b.saison || "").localeCompare(a.saison || "");
+        const ord: Record<string, number> = { cheque_4x: 0, cheque_1x: 1, virement: 2, especes: 3 };
+        const pa = ord[a.moyen_paiement ?? ""] ?? 4;
+        const pb = ord[b.moyen_paiement ?? ""] ?? 4;
+        if (pa !== pb) return pa - pb;
+        return (a.nom || "").localeCompare(b.nom || "", "fr", { sensitivity: "base" });
+      })
+    : [];
 
   const selectedLigne = selectedKey
     ? lignes.find(l => (l.type === "profil" ? `p-${l.profil.id}` : `i-${l.inscription.id}`) === selectedKey) ?? null
@@ -1211,13 +1235,80 @@ const AdminMembres = () => {
                       <TabsTrigger value="en_attente" className="text-xs px-3 h-7">
                         En attente {countEnAttente > 0 && <span className="ml-1.5 rounded-full bg-amber-500 text-white text-[10px] px-1.5 py-0.5 leading-none">{countEnAttente}</span>}
                       </TabsTrigger>
-                      <TabsTrigger value="actifs" className="text-xs px-3 h-7">Membres actifs ({countActifs})</TabsTrigger>
-                      <TabsTrigger value="sans_compte" className="text-xs px-3 h-7">Sans compte ({countSansCompte})</TabsTrigger>
+                      <TabsTrigger value="reglement" className="text-xs px-3 h-7">Règlement ({countReglement})</TabsTrigger>
                     </TabsList>
                   </Tabs>
 
                   {/* Tableau liste */}
-                  {lignesFiltrees.length === 0 ? (
+                  {activeTab === "reglement" ? (
+                    reglementItems.length === 0 ? (
+                      <p className="text-center text-sm text-muted-foreground py-8">Aucun résultat.</p>
+                    ) : (
+                      <div className="overflow-x-auto -mx-5 px-5">
+                        <table className="w-full text-sm border-collapse">
+                          <thead>
+                            <tr className="border-b border-border/60">
+                              <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap min-w-[160px]">Inscrit(e)</th>
+                              <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Discipline(s)</th>
+                              <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap w-24">Saison</th>
+                              <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Règlement</th>
+                              <th className="text-left pb-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap w-24">Statut insc.</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border/30">
+                            {reglementItems.map((insc, idx) => {
+                              const pCls = PAIEMENT_BADGE_CLS[insc.moyen_paiement ?? ""] ?? "bg-secondary text-muted-foreground";
+                              const pLabel = PAIEMENT_LABELS[insc.moyen_paiement ?? ""] ?? (insc.moyen_paiement || "—");
+                              const iBdg = inscBadge(insc.statut);
+                              const discs = resolveDiscNoms(insc.disciplines);
+                              return (
+                                <tr key={insc.id} className={`hover:bg-primary/[0.03] cursor-pointer ${idx % 2 === 0 ? "" : "bg-secondary/20"}`}
+                                  onClick={() => { setModalTab("inscription"); setSelectedKey(`i-${insc.id}`); }}>
+                                  <td className="py-3 pr-4">
+                                    <p className="font-semibold text-sm leading-tight">{[insc.nom, insc.prenom].filter(Boolean).join(" ") || <span className="italic text-muted-foreground font-normal text-xs">Sans nom</span>}</p>
+                                    {insc.email && <p className="text-[11px] text-muted-foreground truncate max-w-[160px]">{insc.email}</p>}
+                                  </td>
+                                  <td className="py-3 pr-4">
+                                    <div className="flex flex-wrap gap-1">
+                                      {discs.length === 0
+                                        ? <span className="text-xs text-muted-foreground">—</span>
+                                        : discs.map(d => <span key={d} className="inline-block rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">{d}</span>)
+                                      }
+                                    </div>
+                                  </td>
+                                  <td className="py-3 pr-4 text-xs text-muted-foreground">{insc.saison || "—"}</td>
+                                  <td className="py-3 pr-4">
+                                    <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium w-fit ${pCls}`}>{pLabel}</span>
+                                    {insc.moyen_paiement === "cheque_4x" && insc.saison && (() => {
+                                      const parts = insc.saison.split("-").map(Number);
+                                      const y1 = parts[0], y2 = parts[1];
+                                      const dates = [
+                                        `Ch.1 : ${new Date(insc.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })}`,
+                                        `Ch.2 : Déc. ${y1}`,
+                                        `Ch.3 : Mar. ${y2}`,
+                                        `Ch.4 : Juin ${y2}`,
+                                      ];
+                                      return (
+                                        <div className="mt-1 flex flex-wrap gap-x-3">
+                                          {dates.map((d, i) => <span key={i} className="text-[10px] text-muted-foreground">{d}</span>)}
+                                        </div>
+                                      );
+                                    })()}
+                                    {insc.pass_sport && (
+                                      <span className="ml-1 inline-block rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-700">Pass Sport</span>
+                                    )}
+                                  </td>
+                                  <td className="py-3">
+                                    <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium w-fit ${iBdg.cls}`}>{iBdg.label}</span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )
+                  ) : lignesFiltrees.length === 0 ? (
                     <p className="text-center text-sm text-muted-foreground py-8">Aucun résultat.</p>
                   ) : (
                     <div className="overflow-x-auto -mx-5 px-5">
@@ -1264,9 +1355,12 @@ const AdminMembres = () => {
                                     </div>
                                   </td>
                                   <td className="py-3 pr-4">
-                                    {calcAge(dateNaissance) !== null
-                                      ? <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium w-fit ${ageBadgeCls(dateNaissance)}`}>{calcAge(dateNaissance)! < 18 ? "Mineur" : "Adulte"}</span>
-                                      : <span className="text-xs text-muted-foreground italic">—</span>}
+                                    {calcAge(dateNaissance) !== null ? (
+                                      <div>
+                                        <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium w-fit ${ageBadgeCls(dateNaissance)}`}>{calcAge(dateNaissance)} ans</span>
+                                        <p className="text-[10px] text-muted-foreground mt-0.5">{new Date(dateNaissance!).toLocaleDateString("fr-FR")}</p>
+                                      </div>
+                                    ) : <span className="text-xs text-muted-foreground italic">—</span>}
                                   </td>
                                   <td className="py-3 pr-4">
                                     <div className="flex flex-wrap gap-1">
@@ -1311,9 +1405,12 @@ const AdminMembres = () => {
                                   <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium w-fit ${iBdg.cls}`}>{iBdg.label}</span>
                                 </td>
                                 <td className="py-3 pr-4">
-                                  {calcAge(insc.date_naissance) !== null
-                                    ? <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium w-fit ${ageBadgeCls(insc.date_naissance)}`}>{calcAge(insc.date_naissance)! < 18 ? "Mineur" : "Adulte"}</span>
-                                    : <span className="text-xs text-muted-foreground italic">—</span>}
+                                  {calcAge(insc.date_naissance) !== null ? (
+                                    <div>
+                                      <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium w-fit ${ageBadgeCls(insc.date_naissance)}`}>{calcAge(insc.date_naissance)} ans</span>
+                                      <p className="text-[10px] text-muted-foreground mt-0.5">{new Date(insc.date_naissance!).toLocaleDateString("fr-FR")}</p>
+                                    </div>
+                                  ) : <span className="text-xs text-muted-foreground italic">—</span>}
                                 </td>
                                 <td className="py-3 pr-4">
                                   <div className="flex flex-wrap gap-1">

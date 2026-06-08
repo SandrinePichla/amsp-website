@@ -53,7 +53,7 @@ interface InscriptionConfig {
 const EspaceMembre = () => {
   const { user, role, refreshAccesGalerie } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<TabId>("compte");
+  const [activeTab, setActiveTab] = useState<TabId>(role === "admin" ? "compte" : "inscriptions");
 
   // Profil
   const [profil, setProfil] = useState<Profil | null>(null);
@@ -78,6 +78,7 @@ const EspaceMembre = () => {
     if (!user) { navigate("/connexion"); return; }
     loadProfil();
     loadSanityData();
+    if (role !== "admin") loadInscriptions();
   }, [user]);
 
   const loadProfil = async () => {
@@ -167,12 +168,16 @@ const EspaceMembre = () => {
     );
   }
 
-  const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
-    { id: "compte",       label: "Mon compte",      icon: <User size={16} /> },
-    { id: "inscriptions", label: "Inscriptions",     icon: <ClipboardList size={16} /> },
-    { id: "enfants",      label: "Mes enfants",      icon: <Baby size={16} /> },
-    { id: "demande",      label: "Nouvelle demande", icon: <PlusCircle size={16} /> },
-  ];
+  const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = role === "admin"
+    ? [
+        { id: "compte",       label: "Mon compte",      icon: <User size={16} /> },
+        { id: "inscriptions", label: "Mon inscription",  icon: <ClipboardList size={16} /> },
+        { id: "enfants",      label: "Mes enfants",      icon: <Baby size={16} /> },
+        { id: "demande",      label: "Nouvelle demande", icon: <PlusCircle size={16} /> },
+      ]
+    : [
+        { id: "inscriptions", label: "Mon inscription",  icon: <ClipboardList size={16} /> },
+      ];
 
   return (
     <Layout>
@@ -389,20 +394,30 @@ const TabInscriptions = ({
 }) => {
   if (loading) return <p className="text-center text-muted-foreground">Chargement...</p>;
 
-  if (inscriptions.length === 0) {
-    return (
-      <div className="rounded-xl border border-border/50 bg-card p-10 text-center">
-        <ClipboardList size={36} className="mx-auto mb-3 text-muted-foreground/40" />
-        <p className="text-sm text-muted-foreground">Aucune inscription trouvée.</p>
-      </div>
-    );
-  }
-
   const bySaison = inscriptions.reduce<Record<string, Inscription[]>>((acc, i) => {
     const s = i.saison || "Saison inconnue";
     (acc[s] ??= []).push(i);
     return acc;
   }, {});
+
+  const mention = (
+    <p className="text-sm text-muted-foreground italic">
+      Pour tout changement de situation, merci de nous{" "}
+      <a href="/amsp-website/contact" className="text-primary underline underline-offset-2 hover:text-primary/80">nous contacter</a>.
+    </p>
+  );
+
+  if (inscriptions.length === 0) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-xl border border-border/50 bg-card p-10 text-center">
+          <ClipboardList size={36} className="mx-auto mb-3 text-muted-foreground/40" />
+          <p className="text-sm text-muted-foreground">Aucune inscription trouvée.</p>
+        </div>
+        {mention}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -416,6 +431,7 @@ const TabInscriptions = ({
             </div>
           </div>
         ))}
+      {mention}
     </div>
   );
 };
