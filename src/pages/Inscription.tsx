@@ -578,6 +578,33 @@ const Inscription = () => {
                         <Input id="allergie" maxLength={255} placeholder="Précisez si nécessaire" value={form.allergie} onChange={handleChange} />
                       </div>
                     </div>
+
+                    {/* Infos certificat médical */}
+                    {typeInscription === 'adulte' ? (
+                      <p className="mt-2 text-sm text-muted-foreground italic">
+                        Aucun certificat médical ni questionnaire de santé n'est requis pour les adultes.
+                      </p>
+                    ) : (
+                      <div className="mt-3 rounded-lg border border-border/50 bg-muted/40 p-4 text-sm space-y-2">
+                        <p className="font-medium text-foreground">Certificat médical et questionnaire de santé</p>
+                        <p className="text-muted-foreground">
+                          Le certificat médical n'est pas obligatoire. Le responsable légal doit compléter le{' '}
+                          <a href="/amsp-website/questionnaire-sante.pdf" target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline underline-offset-2 hover:text-primary/80">
+                            questionnaire de santé
+                          </a>{' '}
+                          avec son enfant.
+                        </p>
+                        <p className="text-muted-foreground">
+                          Si toutes les réponses sont <span className="font-medium">négatives</span>, remettre au club uniquement l'{' '}
+                          <a href="/amsp-website/attestation-honneur.pdf" target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline underline-offset-2 hover:text-primary/80">
+                            attestation sur l'honneur
+                          </a>.
+                        </p>
+                        <p className="text-muted-foreground">
+                          Si au moins une réponse est <span className="font-medium text-destructive">positive</span>, une consultation médicale est nécessaire avant la pratique.
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Coordonnées — adultes uniquement (tel + email) */}
