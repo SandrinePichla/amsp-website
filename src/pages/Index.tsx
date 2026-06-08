@@ -52,7 +52,7 @@ const Index = () => {
 
   useEffect(() => {
     client
-      .fetch('*[_type == "discipline"] | order(ordre asc)')
+      .fetch('*[_type == "discipline" && lower(nom) != "stages"] | order(ordre asc)')
       .then((data) => setDisciplines(data));
 
     client

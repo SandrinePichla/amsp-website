@@ -34,7 +34,7 @@ const Disciplines = () => {
 
   useEffect(() => {
     client
-      .fetch('*[_type == "discipline"] | order(ordre asc) { ..., image }')
+      .fetch('*[_type == "discipline" && lower(nom) != "stages"] | order(ordre asc) { ..., image }')
       .then((data) => {
         setDisciplines(data);
         setLoading(false);

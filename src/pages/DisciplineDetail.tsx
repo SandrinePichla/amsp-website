@@ -17,8 +17,9 @@ const toSlug = (name: string) =>
 
 const LIENS_UTILES: Record<string, { label: string; url: string; description?: string }[]> = {
   "karate-shotokan": [
-    { label: "Fédération Française de Karaté", url: "https://www.ffkarate.fr/", description: "Site officiel de la FFKaraté" },
-    { label: "Site de Steve Piazza", url: "https://stevepiazza.com/arimoto-sensei-a-tassin/", description: "Arimoto Sensei à Tassin" },
+    { label: "Fédération Française de Karaté", url: "https://www.ffkarate.fr/", description: "Site officiel de la Fédération Française de Karaté" },
+    { label: "Site de Steve Piazza", url: "https://stevepiazza.com/", description: "Instructeur Karaté Shotokan" },
+    { label: "Team Tassin École Arts Martiaux", url: "https://tassinecoleartsmartiaux.fr/", description: "École d'Arts Martiaux de Tassin" },
     { label: "Groupe Facebook Karaté Shotokan", url: "https://www.facebook.com/groups/178854439724135", description: "Communauté Karaté Shotokan" },
   ],
   "tai-chi-chuan-main-nue": [

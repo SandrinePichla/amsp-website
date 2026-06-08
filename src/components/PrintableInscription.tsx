@@ -83,13 +83,13 @@ export const PrintableInscription = ({ data }: { data: RecapData }) => {
       {/* Parents / tuteurs */}
       {data.typeInscription === 'mineur' && (
         <>
-          <Section title="Parent / Tuteur 1" />
+          <Section title="Parent 1 (contact principal)" />
           <Row label="Nom et prénom" value={`${data.parent1.prenom} ${data.parent1.nom}`.trim() || '—'} />
           <Row label="Email" value={data.parent1.email || '—'} />
           <Row label="Téléphone" value={data.parent1.tel || '—'} />
           {hasParent2 && (
             <>
-              <Section title="Parent / Tuteur 2" />
+              <Section title="Parent 2 (facultatif)" />
               <Row label="Nom et prénom" value={`${data.parent2.prenom} ${data.parent2.nom}`.trim() || '—'} />
               <Row label="Email" value={data.parent2.email || '—'} />
               <Row label="Téléphone" value={data.parent2.tel || '—'} />
@@ -107,6 +107,9 @@ export const PrintableInscription = ({ data }: { data: RecapData }) => {
       <Section title="Mode de règlement" />
       <Row label="Moyen de paiement" value={MOYEN_PAIEMENT_LABELS[data.moyenPaiement] ?? (data.moyenPaiement || '—')} />
       <Row label="Pass Sport 2026-2027" value={data.passSport ? 'Oui' : 'Non'} />
+      {data.passSport && (
+        <tr><td colSpan={2} style={{ fontSize: 10, color: '#666', fontStyle: 'italic', paddingLeft: 8, paddingBottom: 4 }}>Le code Pass Sport est obligatoire et devra être communiqué au club dès sa réception.</td></tr>
+      )}
 
       {/* Autorisations */}
       <Section title="Autorisations" />

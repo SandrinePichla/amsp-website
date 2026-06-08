@@ -56,6 +56,9 @@ L'INSTRUCTEUR DOIT :
 - Prodiguer les premiers soins en cas de blessure
 - Les instructeurs étant bénévoles, ils peuvent être dans l'impossibilité de faire les cours et doivent prévenir les adhérents de leur absence`;
 
+const REGEX_TEL_FR = /^(?:(?:\+|00)33[\s.-]?|0)[1-9](?:[\s.-]?\d{2}){4}$/;
+const REGEX_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
 const formVariants = {
   enter: (dir: number) => ({ x: dir * 80, opacity: 0 }),
   center: { x: 0, opacity: 1, transition: { duration: 0.32, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] } },
@@ -98,10 +101,13 @@ const Inscription = () => {
   const [loadingVilles, setLoadingVilles] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [recapData, setRecapData] = useState<RecapData | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitErrorList, setSubmitErrorList] = useState<string[]>([]);
+  const submitErrorRef = useRef<HTMLDivElement>(null);
   const directionRef = useRef(1);
 
   useEffect(() => {
-    client.fetch(`*[_type == "discipline"] | order(ordre asc) { _id, nom, nomCourt }`).then(setDisciplines);
+    client.fetch(`*[_type == "discipline" && lower(nom) != "stages"] | order(ordre asc) { _id, nom, nomCourt }`).then(setDisciplines);
     client.fetch(`*[_type == "inscription"][0] { saison, reglementInterieur, titreInfosPaiement, infosPaiement, texteAutorisationImage, texteAutorisationParentale, texteInfosCertificatMedical }`).then((d) => { if (d) setInscriptionData(d); });
     client.fetch(`*[_type == "cours"] | order(jour asc, heureDebut asc) { _id, jour, heureDebut, heureFin, lieu, niveau, ages, discipline-> { nom, nomCourt } }`).then(setCours);
     client.fetch(`*[_type == "tarif"] | order(ordre asc) { _id, categorie, jours, prixAnnuel, echeancier, ordre, discipline-> { nom } }`).then(setTarifs);
@@ -180,9 +186,25 @@ const Inscription = () => {
   const texteAutorisationParentale = inscriptionData.texteAutorisationParentale || "Je soussigné(e) autorise mon enfant à pratiquer les arts martiaux dans le cadre de l'Association Les Arts Martiaux St Pierrois (entraînements, compétitions, démonstrations).\n\nJ'autorise le professeur et les dirigeants à prendre, en cas de nécessité, les mesures qui s'imposent concernant le transport à l'hôpital.\n\nJe dégage de toute responsabilité les personnes qui prendront mon enfant en charge dans leur véhicule lors des déplacements.\n\nJ'autorise mon enfant à suivre les entraînements destinés à manipuler les armes en bois et les armes articulées (l'autorisation parentale est obligatoire suite à un texte de loi sur « l'incitation des mineurs à la violence »).";
   const texteInfosCertificatMedical = inscriptionData.texteInfosCertificatMedical || "Le certificat médical n'est plus obligatoire — une attestation sur l'honneur sera à remplir.";
 
+  const setFieldError = (key: string, msg: string) => setErrors(e => ({ ...e, [key]: msg }));
+  const clearFieldError = (key: string) => setErrors(e => { const n = { ...e }; delete n[key]; return n; });
+
+  const validateTel = (key: string, val: string, required = false) => {
+    if (!val.trim()) { required ? setFieldError(key, 'Numéro de téléphone obligatoire') : clearFieldError(key); return; }
+    if (!REGEX_TEL_FR.test(val.trim())) setFieldError(key, 'Format invalide — ex : 06 00 00 00 00');
+    else clearFieldError(key);
+  };
+
+  const validateEmail = (key: string, val: string, required = false) => {
+    if (!val.trim()) { required ? setFieldError(key, 'Email obligatoire') : clearFieldError(key); return; }
+    if (!REGEX_EMAIL.test(val.trim())) setFieldError(key, 'Format invalide — ex : nom@domaine.fr');
+    else clearFieldError(key);
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { id, value } = e.target;
     setForm((prev) => ({ ...prev, [id]: value }));
+    if (['telMobile', 'email', 'urgenceTel'].includes(id)) clearFieldError(id);
 
     if (id === "codePostal") {
       const cp = value.replace(/\D/g, "").slice(0, 5);
@@ -211,26 +233,55 @@ const Inscription = () => {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (selectedDisciplines.length === 0) {
-      toast.error("Veuillez sélectionner au moins une discipline.");
+
+    // Collecte toutes les erreurs en une seule passe
+    const formErrorList: string[] = [];
+    const newFieldErrors: Record<string, string> = {};
+
+    if (selectedDisciplines.length === 0) formErrorList.push("Sélectionnez au moins une discipline.");
+    if (!reglementAccepte) formErrorList.push("Acceptez le règlement intérieur.");
+    if (!moyenPaiement) formErrorList.push("Sélectionnez un moyen de paiement.");
+    if (typeInscription === 'adulte') {
+      if (!form.telMobile.trim()) {
+        formErrorList.push("Le téléphone mobile est obligatoire.");
+        newFieldErrors.telMobile = 'Champ obligatoire';
+      } else if (!REGEX_TEL_FR.test(form.telMobile.trim())) {
+        formErrorList.push("Le téléphone mobile est invalide.");
+        newFieldErrors.telMobile = 'Format invalide — ex : 06 00 00 00 00';
+      }
+      if (!form.email.trim()) {
+        formErrorList.push("L'email est obligatoire.");
+        newFieldErrors.email = 'Champ obligatoire';
+      } else if (!REGEX_EMAIL.test(form.email.trim())) {
+        formErrorList.push("L'adresse email est invalide.");
+        newFieldErrors.email = 'Format invalide — ex : nom@domaine.fr';
+      }
+    }
+    if (!form.urgenceTel.trim()) {
+      formErrorList.push("Le téléphone du contact d'urgence est obligatoire.");
+      newFieldErrors.urgenceTel = 'Champ obligatoire';
+    } else if (!REGEX_TEL_FR.test(form.urgenceTel.trim())) {
+      formErrorList.push("Le téléphone du contact d'urgence est invalide.");
+      newFieldErrors.urgenceTel = 'Format invalide — ex : 06 00 00 00 00';
+    }
+    if (typeInscription === 'mineur') {
+      if (!parent1.nom.trim() || !parent1.prenom.trim()) formErrorList.push("Le nom et prénom du parent 1 (contact principal) sont obligatoires.");
+      if (parent1.tel.trim() && !REGEX_TEL_FR.test(parent1.tel.trim())) { formErrorList.push("Le téléphone du parent 1 est invalide."); newFieldErrors.p1tel = 'Format invalide — ex : 06 00 00 00 00'; }
+      if (parent1.email.trim() && !REGEX_EMAIL.test(parent1.email.trim())) { formErrorList.push("L'email du parent 1 est invalide."); newFieldErrors.p1email = 'Format invalide — ex : nom@domaine.fr'; }
+      if (parent2.tel.trim() && !REGEX_TEL_FR.test(parent2.tel.trim())) { formErrorList.push("Le téléphone du parent 2 est invalide."); newFieldErrors.p2tel = 'Format invalide — ex : 06 00 00 00 00'; }
+      if (parent2.email.trim() && !REGEX_EMAIL.test(parent2.email.trim())) { formErrorList.push("L'email du parent 2 est invalide."); newFieldErrors.p2email = 'Format invalide — ex : nom@domaine.fr'; }
+      if (!autorisationParentale) formErrorList.push("L'autorisation parentale est obligatoire pour un mineur.");
+    }
+
+    if (formErrorList.length > 0) {
+      setSubmitErrorList(formErrorList);
+      setErrors(newFieldErrors);
+      setTimeout(() => submitErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
       return;
     }
-    if (!reglementAccepte) {
-      toast.error("Veuillez accepter le règlement intérieur.");
-      return;
-    }
-    if (!moyenPaiement) {
-      toast.error("Veuillez sélectionner un moyen de paiement.");
-      return;
-    }
-    if (typeInscription === 'mineur' && (!parent1.nom.trim() || !parent1.prenom.trim())) {
-      toast.error("Le nom et prénom du parent / tuteur 1 sont obligatoires.");
-      return;
-    }
-    if (typeInscription === 'mineur' && !autorisationParentale) {
-      toast.error("L'autorisation parentale est obligatoire pour un mineur.");
-      return;
-    }
+
+    setSubmitErrorList([]);
+    setErrors({});
 
     setSending(true);
 
@@ -364,6 +415,8 @@ const Inscription = () => {
       setMoyenPaiement('');
       setParent1({ nom: '', prenom: '', email: '', tel: '' });
       setParent2({ nom: '', prenom: '', email: '', tel: '' });
+      setSubmitErrorList([]);
+      setErrors({});
 
     } catch (err) {
       console.error(err);
@@ -534,11 +587,13 @@ const Inscription = () => {
                       <div className="space-y-4">
                         <div className="space-y-2">
                           <Label htmlFor="telMobile">Téléphone mobile *</Label>
-                          <Input id="telMobile" type="tel" required maxLength={20} placeholder="06 00 00 00 00" value={form.telMobile} onChange={handleChange} />
+                          <Input id="telMobile" type="tel" required maxLength={20} placeholder="06 00 00 00 00" value={form.telMobile} onChange={handleChange} onBlur={() => validateTel('telMobile', form.telMobile, true)} className={errors.telMobile ? 'border-destructive' : ''} />
+                          {errors.telMobile && <p className="text-xs text-destructive">{errors.telMobile}</p>}
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="email">Email *</Label>
-                          <Input id="email" type="email" required maxLength={255} placeholder="votre@email.com" value={form.email} onChange={handleChange} />
+                          <Input id="email" type="email" required maxLength={255} placeholder="votre@email.com" value={form.email} onChange={handleChange} onBlur={() => validateEmail('email', form.email, true)} className={errors.email ? 'border-destructive' : ''} />
+                          {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
                         </div>
                       </div>
                     </div>
@@ -548,11 +603,11 @@ const Inscription = () => {
                   {typeInscription === 'mineur' && (
                     <div>
                       <h2 className="mb-4 font-serif text-lg font-bold border-b border-border/50 pb-2">
-                        Informations parents / tuteurs légaux
+                        Informations parents légaux
                       </h2>
                       <div className="space-y-6">
                         <div className="rounded-md border border-border/50 p-4 space-y-4">
-                          <p className="text-sm font-semibold text-foreground">Parent / Tuteur 1 *</p>
+                          <p className="text-sm font-semibold text-foreground">Parent 1 <span className="font-normal text-muted-foreground">(contact principal)</span> *</p>
                           <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-2">
                               <Label htmlFor="p1nom">Nom *</Label>
@@ -566,16 +621,18 @@ const Inscription = () => {
                           <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-2">
                               <Label htmlFor="p1email">Email</Label>
-                              <Input id="p1email" type="email" maxLength={255} placeholder="email@exemple.com" value={parent1.email} onChange={e => setParent1(p => ({ ...p, email: e.target.value }))} />
+                              <Input id="p1email" type="email" maxLength={255} placeholder="email@exemple.com" value={parent1.email} onChange={e => { setParent1(p => ({ ...p, email: e.target.value })); clearFieldError('p1email'); }} onBlur={() => validateEmail('p1email', parent1.email)} className={errors.p1email ? 'border-destructive' : ''} />
+                              {errors.p1email && <p className="text-xs text-destructive">{errors.p1email}</p>}
                             </div>
                             <div className="space-y-2">
                               <Label htmlFor="p1tel">Téléphone</Label>
-                              <Input id="p1tel" type="tel" maxLength={20} placeholder="06 00 00 00 00" value={parent1.tel} onChange={e => setParent1(p => ({ ...p, tel: e.target.value }))} />
+                              <Input id="p1tel" type="tel" maxLength={20} placeholder="06 00 00 00 00" value={parent1.tel} onChange={e => { setParent1(p => ({ ...p, tel: e.target.value })); clearFieldError('p1tel'); }} onBlur={() => validateTel('p1tel', parent1.tel)} className={errors.p1tel ? 'border-destructive' : ''} />
+                              {errors.p1tel && <p className="text-xs text-destructive">{errors.p1tel}</p>}
                             </div>
                           </div>
                         </div>
                         <div className="rounded-md border border-border/50 p-4 space-y-4">
-                          <p className="text-sm font-semibold text-foreground">Parent / Tuteur 2 <span className="font-normal text-muted-foreground">(facultatif)</span></p>
+                          <p className="text-sm font-semibold text-foreground">Parent 2 <span className="font-normal text-muted-foreground">(facultatif, si vous souhaitez être contacté)</span></p>
                           <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-2">
                               <Label htmlFor="p2nom">Nom</Label>
@@ -589,11 +646,13 @@ const Inscription = () => {
                           <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-2">
                               <Label htmlFor="p2email">Email</Label>
-                              <Input id="p2email" type="email" maxLength={255} placeholder="email@exemple.com" value={parent2.email} onChange={e => setParent2(p => ({ ...p, email: e.target.value }))} />
+                              <Input id="p2email" type="email" maxLength={255} placeholder="email@exemple.com" value={parent2.email} onChange={e => { setParent2(p => ({ ...p, email: e.target.value })); clearFieldError('p2email'); }} onBlur={() => validateEmail('p2email', parent2.email)} className={errors.p2email ? 'border-destructive' : ''} />
+                              {errors.p2email && <p className="text-xs text-destructive">{errors.p2email}</p>}
                             </div>
                             <div className="space-y-2">
                               <Label htmlFor="p2tel">Téléphone</Label>
-                              <Input id="p2tel" type="tel" maxLength={20} placeholder="06 00 00 00 00" value={parent2.tel} onChange={e => setParent2(p => ({ ...p, tel: e.target.value }))} />
+                              <Input id="p2tel" type="tel" maxLength={20} placeholder="06 00 00 00 00" value={parent2.tel} onChange={e => { setParent2(p => ({ ...p, tel: e.target.value })); clearFieldError('p2tel'); }} onBlur={() => validateTel('p2tel', parent2.tel)} className={errors.p2tel ? 'border-destructive' : ''} />
+                              {errors.p2tel && <p className="text-xs text-destructive">{errors.p2tel}</p>}
                             </div>
                           </div>
                         </div>
@@ -619,7 +678,8 @@ const Inscription = () => {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="urgenceTel">Téléphone</Label>
-                        <Input id="urgenceTel" type="tel" required maxLength={20} placeholder="06 00 00 00 00" value={form.urgenceTel} onChange={handleChange} />
+                        <Input id="urgenceTel" type="tel" required maxLength={20} placeholder="06 00 00 00 00" value={form.urgenceTel} onChange={handleChange} onBlur={() => validateTel('urgenceTel', form.urgenceTel, true)} className={errors.urgenceTel ? 'border-destructive' : ''} />
+                        {errors.urgenceTel && <p className="text-xs text-destructive">{errors.urgenceTel}</p>}
                       </div>
                     </div>
                   </div>
@@ -683,6 +743,7 @@ const Inscription = () => {
                       />
                       <span className="text-sm">Détenteur d'un code Pass Sport 2026-2027</span>
                     </label>
+                    <p className="mt-2 text-xs text-muted-foreground">Le code Pass Sport est obligatoire et devra être communiqué au club dès sa réception.</p>
                   </div>
 
                   {/* Mode de règlement */}
@@ -767,6 +828,15 @@ const Inscription = () => {
                     </label>
                     <p className="mt-3 text-xs text-muted-foreground italic">{texteInfosCertificatMedical}</p>
                   </div>
+
+                  {submitErrorList.length > 0 && (
+                    <div ref={submitErrorRef} className="rounded-lg border border-destructive bg-destructive/10 p-4 text-sm text-destructive">
+                      <p className="mb-2 font-semibold">Veuillez corriger les points suivants avant d'envoyer :</p>
+                      <ul className="list-disc list-inside space-y-1">
+                        {submitErrorList.map((err, i) => <li key={i}>{err}</li>)}
+                      </ul>
+                    </div>
+                  )}
 
                   <Button type="submit" className="w-full" size="lg" disabled={sending}>
                     {sending ? "Envoi en cours..." : "Envoyer mon inscription"}

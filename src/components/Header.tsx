@@ -198,7 +198,7 @@ const Header = () => {
 
   useEffect(() => {
     client
-      .fetch('*[_type == "discipline"] | order(ordre asc) { nom }')
+      .fetch('*[_type == "discipline" && lower(nom) != "stages"] | order(ordre asc) { nom }')
       .then((data: { nom: string }[]) => {
         setDisciplineChildren([
           { label: "Toutes les disciplines", path: "/disciplines" },

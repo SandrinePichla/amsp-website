@@ -119,6 +119,9 @@ const inscriptionToRecapData = (insc: {
 });
 
 
+const REGEX_TEL_FR = /^(?:(?:\+|00)33[\s.-]?|0)[1-9](?:[\s.-]?\d{2}){4}$/;
+const REGEX_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
 const papierFormVariants = {
   enter: (dir: number) => ({ x: dir * 80, opacity: 0 }),
   center: { x: 0, opacity: 1, transition: { duration: 0.32, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] } },
@@ -249,6 +252,7 @@ const AdminMembres = () => {
     return m >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
   })();
   const [showPapierModal, setShowPapierModal] = useState(false);
+  const [papierErrors, setPapierErrors] = useState<Record<string, string>>({});
   const [editingInscId, setEditingInscId] = useState<string | null>(null);
   const [scanFile, setScanFile] = useState<File | null>(null);
   const [savingPapier, setSavingPapier] = useState(false);
@@ -343,6 +347,21 @@ const AdminMembres = () => {
     setShowPapierModal(true);
   };
 
+  const setPapierFieldError = (key: string, msg: string) => setPapierErrors(e => ({ ...e, [key]: msg }));
+  const clearPapierFieldError = (key: string) => setPapierErrors(e => { const n = { ...e }; delete n[key]; return n; });
+
+  const validatePapierTel = (key: string, val: string, required = false) => {
+    if (!val.trim()) { required ? setPapierFieldError(key, 'Numéro de téléphone obligatoire') : clearPapierFieldError(key); return; }
+    if (!REGEX_TEL_FR.test(val.trim())) setPapierFieldError(key, 'Format invalide — ex : 06 00 00 00 00');
+    else clearPapierFieldError(key);
+  };
+
+  const validatePapierEmail = (key: string, val: string, required = false) => {
+    if (!val.trim()) { required ? setPapierFieldError(key, 'Email obligatoire') : clearPapierFieldError(key); return; }
+    if (!REGEX_EMAIL.test(val.trim())) setPapierFieldError(key, 'Format invalide — ex : nom@domaine.fr');
+    else clearPapierFieldError(key);
+  };
+
   const handleSaisirPapier = async () => {
     if (!papierForm.nom.trim() || !papierForm.prenom.trim()) {
       toast.error("Le nom et le prénom sont obligatoires.");
@@ -372,6 +391,26 @@ const AdminMembres = () => {
       toast.error("L'autorisation parentale est obligatoire pour un mineur.");
       return;
     }
+
+    // Validation format téléphone & email
+    const newPapierErrors: Record<string, string> = {};
+    if (papierForm.typeInscription === "adulte") {
+      if (papierForm.telMobile.trim() && !REGEX_TEL_FR.test(papierForm.telMobile.trim())) newPapierErrors.telMobile = 'Format invalide — ex : 06 00 00 00 00';
+      if (papierForm.email.trim() && !REGEX_EMAIL.test(papierForm.email.trim())) newPapierErrors.email = 'Format invalide — ex : nom@domaine.fr';
+    }
+    if (papierForm.urgenceTel.trim() && !REGEX_TEL_FR.test(papierForm.urgenceTel.trim())) newPapierErrors.urgenceTel = 'Format invalide — ex : 06 00 00 00 00';
+    if (papierForm.typeInscription === "mineur") {
+      if (papierForm.parent1Tel.trim() && !REGEX_TEL_FR.test(papierForm.parent1Tel.trim())) newPapierErrors.parent1Tel = 'Format invalide — ex : 06 00 00 00 00';
+      if (papierForm.parent1Email.trim() && !REGEX_EMAIL.test(papierForm.parent1Email.trim())) newPapierErrors.parent1Email = 'Format invalide — ex : nom@domaine.fr';
+      if (papierForm.parent2Tel.trim() && !REGEX_TEL_FR.test(papierForm.parent2Tel.trim())) newPapierErrors.parent2Tel = 'Format invalide — ex : 06 00 00 00 00';
+      if (papierForm.parent2Email.trim() && !REGEX_EMAIL.test(papierForm.parent2Email.trim())) newPapierErrors.parent2Email = 'Format invalide — ex : nom@domaine.fr';
+    }
+    if (Object.keys(newPapierErrors).length > 0) {
+      setPapierErrors(newPapierErrors);
+      toast.error("Veuillez corriger les champs en erreur.");
+      return;
+    }
+
     setSavingPapier(true);
     const urgenceNomComplet = [papierForm.urgencePrenom, papierForm.urgenceNom].filter(Boolean).join(" ");
     const urgenceContact = [urgenceNomComplet, papierForm.urgenceTel].filter(Boolean).join(" — ");
@@ -1936,7 +1975,7 @@ const AdminMembres = () => {
       </Dialog>
 
       {/* Modale saisie / modification inscription papier */}
-      <Dialog open={showPapierModal} onOpenChange={(open) => { if (!open) { setShowPapierModal(false); setEditingInscId(null); setScanFile(null); } }}>
+      <Dialog open={showPapierModal} onOpenChange={(open) => { if (!open) { setShowPapierModal(false); setEditingInscId(null); setScanFile(null); setPapierErrors({}); } }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-serif">{editingInscId ? "Modifier l'inscription papier" : "Saisir une inscription papier"}</DialogTitle>
@@ -2011,11 +2050,13 @@ const AdminMembres = () => {
                     <div className="space-y-3">
                       <div className="space-y-1.5">
                         <Label htmlFor="p-mobile">Tél. mobile</Label>
-                        <Input id="p-mobile" type="tel" placeholder="06 00 00 00 00" value={papierForm.telMobile} onChange={e => setPapierForm(f => ({ ...f, telMobile: e.target.value }))} />
+                        <Input id="p-mobile" type="tel" placeholder="06 00 00 00 00" value={papierForm.telMobile} onChange={e => { setPapierForm(f => ({ ...f, telMobile: e.target.value })); clearPapierFieldError('telMobile'); }} onBlur={() => validatePapierTel('telMobile', papierForm.telMobile)} className={papierErrors.telMobile ? 'border-destructive' : ''} />
+                        {papierErrors.telMobile && <p className="text-xs text-destructive">{papierErrors.telMobile}</p>}
                       </div>
                       <div className="space-y-1.5">
                         <Label htmlFor="p-email">Email</Label>
-                        <Input id="p-email" type="email" placeholder="email@exemple.com" value={papierForm.email} onChange={e => setPapierForm(f => ({ ...f, email: e.target.value }))} />
+                        <Input id="p-email" type="email" placeholder="email@exemple.com" value={papierForm.email} onChange={e => { setPapierForm(f => ({ ...f, email: e.target.value })); clearPapierFieldError('email'); }} onBlur={() => validatePapierEmail('email', papierForm.email)} className={papierErrors.email ? 'border-destructive' : ''} />
+                        {papierErrors.email && <p className="text-xs text-destructive">{papierErrors.email}</p>}
                       </div>
                     </div>
                   </div>
@@ -2024,28 +2065,28 @@ const AdminMembres = () => {
                 {papierForm.typeInscription === "mineur" && (
                   <>
                     <div>
-                      <h3 className="mb-3 text-sm font-semibold border-b border-border/50 pb-1.5">Informations parents / tuteurs légaux</h3>
+                      <h3 className="mb-3 text-sm font-semibold border-b border-border/50 pb-1.5">Informations parents légaux</h3>
                       <div className="space-y-4">
                         <div className="rounded-md border border-border/50 p-3 space-y-3">
-                          <p className="text-xs font-semibold">Parent / Tuteur 1 *</p>
+                          <p className="text-xs font-semibold">Parent 1 <span className="font-normal text-muted-foreground">(contact principal)</span> *</p>
                           <div className="grid gap-3 sm:grid-cols-2">
                             <div className="space-y-1.5"><Label>Nom *</Label><Input placeholder="Nom" value={papierForm.parent1Nom} onChange={e => setPapierForm(f => ({ ...f, parent1Nom: e.target.value }))} /></div>
                             <div className="space-y-1.5"><Label>Prénom *</Label><Input placeholder="Prénom" value={papierForm.parent1Prenom} onChange={e => setPapierForm(f => ({ ...f, parent1Prenom: e.target.value }))} /></div>
                           </div>
                           <div className="grid gap-3 sm:grid-cols-2">
-                            <div className="space-y-1.5"><Label>Email</Label><Input type="email" placeholder="email@exemple.com" value={papierForm.parent1Email} onChange={e => setPapierForm(f => ({ ...f, parent1Email: e.target.value }))} /></div>
-                            <div className="space-y-1.5"><Label>Téléphone</Label><Input type="tel" placeholder="06 00 00 00 00" value={papierForm.parent1Tel} onChange={e => setPapierForm(f => ({ ...f, parent1Tel: e.target.value }))} /></div>
+                            <div className="space-y-1.5"><Label>Email</Label><Input type="email" placeholder="email@exemple.com" value={papierForm.parent1Email} onChange={e => { setPapierForm(f => ({ ...f, parent1Email: e.target.value })); clearPapierFieldError('parent1Email'); }} onBlur={() => validatePapierEmail('parent1Email', papierForm.parent1Email)} className={papierErrors.parent1Email ? 'border-destructive' : ''} />{papierErrors.parent1Email && <p className="text-xs text-destructive">{papierErrors.parent1Email}</p>}</div>
+                            <div className="space-y-1.5"><Label>Téléphone</Label><Input type="tel" placeholder="06 00 00 00 00" value={papierForm.parent1Tel} onChange={e => { setPapierForm(f => ({ ...f, parent1Tel: e.target.value })); clearPapierFieldError('parent1Tel'); }} onBlur={() => validatePapierTel('parent1Tel', papierForm.parent1Tel)} className={papierErrors.parent1Tel ? 'border-destructive' : ''} />{papierErrors.parent1Tel && <p className="text-xs text-destructive">{papierErrors.parent1Tel}</p>}</div>
                           </div>
                         </div>
                         <div className="rounded-md border border-border/50 p-3 space-y-3">
-                          <p className="text-xs font-semibold text-muted-foreground">Parent / Tuteur 2 <span className="font-normal">(facultatif)</span></p>
+                          <p className="text-xs font-semibold text-muted-foreground">Parent 2 <span className="font-normal">(facultatif, si vous souhaitez être contacté)</span></p>
                           <div className="grid gap-3 sm:grid-cols-2">
                             <div className="space-y-1.5"><Label>Nom</Label><Input placeholder="Nom" value={papierForm.parent2Nom} onChange={e => setPapierForm(f => ({ ...f, parent2Nom: e.target.value }))} /></div>
                             <div className="space-y-1.5"><Label>Prénom</Label><Input placeholder="Prénom" value={papierForm.parent2Prenom} onChange={e => setPapierForm(f => ({ ...f, parent2Prenom: e.target.value }))} /></div>
                           </div>
                           <div className="grid gap-3 sm:grid-cols-2">
-                            <div className="space-y-1.5"><Label>Email</Label><Input type="email" placeholder="email@exemple.com" value={papierForm.parent2Email} onChange={e => setPapierForm(f => ({ ...f, parent2Email: e.target.value }))} /></div>
-                            <div className="space-y-1.5"><Label>Téléphone</Label><Input type="tel" placeholder="06 00 00 00 00" value={papierForm.parent2Tel} onChange={e => setPapierForm(f => ({ ...f, parent2Tel: e.target.value }))} /></div>
+                            <div className="space-y-1.5"><Label>Email</Label><Input type="email" placeholder="email@exemple.com" value={papierForm.parent2Email} onChange={e => { setPapierForm(f => ({ ...f, parent2Email: e.target.value })); clearPapierFieldError('parent2Email'); }} onBlur={() => validatePapierEmail('parent2Email', papierForm.parent2Email)} className={papierErrors.parent2Email ? 'border-destructive' : ''} />{papierErrors.parent2Email && <p className="text-xs text-destructive">{papierErrors.parent2Email}</p>}</div>
+                            <div className="space-y-1.5"><Label>Téléphone</Label><Input type="tel" placeholder="06 00 00 00 00" value={papierForm.parent2Tel} onChange={e => { setPapierForm(f => ({ ...f, parent2Tel: e.target.value })); clearPapierFieldError('parent2Tel'); }} onBlur={() => validatePapierTel('parent2Tel', papierForm.parent2Tel)} className={papierErrors.parent2Tel ? 'border-destructive' : ''} />{papierErrors.parent2Tel && <p className="text-xs text-destructive">{papierErrors.parent2Tel}</p>}</div>
                           </div>
                         </div>
                       </div>
@@ -2068,7 +2109,8 @@ const AdminMembres = () => {
                     </div>
                     <div className="space-y-1.5">
                       <Label htmlFor="p-urgtel">Téléphone</Label>
-                      <Input id="p-urgtel" type="tel" placeholder="06 00 00 00 00" value={papierForm.urgenceTel} onChange={e => setPapierForm(f => ({ ...f, urgenceTel: e.target.value }))} />
+                      <Input id="p-urgtel" type="tel" placeholder="06 00 00 00 00" value={papierForm.urgenceTel} onChange={e => { setPapierForm(f => ({ ...f, urgenceTel: e.target.value })); clearPapierFieldError('urgenceTel'); }} onBlur={() => validatePapierTel('urgenceTel', papierForm.urgenceTel)} className={papierErrors.urgenceTel ? 'border-destructive' : ''} />
+                      {papierErrors.urgenceTel && <p className="text-xs text-destructive">{papierErrors.urgenceTel}</p>}
                     </div>
                   </div>
                 </div>
@@ -2160,6 +2202,7 @@ const AdminMembres = () => {
                       <Checkbox checked={papierForm.passSport} onCheckedChange={v => setPapierForm(f => ({ ...f, passSport: v as boolean }))} />
                       <span className="text-sm">Détenteur d'un code Pass Sport 2026-2027</span>
                     </label>
+                    <p className="mt-2 text-xs text-muted-foreground">Le code Pass Sport est obligatoire et devra être communiqué au club dès sa réception.</p>
                   </div>
                 </div>
 
