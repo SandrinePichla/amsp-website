@@ -8,7 +8,7 @@ import { iconesDisciplines } from "@/iconesDisciplines";
 import { urlFor } from "@/sanityImage";
 
 const toAnchor = (name: string) =>
-  name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+  name.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "").replace(/^-+|-+$/g, "");
 
 interface Discipline {
   _id: string;

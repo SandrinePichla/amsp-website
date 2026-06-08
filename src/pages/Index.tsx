@@ -8,6 +8,7 @@ import { urlFor } from "@/sanityImage";
 import { Sparkles } from "lucide-react";
 import { iconesDisciplines } from "@/iconesDisciplines";
 import heroImage from "@/assets/hero-martial-banner-modif4.webp";
+import { PdfPage } from "@/components/PdfPage";
 
 const toSlug = (name: string) =>
   name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
@@ -35,6 +36,7 @@ interface Actualite {
   inscription: string;
   minimumPersonnes: number;
   image?: { asset: { _ref: string } };
+  flyer?: { asset: { url: string } };
   publie: boolean;
   statut?: string;
 }
@@ -54,7 +56,7 @@ const Index = () => {
       .then((data) => setDisciplines(data));
 
     client
-      .fetch('*[_type == "actualite" && publie == true] | order(date asc)')
+      .fetch('*[_type == "actualite" && publie == true] | order(date asc) { ..., flyer { asset-> { url } } }')
       .then((data) => setActualites(data as Actualite[]));
   }, []);
 
@@ -152,6 +154,8 @@ const Index = () => {
                     alt={a.titre}
                     className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
+                ) : a.flyer?.asset?.url ? (
+                  <PdfPage cover zoom={0.90} url={a.flyer.asset.url} className="h-full w-full transition-transform duration-500 group-hover:scale-105" />
                 ) : (
                   <div className={`h-full w-full ${
                     a.type === 'stage'
@@ -358,6 +362,22 @@ const Index = () => {
                   className="w-full object-contain max-h-80 cursor-zoom-in"
                   onClick={(e) => { e.stopPropagation(); setFlyerZoom(true); }}
                 />
+              )}
+
+              {/* Flyer PDF */}
+              {selectedActu.flyer?.asset?.url && (
+                <div className="border-b border-border bg-secondary/20 px-6 py-4 flex flex-col items-center gap-3">
+                  <PdfPage url={selectedActu.flyer.asset.url} maxHeight={400} className="w-full" />
+                  <a
+                    href={selectedActu.flyer.asset.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-xs font-semibold text-primary hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    📄 Télécharger le flyer PDF
+                  </a>
+                </div>
               )}
 
               <div className="p-6">
