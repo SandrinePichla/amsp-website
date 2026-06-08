@@ -139,10 +139,11 @@ const roleBadge = (role: string) => {
 };
 
 const inscBadge = (statut: string | null) => {
-  if (statut === "validee")   return { label: "Validée",    cls: "bg-green-500/10 text-green-700" };
-  if (statut === "refusee")   return { label: "Refusée",    cls: "bg-red-500/10 text-red-600" };
-  if (statut === "supprimee") return { label: "Supprimée",  cls: "bg-muted text-muted-foreground line-through" };
-  return                             { label: "En attente", cls: "bg-amber-500/10 text-amber-700" };
+  if (statut === "validee")   return { label: "Validée",                cls: "bg-green-500/10 text-green-700" };
+  if (statut === "acceptee")  return { label: "En attente de paiement", cls: "bg-violet-500/10 text-violet-700" };
+  if (statut === "refusee")   return { label: "Refusée",                cls: "bg-red-500/10 text-red-600" };
+  if (statut === "supprimee") return { label: "Supprimée",              cls: "bg-muted text-muted-foreground line-through" };
+  return                             { label: "En cours d'examen",      cls: "bg-amber-500/10 text-amber-700" };
 };
 
 const PAIEMENT_LABELS: Record<string, string> = {
@@ -219,6 +220,7 @@ const AdminMembres = () => {
   const [linkingInscToProfilMode, setLinkingInscToProfilMode] = useState(false);
   const [linkingInscToProfilId, setLinkingInscToProfilId] = useState("");
   const [adminRecapInsc, setAdminRecapInsc] = useState<Inscription | null>(null);
+  const [viewInscReadOnly, setViewInscReadOnly] = useState<Inscription | null>(null);
   const adminRecapRef = useRef<HTMLDivElement>(null);
   const dataLoadedRef = useRef(false);
   const preventRedirectRef = useRef(false);
@@ -712,6 +714,33 @@ const AdminMembres = () => {
     setProcessing(null);
   };
 
+  const handleAccepterInscription = async (id: string) => {
+    setProcessing(`insc-${id}`);
+    const { error } = await supabase.from("inscriptions").update({ statut: "acceptee" }).eq("id", id);
+    if (error) {
+      toast.error("Erreur : " + error.message);
+      setProcessing(null);
+      return;
+    }
+    setInscriptions(prev => prev.map(i => i.id === id ? { ...i, statut: "acceptee" } : i));
+    toast.success("Dossier accepté — en attente de paiement.");
+    const insc = inscriptions.find(i => i.id === id);
+    const destEmail = insc?.email || insc?.parent1_email;
+    if (destEmail) {
+      try {
+        await sendBrevoEmail(TEMPLATES.ACCEPTATION, { email: destEmail, name: [insc.prenom, insc.nom].filter(Boolean).join(" ") || destEmail }, {
+          prenom: insc.prenom || "",
+          nom: insc.nom || "",
+          disciplines: resolveDiscNoms(insc.disciplines).join(", "),
+          saison: insc.saison || "",
+        });
+      } catch {
+        // non-bloquant
+      }
+    }
+    setProcessing(null);
+  };
+
   const handleValiderInscription = async (id: string) => {
     setProcessing(`insc-${id}`);
     const { error } = await supabase.from("inscriptions").update({ statut: "validee" }).eq("id", id);
@@ -848,6 +877,8 @@ const AdminMembres = () => {
     const ROUGE_FG = 'FFb91c1c';
     const AMBRE_BG = 'FFfff8e1';
     const AMBRE_FG = 'FF92400e';
+    const VIOLET_BG = 'FFede9fe';
+    const VIOLET_FG = 'FF5b21b6';
     const GRIS_BG = 'FFf3f4f6';
     const GRIS_FG = 'FF6b7280';
     const NB_COLS = 25;
@@ -887,10 +918,11 @@ const AdminMembres = () => {
     });
 
     const statutColors: Record<string, { bg: string; fg: string }> = {
-      validee: { bg: VERT_BG, fg: VERT_FG },
-      refusee: { bg: ROUGE_BG, fg: ROUGE_FG },
-      en_attente: { bg: AMBRE_BG, fg: AMBRE_FG },
-      supprimee: { bg: GRIS_BG, fg: GRIS_FG },
+      validee:    { bg: VERT_BG,    fg: VERT_FG },
+      acceptee:   { bg: VIOLET_BG,  fg: VIOLET_FG },
+      refusee:    { bg: ROUGE_BG,   fg: ROUGE_FG },
+      en_attente: { bg: AMBRE_BG,   fg: AMBRE_FG },
+      supprimee:  { bg: GRIS_BG,    fg: GRIS_FG },
     };
 
     data.forEach((i, idx) => {
@@ -920,7 +952,7 @@ const AdminMembres = () => {
         i.parent1_tel || '',
         [i.parent2_prenom, i.parent2_nom].filter(Boolean).join(' ') || '',
         i.saison || '',
-        { validee: 'Validée', refusee: 'Refusée', en_attente: 'En attente', supprimee: 'Supprimée' }[statut] ?? statut,
+        { validee: 'Validée', refusee: 'Refusée', en_attente: "En cours d'examen", acceptee: 'En attente de paiement', supprimee: 'Supprimée' }[statut] ?? statut,
         i.source === 'papier' ? 'Papier' : 'En ligne',
         new Date(i.created_at).toLocaleDateString('fr-FR'),
       ]);
@@ -957,6 +989,9 @@ const AdminMembres = () => {
   const enAttenteCompte = membres.filter(m => m.role === "en_attente");
   const enAttenteInscription = inscriptions.filter(
     (i) => i.statut === "en_attente" && (isSuperAdmin || disciplineMatch(i.disciplines, currentUserDisciplines))
+  );
+  const accepteeInscription = inscriptions.filter(
+    (i) => i.statut === "acceptee" && (isSuperAdmin || disciplineMatch(i.disciplines, currentUserDisciplines))
   );
 
   const matchInscToProfil = (i: Inscription, profil: Membre) => i.user_id === profil.id;
@@ -1020,20 +1055,23 @@ const AdminMembres = () => {
 
   // --- Compteurs d'onglets ---
   const countEnAttente = lignes.filter(l =>
-    (l.type === "profil" && (l.profil.role === "en_attente" || l.inscriptions.some(i => i.statut === "en_attente"))) ||
-    (l.type === "inscription_seule" && l.inscription.statut === "en_attente")
+    (l.type === "profil" && (l.profil.role === "en_attente" || l.inscriptions.some(i => i.statut === "en_attente" || i.statut === "acceptee"))) ||
+    (l.type === "inscription_seule" && (l.inscription.statut === "en_attente" || l.inscription.statut === "acceptee"))
   ).length;
   const countReglement = inscriptions.filter(i =>
-    i.moyen_paiement && i.statut !== "supprimee" &&
+    i.statut === "acceptee" &&
     (isSuperAdmin || disciplineMatch(i.disciplines, currentUserDisciplines))
   ).length;
 
+  // Lignes visibles dans le tableau (hors inscriptions orphelines en attente, déjà gérées dans "Dossiers à examiner")
+  const lignesTableau = lignes.filter(l => !(l.type === "inscription_seule" && l.inscription.statut === "en_attente"));
+
   // --- Filtrage ---
-  const lignesFiltrees = lignes.filter(ligne => {
+  const lignesFiltrees = lignesTableau.filter(ligne => {
     if (activeTab === "en_attente") {
       const isEnAttenteCompte = ligne.type === "profil" && ligne.profil.role === "en_attente";
-      const hasInscEnAttente = ligne.type === "profil" && ligne.inscriptions.some(i => i.statut === "en_attente");
-      const isInscEnAttente = ligne.type === "inscription_seule" && ligne.inscription.statut === "en_attente";
+      const hasInscEnAttente = ligne.type === "profil" && ligne.inscriptions.some(i => i.statut === "en_attente" || i.statut === "acceptee");
+      const isInscEnAttente = ligne.type === "inscription_seule" && (ligne.inscription.statut === "en_attente" || ligne.inscription.statut === "acceptee");
       if (!isEnAttenteCompte && !hasInscEnAttente && !isInscEnAttente) return false;
     }
     if (filterDiscipline) {
@@ -1072,7 +1110,7 @@ const AdminMembres = () => {
 
   const reglementItems = activeTab === "reglement"
     ? inscriptions.filter(i => {
-        if (!i.moyen_paiement || i.statut === "supprimee") return false;
+        if (i.statut !== "acceptee") return false;
         if (!isSuperAdmin && !disciplineMatch(i.disciplines, currentUserDisciplines)) return false;
         if (filterDiscipline && !(i.disciplines || "").split(",").map(s => s.trim()).includes(filterDiscipline)) return false;
         if (searchQuery.trim()) {
@@ -1133,13 +1171,12 @@ const AdminMembres = () => {
 
             {/* Navigation sections */}
             {isSuperAdmin && (
-              <div className="mb-8 flex flex-wrap gap-2 border-b border-border pb-3">
+              <div className="mb-8 flex flex-wrap items-center gap-2 border-b border-border pb-3">
                 {([
-                  { id: "membres",  label: "Membres & inscriptions" },
-                  { id: "familles", label: "Familles & enfants" },
-                  { id: "galeries", label: "Accès galeries" },
-                  { id: "tiers",    label: "Comptes tiers" },
-                ] as { id: typeof adminSection; label: string }[]).map(s => (
+                  { id: "membres",  label: "Membres & inscriptions", primary: true },
+                  { id: "familles", label: "Familles & enfants",      primary: true },
+                  { id: "tiers",    label: "Comptes tiers",           primary: true },
+                ] as { id: typeof adminSection; label: string; primary: boolean }[]).map(s => (
                   <button
                     key={s.id}
                     onClick={() => setAdminSection(s.id)}
@@ -1152,6 +1189,18 @@ const AdminMembres = () => {
                     {s.label}
                   </button>
                 ))}
+                <div className="ml-auto">
+                  <button
+                    onClick={() => setAdminSection("galeries")}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                      adminSection === "galeries"
+                        ? "bg-secondary text-foreground"
+                        : "text-muted-foreground/60 hover:text-muted-foreground"
+                    }`}
+                  >
+                    Accès galeries
+                  </button>
+                </div>
               </div>
             )}
 
@@ -1162,19 +1211,19 @@ const AdminMembres = () => {
               <div className="space-y-6">
 
 
-                {/* Bloc En attente — Inscriptions */}
+                {/* Bloc 1 — Dossiers à examiner */}
                 {enAttenteInscription.length > 0 && (
-                  <div className="rounded-lg border border-border/50 bg-card p-5">
+                  <div className="rounded-lg border border-amber-200/60 bg-amber-50/30 dark:bg-amber-950/10 p-5">
                     <div className="flex items-center gap-2 mb-4">
-                      <ClipboardList size={16} className="text-primary" />
-                      <h2 className="font-serif font-bold text-sm">
-                        Inscriptions aux disciplines en attente
-                        <span className="ml-2 rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">{enAttenteInscription.length}</span>
+                      <ClipboardList size={16} className="text-amber-600" />
+                      <h2 className="font-serif font-bold text-sm text-amber-800 dark:text-amber-400">
+                        Dossiers à examiner
+                        <span className="ml-2 rounded-full bg-amber-500 px-2 py-0.5 text-xs text-white">{enAttenteInscription.length}</span>
                       </h2>
                     </div>
                     <div className="space-y-2">
                       {enAttenteInscription.map((insc) => (
-                        <div key={insc.id} className="flex flex-col gap-3 rounded-md border border-border/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div key={insc.id} className="flex flex-col gap-3 rounded-md border border-amber-200/50 bg-white/60 dark:bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                           <div>
                             <div className="flex items-center gap-2">
                               <p className="font-medium text-sm">{insc.nom || ""} {insc.prenom || ""}{!insc.prenom && !insc.nom && <span className="text-muted-foreground italic">Sans nom</span>}</p>
@@ -1188,8 +1237,48 @@ const AdminMembres = () => {
                             </p>
                           </div>
                           <div className="flex gap-2 shrink-0">
-                            <Button size="sm" variant="outline" onClick={() => openPapierEdit(insc)} disabled={processing === `insc-${insc.id}`} className="gap-1 text-muted-foreground"><Pencil size={13} /> Modifier</Button>
-                            <Button size="sm" onClick={() => handleValiderInscription(insc.id)} disabled={processing === `insc-${insc.id}`} className="gap-1"><CheckCircle size={13} /> Valider</Button>
+                            {insc.source === "papier" ? (
+                              <Button size="sm" variant="outline" onClick={() => openPapierEdit(insc)} disabled={processing === `insc-${insc.id}`} className="gap-1 text-muted-foreground"><Pencil size={13} /> Modifier</Button>
+                            ) : (
+                              <Button size="sm" variant="outline" onClick={() => setViewInscReadOnly(insc)} disabled={processing === `insc-${insc.id}`} className="gap-1 text-muted-foreground"><ClipboardList size={13} /> Étudier le dossier</Button>
+                            )}
+                            <Button size="sm" onClick={() => handleAccepterInscription(insc.id)} disabled={processing === `insc-${insc.id}`} className="gap-1"><CheckCircle size={13} /> Accepter</Button>
+                            <Button size="sm" variant="outline" onClick={() => handleRefuserInscription(insc.id)} disabled={processing === `insc-${insc.id}`} className="gap-1 text-destructive hover:text-destructive"><XCircle size={13} /> Refuser</Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Bloc 2 — En attente de paiement */}
+                {accepteeInscription.length > 0 && (
+                  <div className="rounded-lg border border-violet-200/60 bg-violet-50/30 dark:bg-violet-950/10 p-5">
+                    <div className="flex items-center gap-2 mb-4">
+                      <ClipboardList size={16} className="text-violet-600" />
+                      <h2 className="font-serif font-bold text-sm text-violet-800 dark:text-violet-400">
+                        En attente de paiement
+                        <span className="ml-2 rounded-full bg-violet-500 px-2 py-0.5 text-xs text-white">{accepteeInscription.length}</span>
+                      </h2>
+                    </div>
+                    <div className="space-y-2">
+                      {accepteeInscription.map((insc) => (
+                        <div key={insc.id} className="flex flex-col gap-3 rounded-md border border-violet-200/50 bg-white/60 dark:bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-sm">{insc.nom || ""} {insc.prenom || ""}{!insc.prenom && !insc.nom && <span className="text-muted-foreground italic">Sans nom</span>}</p>
+                              {insc.source === "papier" && <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-700"><FileText size={9} /> Papier</span>}
+                              {insc.moyen_paiement && <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${PAIEMENT_BADGE_CLS[insc.moyen_paiement] ?? "bg-secondary text-muted-foreground"}`}>{PAIEMENT_LABELS[insc.moyen_paiement] ?? insc.moyen_paiement}</span>}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {insc.disciplines
+                                ? insc.disciplines.split(",").map(id => disciplinesSanity.find(d => d._id === id.trim())?.nom ?? id.trim()).join(", ")
+                                : "—"
+                              } · {insc.saison || "—"}
+                            </p>
+                          </div>
+                          <div className="flex gap-2 shrink-0">
+                            <Button size="sm" onClick={() => handleValiderInscription(insc.id)} disabled={processing === `insc-${insc.id}`} className="gap-1 bg-green-600 hover:bg-green-700 text-white border-0"><CheckCircle size={13} /> Valider</Button>
                             <Button size="sm" variant="outline" onClick={() => handleRefuserInscription(insc.id)} disabled={processing === `insc-${insc.id}`} className="gap-1 text-destructive hover:text-destructive"><XCircle size={13} /> Refuser</Button>
                           </div>
                         </div>
@@ -1201,7 +1290,7 @@ const AdminMembres = () => {
                 {/* Tableau unifié — cartes */}
                 <div className="rounded-lg border border-border/50 bg-card p-5">
                   <h2 className="font-serif font-bold mb-4">
-                    {isSuperAdmin ? `Tous les inscrits & membres (${lignes.length})` : `Inscrits & membres — votre discipline (${lignes.length})`}
+                    {isSuperAdmin ? `Tous les inscrits (${lignesTableau.length})` : `Inscrits — votre discipline (${lignesTableau.length})`}
                   </h2>
 
                   {/* Barre recherche + filtre */}
@@ -1231,11 +1320,13 @@ const AdminMembres = () => {
                   {/* Onglets */}
                   <Tabs value={activeTab} onValueChange={v => setActiveTab(v as ActiveTab)} className="mb-4">
                     <TabsList className="h-8 text-xs">
-                      <TabsTrigger value="tous" className="text-xs px-3 h-7">Tous ({lignes.length})</TabsTrigger>
+                      <TabsTrigger value="tous" className="text-xs px-3 h-7">Tous ({lignesTableau.length})</TabsTrigger>
                       <TabsTrigger value="en_attente" className="text-xs px-3 h-7">
                         En attente {countEnAttente > 0 && <span className="ml-1.5 rounded-full bg-amber-500 text-white text-[10px] px-1.5 py-0.5 leading-none">{countEnAttente}</span>}
                       </TabsTrigger>
-                      <TabsTrigger value="reglement" className="text-xs px-3 h-7">Règlement ({countReglement})</TabsTrigger>
+                      <TabsTrigger value="reglement" className="text-xs px-3 h-7">
+                        En attente de paiement {countReglement > 0 && <span className="ml-1.5 rounded-full bg-violet-500 text-white text-[10px] px-1.5 py-0.5 leading-none">{countReglement}</span>}
+                      </TabsTrigger>
                     </TabsList>
                   </Tabs>
 
@@ -1251,15 +1342,13 @@ const AdminMembres = () => {
                               <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap min-w-[160px]">Inscrit(e)</th>
                               <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Discipline(s)</th>
                               <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap w-24">Saison</th>
-                              <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Règlement</th>
-                              <th className="text-left pb-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap w-24">Statut insc.</th>
+                              <th className="text-left pb-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Règlement</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-border/30">
                             {reglementItems.map((insc, idx) => {
                               const pCls = PAIEMENT_BADGE_CLS[insc.moyen_paiement ?? ""] ?? "bg-secondary text-muted-foreground";
                               const pLabel = PAIEMENT_LABELS[insc.moyen_paiement ?? ""] ?? (insc.moyen_paiement || "—");
-                              const iBdg = inscBadge(insc.statut);
                               const discs = resolveDiscNoms(insc.disciplines);
                               return (
                                 <tr key={insc.id} className={`hover:bg-primary/[0.03] cursor-pointer ${idx % 2 === 0 ? "" : "bg-secondary/20"}`}
@@ -1277,29 +1366,32 @@ const AdminMembres = () => {
                                     </div>
                                   </td>
                                   <td className="py-3 pr-4 text-xs text-muted-foreground">{insc.saison || "—"}</td>
-                                  <td className="py-3 pr-4">
-                                    <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium w-fit ${pCls}`}>{pLabel}</span>
-                                    {insc.moyen_paiement === "cheque_4x" && insc.saison && (() => {
-                                      const parts = insc.saison.split("-").map(Number);
-                                      const y1 = parts[0], y2 = parts[1];
-                                      const dates = [
-                                        `Ch.1 : ${new Date(insc.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })}`,
-                                        `Ch.2 : Déc. ${y1}`,
-                                        `Ch.3 : Mar. ${y2}`,
-                                        `Ch.4 : Juin ${y2}`,
-                                      ];
-                                      return (
-                                        <div className="mt-1 flex flex-wrap gap-x-3">
-                                          {dates.map((d, i) => <span key={i} className="text-[10px] text-muted-foreground">{d}</span>)}
-                                        </div>
-                                      );
-                                    })()}
-                                    {insc.pass_sport && (
-                                      <span className="ml-1 inline-block rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-700">Pass Sport</span>
-                                    )}
-                                  </td>
                                   <td className="py-3">
-                                    <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium w-fit ${iBdg.cls}`}>{iBdg.label}</span>
+                                    {insc.moyen_paiement ? (
+                                      <>
+                                        <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium w-fit ${pCls}`}>{pLabel}</span>
+                                        {insc.moyen_paiement === "cheque_4x" && insc.saison && (() => {
+                                          const parts = insc.saison.split("-").map(Number);
+                                          const y1 = parts[0], y2 = parts[1];
+                                          const dates = [
+                                            `Ch.1 : ${new Date(insc.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })}`,
+                                            `Ch.2 : Déc. ${y1}`,
+                                            `Ch.3 : Mar. ${y2}`,
+                                            `Ch.4 : Juin ${y2}`,
+                                          ];
+                                          return (
+                                            <div className="mt-1 flex flex-wrap gap-x-3">
+                                              {dates.map((d, i) => <span key={i} className="text-[10px] text-muted-foreground">{d}</span>)}
+                                            </div>
+                                          );
+                                        })()}
+                                        {insc.pass_sport && (
+                                          <span className="ml-1 inline-block rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-700">Pass Sport</span>
+                                        )}
+                                      </>
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground italic">Non précisé</span>
+                                    )}
                                   </td>
                                 </tr>
                               );
@@ -1319,7 +1411,6 @@ const AdminMembres = () => {
                             <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap min-w-[140px]">Statut</th>
                             <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap w-24">Âge</th>
                             <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Disciplines actives</th>
-                            <th className="text-right pb-3 pl-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap w-36">Accès Web</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border/30">
@@ -1374,11 +1465,6 @@ const AdminMembres = () => {
                                       }
                                     </div>
                                   </td>
-                                  <td className="py-3 pl-4 text-right" onClick={e => e.stopPropagation()}>
-                                    <Button size="sm" variant="outline" className="h-7 px-3 text-xs gap-1.5 font-medium" onClick={() => { setModalTab("adhesions"); setSelectedKey(key); }}>
-                                      <ChevronDown size={12} className="-rotate-90" /> Paramètres
-                                    </Button>
-                                  </td>
                                 </tr>
                               );
                             }
@@ -1421,17 +1507,6 @@ const AdminMembres = () => {
                                       ))
                                     }
                                   </div>
-                                </td>
-                                <td className="py-3 pl-4 text-right" onClick={e => e.stopPropagation()}>
-                                  {!insc.user_id && (insc.email || insc.parent1_email) ? (
-                                    <Button size="sm" className="h-7 px-3 text-xs gap-1.5 font-medium bg-emerald-600 hover:bg-emerald-700 text-white border-0" onClick={(e) => { e.stopPropagation(); setModalTab("espace"); setSelectedKey(key); }}>
-                                      <Plus size={12} /> Créer espace
-                                    </Button>
-                                  ) : (
-                                    <Button size="sm" variant="outline" className="h-7 px-3 text-xs gap-1.5 font-medium" onClick={() => { setModalTab("inscription"); setSelectedKey(key); }}>
-                                      <ChevronDown size={12} className="-rotate-90" /> Détails
-                                    </Button>
-                                  )}
                                 </td>
                               </tr>
                             );
@@ -1530,9 +1605,8 @@ const AdminMembres = () => {
                         <TabsTrigger value="adhesions" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs px-4 h-9">
                           Adhésions {pInsc.length > 0 && <span className="ml-1.5 rounded-full bg-primary/10 px-1.5 text-primary text-[10px] font-semibold">{pInsc.length}</span>}
                         </TabsTrigger>
-                        <TabsTrigger value="galeries" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs px-4 h-9">Galeries</TabsTrigger>
                         <TabsTrigger value="parametres" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs px-4 h-9">Paramètres</TabsTrigger>
-                        <TabsTrigger value="details" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs px-4 h-9">Détails</TabsTrigger>
+                        <TabsTrigger value="details" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs px-4 h-9">Coordonnées</TabsTrigger>
                       </TabsList>
                     </div>
 
@@ -1611,8 +1685,11 @@ const AdminMembres = () => {
                                                 )}
                                               </div>
                                               <div className="flex gap-2 flex-wrap pt-1">
-                                                {insc.statut !== "validee" && insc.statut !== "supprimee" && (
-                                                  <Button size="sm" onClick={() => handleValiderInscription(insc.id)} disabled={processing === `insc-${insc.id}`} className="h-7 px-3 text-xs gap-1"><CheckCircle size={11} /> Valider</Button>
+                                                {insc.statut === "en_attente" && (
+                                                  <Button size="sm" onClick={() => handleAccepterInscription(insc.id)} disabled={processing === `insc-${insc.id}`} className="h-7 px-3 text-xs gap-1"><CheckCircle size={11} /> Accepter</Button>
+                                                )}
+                                                {insc.statut === "acceptee" && (
+                                                  <Button size="sm" onClick={() => handleValiderInscription(insc.id)} disabled={processing === `insc-${insc.id}`} className="h-7 px-3 text-xs gap-1 bg-green-600 hover:bg-green-700 text-white border-0"><CheckCircle size={11} /> Valider</Button>
                                                 )}
                                                 {insc.statut !== "refusee" && insc.statut !== "supprimee" && (
                                                   <Button size="sm" variant="outline" onClick={() => handleRefuserInscription(insc.id)} disabled={processing === `insc-${insc.id}`} className="h-7 px-3 text-xs gap-1 text-destructive hover:text-destructive"><XCircle size={11} /> Refuser</Button>
@@ -1621,8 +1698,10 @@ const AdminMembres = () => {
                                                   <Button size="sm" variant="outline" onClick={() => setConfirmSupprimer(insc)} disabled={processing === `insc-${insc.id}`} className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"><Trash2 size={11} /></Button>
                                                 )}
                                                 <Button size="sm" variant="outline" onClick={() => setAdminRecapInsc(insc)} className="h-7 px-2 text-xs gap-1 text-muted-foreground"><Download size={11} /></Button>
-                                                {insc.source === "papier" && (
+                                                {insc.source === "papier" ? (
                                                   <Button size="sm" variant="outline" onClick={() => openPapierEdit(insc)} className="h-7 px-2 text-xs gap-1 text-muted-foreground"><Pencil size={11} /></Button>
+                                                ) : (
+                                                  <Button size="sm" variant="outline" onClick={() => setViewInscReadOnly(insc)} className="h-7 px-2 text-xs gap-1 text-muted-foreground"><ClipboardList size={11} /></Button>
                                                 )}
                                               </div>
                                             </div>
@@ -1637,68 +1716,6 @@ const AdminMembres = () => {
                           </>
                         )}
 
-                        {isSuperAdmin && (() => {
-                          const suggestions = inscSuggereesEmail(profil).filter(i => !pInsc.some(p => p.id === i.id));
-                          if (suggestions.length === 0) return null;
-                          return (
-                            <div>
-                              <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-2">À confirmer — même email</h3>
-                              <div className="space-y-2">
-                                {suggestions.map(insc => {
-                                  const iBdg = inscBadge(insc.statut);
-                                  return (
-                                    <div key={insc.id} className="rounded-xl border border-amber-300/50 bg-amber-50/40 dark:bg-amber-950/20 px-4 py-3">
-                                      <div className="flex items-center justify-between gap-2">
-                                        <div className="text-sm">
-                                          <span className="font-medium">{insc.nom} {insc.prenom}</span>
-                                          <span className="text-muted-foreground ml-2 text-xs">{resolveDiscNoms(insc.disciplines).join(", ") || "—"} {insc.saison ? `· ${insc.saison}` : ""}</span>
-                                        </div>
-                                        <div className="flex items-center gap-1.5 shrink-0">
-                                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${iBdg.cls}`}>{iBdg.label}</span>
-                                          <Button size="sm" variant="outline" onClick={() => handleLierInscription(insc.id, profil.id, insc.disciplines)} disabled={processing === `insc-${insc.id}`} className="h-7 px-2 text-xs gap-1 text-primary hover:text-primary"><Link2 size={10} /> Confirmer</Button>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          );
-                        })()}
-                      </TabsContent>
-
-                      {/* ——— Galeries ——— */}
-                      <TabsContent value="galeries" className="m-0 p-6 space-y-4">
-                        {isSuperAdmin ? (
-                          <>
-                            <p className="text-sm text-muted-foreground">Cochez les disciplines dont ce membre peut voir les galeries privées.</p>
-                            <div className="rounded-xl border border-border/40 p-4 space-y-1">
-                              {disciplinesSanity.map(disc => {
-                                const acces = accesGalerieData.find(a => a.compte_id === profil.id && a.discipline_sanity_id === disc._id);
-                                const isSuggestion = acces && !acces.actif && acces.source === "suggestion_auto";
-                                const isActive = acces?.actif === true;
-                                return (
-                                  <div
-                                    key={disc._id}
-                                    className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-secondary/40 ${isSuggestion ? "bg-amber-50/60 dark:bg-amber-950/20" : ""}`}
-                                    onClick={() => handleToggleProfilDiscipline(profil.id, disc._id, null, !isActive)}
-                                  >
-                                    <Checkbox
-                                      checked={isActive}
-                                      onCheckedChange={() => {}}
-                                    />
-                                    <span className="text-sm flex-1 select-none">{disc.nom}</span>
-                                    {isSuggestion && <span className="text-[10px] text-amber-600 font-medium bg-amber-100/60 rounded-full px-2 py-0.5">Suggestion auto</span>}
-                                    {isActive && <span className="text-[10px] text-emerald-600 font-medium">✓ Actif</span>}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                            <p className="text-[11px] text-muted-foreground">Les suggestions sont générées automatiquement à partir des inscriptions validées.</p>
-                          </>
-                        ) : (
-                          <p className="text-sm text-muted-foreground italic">Accès réservé aux administrateurs.</p>
-                        )}
                       </TabsContent>
 
                       {/* ——— Paramètres ——— */}
@@ -1720,47 +1737,6 @@ const AdminMembres = () => {
                             </Button>
                           </div>
                         </div>
-
-                        {isSuperAdmin && (() => {
-                          const dejaliees = new Set(pInsc.map(i => i.id));
-                          const disponibles = inscriptions.filter(i => !dejaliees.has(i.id));
-                          if (disponibles.length === 0) return null;
-                          const isLinking = linkingProfilId === profil.id;
-                          return (
-                            <div>
-                              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Lier une inscription existante</h3>
-                              <div className="rounded-xl border border-border/40 p-4">
-                                {isLinking ? (
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <select
-                                      className="flex-1 min-w-0 rounded border border-border bg-card px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                                      value={linkingInscId}
-                                      onChange={e => setLinkingInscId(e.target.value)}
-                                    >
-                                      <option value="">— Choisir une inscription —</option>
-                                      {disponibles.map(i => (
-                                        <option key={i.id} value={i.id}>
-                                          {[i.nom, i.prenom].filter(Boolean).join(" ") || i.email || "Sans nom"} — {resolveDiscNoms(i.disciplines).join(", ") || "?"} {i.saison ? `(${i.saison})` : ""}
-                                        </option>
-                                      ))}
-                                    </select>
-                                    <Button size="sm" className="h-8 px-3 text-xs gap-1" disabled={!linkingInscId} onClick={async () => {
-                                      const insc = inscriptions.find(i => i.id === linkingInscId);
-                                      await handleLierInscription(linkingInscId, profil.id, insc?.disciplines || null);
-                                      setLinkingProfilId(null);
-                                      setLinkingInscId("");
-                                    }}><Link2 size={12} /> Lier</Button>
-                                    <Button size="sm" variant="outline" className="h-8 px-2 text-xs" onClick={() => { setLinkingProfilId(null); setLinkingInscId(""); }}>Annuler</Button>
-                                  </div>
-                                ) : (
-                                  <Button size="sm" variant="outline" className="h-8 px-3 text-xs gap-1" onClick={() => { setLinkingProfilId(profil.id); setLinkingInscId(""); }}>
-                                    <Link2 size={12} /> Lier une inscription…
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })()}
 
                         {isSuperAdmin && profil.id !== user?.id && (
                           <div>
@@ -2003,38 +1979,6 @@ const AdminMembres = () => {
                                   profil={p2Profil} lierInscription={false}
                                 />
                               )}
-                              <div>
-                                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Lier à un compte membre existant</h3>
-                                {!linkingInscToProfilMode ? (
-                                  <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => setLinkingInscToProfilMode(true)}>
-                                    <Link2 size={12} /> Lier à un compte existant
-                                  </Button>
-                                ) : (
-                                  <div className="space-y-2">
-                                    <select className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm"
-                                      value={linkingInscToProfilId} onChange={(e) => setLinkingInscToProfilId(e.target.value)}>
-                                      <option value="">-- Choisir un membre --</option>
-                                      {membres.map(m => (
-                                        <option key={m.id} value={m.id}>{[m.nom, m.prenom].filter(Boolean).join(" ") || m.email}</option>
-                                      ))}
-                                    </select>
-                                    <div className="flex gap-2">
-                                      <Button size="sm" className="text-xs gap-1"
-                                        disabled={!linkingInscToProfilId || processing === `insc-${insc.id}`}
-                                        onClick={async () => {
-                                          await handleLierInscription(insc.id, linkingInscToProfilId, insc.disciplines);
-                                          setLinkingInscToProfilMode(false); setLinkingInscToProfilId("");
-                                        }}>
-                                        <Link2 size={12} /> Confirmer le lien
-                                      </Button>
-                                      <Button size="sm" variant="ghost" className="text-xs"
-                                        onClick={() => { setLinkingInscToProfilMode(false); setLinkingInscToProfilId(""); }}>
-                                        Annuler
-                                      </Button>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
                             </>
                           );
                         })()}
@@ -2045,8 +1989,11 @@ const AdminMembres = () => {
                         <div className="rounded-xl border border-border/40 p-4 space-y-3">
                           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Actions sur l'inscription</h3>
                           <div className="flex flex-wrap gap-2">
-                            {insc.statut !== "validee" && insc.statut !== "supprimee" && (
-                              <Button size="sm" onClick={() => handleValiderInscription(insc.id)} disabled={processing === `insc-${insc.id}`} className="gap-1 text-xs"><CheckCircle size={12} /> Valider l'inscription</Button>
+                            {insc.statut === "en_attente" && (
+                              <Button size="sm" onClick={() => handleAccepterInscription(insc.id)} disabled={processing === `insc-${insc.id}`} className="gap-1 text-xs"><CheckCircle size={12} /> Accepter le dossier</Button>
+                            )}
+                            {insc.statut === "acceptee" && (
+                              <Button size="sm" onClick={() => handleValiderInscription(insc.id)} disabled={processing === `insc-${insc.id}`} className="gap-1 text-xs bg-green-600 hover:bg-green-700 text-white border-0"><CheckCircle size={12} /> Valider (paiement reçu)</Button>
                             )}
                             {insc.statut !== "refusee" && insc.statut !== "supprimee" && (
                               <Button size="sm" variant="outline" onClick={() => handleRefuserInscription(insc.id)} disabled={processing === `insc-${insc.id}`} className="gap-1 text-xs text-destructive hover:text-destructive"><XCircle size={12} /> Refuser</Button>
@@ -2055,8 +2002,10 @@ const AdminMembres = () => {
                               <Button size="sm" variant="outline" onClick={() => setConfirmSupprimer(insc)} disabled={processing === `insc-${insc.id}`} className="gap-1 text-xs text-muted-foreground hover:text-destructive"><Trash2 size={12} /> Supprimer</Button>
                             )}
                             <Button size="sm" variant="outline" onClick={() => setAdminRecapInsc(insc)} className="gap-1 text-xs text-muted-foreground"><Download size={12} /> Récapitulatif</Button>
-                            {insc.source === "papier" && (
+                            {insc.source === "papier" ? (
                               <Button size="sm" variant="outline" onClick={() => openPapierEdit(insc)} className="gap-1 text-xs text-muted-foreground"><Pencil size={12} /> Modifier</Button>
+                            ) : (
+                              <Button size="sm" variant="outline" onClick={() => setViewInscReadOnly(insc)} className="gap-1 text-xs text-muted-foreground"><ClipboardList size={12} /> Étudier le dossier</Button>
                             )}
                           </div>
                         </div>
@@ -2068,6 +2017,195 @@ const AdminMembres = () => {
 
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modale lecture seule — inscription en ligne */}
+      <Dialog open={!!viewInscReadOnly} onOpenChange={(open) => { if (!open) setViewInscReadOnly(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-serif flex items-center gap-2">
+              <ClipboardList size={16} className="text-muted-foreground" />
+              Dossier d'inscription en ligne
+            </DialogTitle>
+          </DialogHeader>
+          {viewInscReadOnly && (() => {
+            const insc = viewInscReadOnly;
+            const isMineur = insc.type_inscription === "mineur";
+            const ReadField = ({ label, value }: { label: string; value: string | null | undefined }) => (
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">{label}</Label>
+                <div className="flex min-h-10 w-full items-center rounded-md border border-input bg-secondary/40 px-3 py-2 text-sm">
+                  {value || <span className="text-muted-foreground italic">—</span>}
+                </div>
+              </div>
+            );
+            return (
+              <div className="space-y-8 rounded-lg border border-border/50 bg-card p-6 mt-2">
+
+                {/* Type d'inscription */}
+                <div>
+                  <h2 className="mb-4 font-serif text-lg font-bold border-b border-border/50 pb-2">Type d'inscription</h2>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(["adulte", "mineur"] as const).map((type) => (
+                      <div key={type} className={`rounded-md border-2 py-4 text-sm font-semibold text-center transition-colors ${(type === "mineur") === isMineur ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground opacity-40"}`}>
+                        {type === "adulte" ? "Adulte" : "Mineur"}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Identité */}
+                <div>
+                  <h2 className="mb-4 font-serif text-lg font-bold border-b border-border/50 pb-2">Identité</h2>
+                  <div className="space-y-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <ReadField label="Nom" value={insc.nom} />
+                      <ReadField label="Prénom" value={insc.prenom} />
+                    </div>
+                    <ReadField label="Adresse" value={insc.adresse} />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <ReadField label="Date de naissance" value={insc.date_naissance ? new Date(insc.date_naissance).toLocaleDateString("fr-FR") : null} />
+                      <ReadField label="Groupe sanguin" value={insc.groupe_sanguin} />
+                    </div>
+                    <ReadField label="Allergie(s)" value={insc.allergie} />
+                  </div>
+                </div>
+
+                {/* Coordonnées (adulte) */}
+                {!isMineur && (
+                  <div>
+                    <h2 className="mb-4 font-serif text-lg font-bold border-b border-border/50 pb-2">Coordonnées</h2>
+                    <div className="space-y-4">
+                      <ReadField label="Téléphone mobile" value={insc.tel_mobile} />
+                      <ReadField label="Email" value={insc.email} />
+                    </div>
+                  </div>
+                )}
+
+                {/* Informations parents (mineur) */}
+                {isMineur && (
+                  <div>
+                    <h2 className="mb-4 font-serif text-lg font-bold border-b border-border/50 pb-2">Informations parents légaux</h2>
+                    <div className="space-y-6">
+                      <div className="rounded-md border border-border/50 p-4 space-y-4">
+                        <p className="text-sm font-semibold">Parent 1 <span className="font-normal text-muted-foreground">(contact principal)</span></p>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <ReadField label="Nom" value={insc.parent1_nom} />
+                          <ReadField label="Prénom" value={insc.parent1_prenom} />
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <ReadField label="Email" value={insc.parent1_email} />
+                          <ReadField label="Téléphone" value={insc.parent1_tel} />
+                        </div>
+                      </div>
+                      {(insc.parent2_nom || insc.parent2_prenom || insc.parent2_email) && (
+                        <div className="rounded-md border border-border/50 p-4 space-y-4">
+                          <p className="text-sm font-semibold">Parent 2 <span className="font-normal text-muted-foreground">(facultatif)</span></p>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <ReadField label="Nom" value={insc.parent2_nom} />
+                            <ReadField label="Prénom" value={insc.parent2_prenom} />
+                          </div>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <ReadField label="Email" value={insc.parent2_email} />
+                            <ReadField label="Téléphone" value={insc.parent2_tel} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Urgence */}
+                <div>
+                  <h2 className="mb-4 font-serif text-lg font-bold border-b border-border/50 pb-2">Personne à contacter en cas d'urgence</h2>
+                  <ReadField label="Contact" value={insc.urgence_contact} />
+                </div>
+
+                {/* Discipline(s) */}
+                <div>
+                  <h2 className="mb-4 font-serif text-lg font-bold border-b border-border/50 pb-2">Discipline(s) souhaitée(s)</h2>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {disciplinesSanity.map((d) => {
+                      const selected = (insc.disciplines || "").split(",").map(s => s.trim()).includes(d._id);
+                      return (
+                        <div key={d._id} className={`flex items-center gap-3 rounded-md border p-3 ${selected ? "border-primary/40 bg-primary/5" : "border-border/50 opacity-40"}`}>
+                          <Checkbox checked={selected} disabled className="pointer-events-none" />
+                          <span className="text-sm">{d.nom}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Niveau */}
+                <div>
+                  <h2 className="mb-4 font-serif text-lg font-bold border-b border-border/50 pb-2">Niveau</h2>
+                  <ReadField label="Niveau actuel" value={insc.niveau} />
+                </div>
+
+                {/* Règlement intérieur */}
+                <div>
+                  <h2 className="mb-4 font-serif text-lg font-bold border-b border-border/50 pb-2">Règlement intérieur</h2>
+                  <label className="flex items-start gap-3 opacity-70 cursor-default">
+                    <Checkbox checked={true} disabled className="mt-0.5 pointer-events-none" />
+                    <span className="text-sm">Je reconnais avoir lu et j'accepte le règlement intérieur de l'association</span>
+                  </label>
+                  <label className={`flex items-start gap-3 mt-4 ${!insc.pass_sport ? "opacity-40" : ""} cursor-default`}>
+                    <Checkbox checked={insc.pass_sport} disabled className="mt-0.5 pointer-events-none" />
+                    <span className="text-sm">Détenteur d'un code Pass Sport 2026-2027</span>
+                  </label>
+                </div>
+
+                {/* Mode de règlement */}
+                <div>
+                  <h2 className="mb-4 font-serif text-lg font-bold border-b border-border/50 pb-2">Mode de règlement</h2>
+                  <div className="space-y-3">
+                    {([
+                      { value: "cheque_1x", label: "Chèque — en 1 fois" },
+                      { value: "cheque_4x", label: "Chèque — en 4 fois", detail: "60 € à l'inscription (non remboursable) + solde en 3 échéances (décembre, mars, juin)" },
+                      { value: "especes", label: "Espèces" },
+                      { value: "virement", label: "Virement bancaire (en une seule fois)" },
+                    ] as const).map(option => (
+                      <label key={option.value} className={`flex items-start gap-3 cursor-default ${insc.moyen_paiement !== option.value ? "opacity-40" : ""}`}>
+                        <input type="radio" readOnly checked={insc.moyen_paiement === option.value} className="mt-0.5 accent-primary shrink-0 pointer-events-none" />
+                        <div className="text-sm">
+                          <span>{option.label}</span>
+                          {"detail" in option && option.detail && <p className="mt-0.5 text-xs text-muted-foreground">{option.detail}</p>}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Autorisation parentale (mineur) */}
+                {isMineur && (
+                  <div>
+                    <h2 className="mb-4 font-serif text-lg font-bold border-b border-border/50 pb-2">
+                      Autorisation parentale <span className="text-sm font-normal text-muted-foreground">(obligatoire)</span>
+                    </h2>
+                    <label className={`flex items-start gap-3 cursor-default ${!insc.autorisation_parentale ? "opacity-40" : ""}`}>
+                      <Checkbox checked={insc.autorisation_parentale} disabled className="mt-0.5 pointer-events-none" />
+                      <span className="text-sm">Je soussigné(e) accepte les termes de l'autorisation parentale</span>
+                    </label>
+                  </div>
+                )}
+
+                {/* Droit à l'image */}
+                <div>
+                  <h2 className="mb-4 font-serif text-lg font-bold border-b border-border/50 pb-2">Droit à l'image</h2>
+                  <label className={`flex items-start gap-3 cursor-default ${!insc.droit_image ? "opacity-40" : ""}`}>
+                    <Checkbox checked={insc.droit_image} disabled className="mt-0.5 pointer-events-none" />
+                    <span className="text-sm">J'autorise l'association Arts Martiaux St Pierrois à utiliser mon image ou celle de mes enfants pour les besoins du club</span>
+                  </label>
+                </div>
+
+                <p className="text-xs text-muted-foreground text-center">
+                  Formulaire reçu le {new Date(insc.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })} · Lecture seule
+                </p>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 

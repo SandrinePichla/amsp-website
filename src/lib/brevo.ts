@@ -7,6 +7,7 @@ export const TEMPLATES = {
   CONTACT:     Number(import.meta.env.VITE_BREVO_TEMPLATE_CONTACT),
   REJOINDRE:   Number(import.meta.env.VITE_BREVO_TEMPLATE_REJOINDRE),
   REFUS:            Number(import.meta.env.VITE_BREVO_TEMPLATE_REFUS),
+  ACCEPTATION:      Number(import.meta.env.VITE_BREVO_TEMPLATE_ACCEPTATION),
   INSCRIPTION_ADMIN: Number(import.meta.env.VITE_BREVO_TEMPLATE_INSCRIPTION_ADMIN),
 };
 
