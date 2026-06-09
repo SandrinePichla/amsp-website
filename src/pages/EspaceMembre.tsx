@@ -53,7 +53,7 @@ interface InscriptionConfig {
 const EspaceMembre = () => {
   const { user, role, refreshAccesGalerie } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<TabId>(role === "admin" ? "compte" : "inscriptions");
+  const [activeTab, setActiveTab] = useState<TabId>("inscriptions");
 
   // Profil
   const [profil, setProfil] = useState<Profil | null>(null);
@@ -78,7 +78,7 @@ const EspaceMembre = () => {
     if (!user) { navigate("/connexion"); return; }
     loadProfil();
     loadSanityData();
-    if (role !== "admin") loadInscriptions();
+    loadInscriptions();
   }, [user]);
 
   const loadProfil = async () => {
@@ -91,13 +91,13 @@ const EspaceMembre = () => {
   const loadInscriptions = async () => {
     if (!user || loadingInscriptions) return;
     setLoadingInscriptions(true);
-    const { data } = await supabase
-      .from("inscriptions")
-      .select("*")
-      .eq("user_id", user.id)
-      .is("enfant_id", null)
-      .order("created_at", { ascending: false });
-    setInscriptions(data || []);
+    const [{ data: byUserId }, { data: byEmail }] = await Promise.all([
+      supabase.from("inscriptions").select("*").eq("user_id", user.id).is("enfant_id", null).order("created_at", { ascending: false }),
+      supabase.from("inscriptions").select("*").ilike("email", user.email ?? "").is("enfant_id", null).order("created_at", { ascending: false }),
+    ]);
+    const seen = new Set<string>();
+    const all = [...(byUserId || []), ...(byEmail || [])].filter(i => !seen.has(i.id) && seen.add(i.id));
+    setInscriptions(all);
     setLoadingInscriptions(false);
   };
 
@@ -168,16 +168,9 @@ const EspaceMembre = () => {
     );
   }
 
-  const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = role === "admin"
-    ? [
-        { id: "compte",       label: "Mon compte",      icon: <User size={16} /> },
-        { id: "inscriptions", label: "Mon inscription",  icon: <ClipboardList size={16} /> },
-        { id: "enfants",      label: "Mes enfants",      icon: <Baby size={16} /> },
-        { id: "demande",      label: "Nouvelle demande", icon: <PlusCircle size={16} /> },
-      ]
-    : [
-        { id: "inscriptions", label: "Mon inscription",  icon: <ClipboardList size={16} /> },
-      ];
+  const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
+    { id: "inscriptions", label: "Mes inscriptions", icon: <ClipboardList size={16} /> },
+  ];
 
   return (
     <Layout>
@@ -425,7 +418,7 @@ const TabInscriptions = ({
         .sort(([a], [b]) => b.localeCompare(a))
         .map(([saison, inscs]) => (
           <div key={saison}>
-            <h3 className="mb-3 font-serif text-lg font-bold text-primary">Saison {saison}</h3>
+            <h3 className="mb-3 font-serif text-lg font-bold text-primary">{saison}</h3>
             <div className="space-y-3">
               {inscs.map((i) => <InscriptionRow key={i.id} inscription={i} disciplines={disciplines} />)}
             </div>
@@ -444,11 +437,16 @@ const InscriptionRow = ({ inscription: i, disciplines }: { inscription: Inscript
     .filter(Boolean)
     .join(", ");
 
+  const nomComplet = [i.nom, i.prenom].filter(Boolean).join(" ");
+
   return (
     <div className="flex items-center justify-between rounded-lg border border-border/50 bg-card px-4 py-3">
       <div>
         <p className="font-medium text-sm">{discNoms || "Discipline non trouvée"}</p>
-        <p className="text-xs text-muted-foreground">Soumise le {formatDate(i.created_at)}</p>
+        <p className="text-xs text-muted-foreground">
+          {nomComplet && <span className="font-medium text-foreground">{nomComplet} · </span>}
+          Soumise le {formatDate(i.created_at)}
+        </p>
       </div>
       <span className={`flex items-center gap-1.5 text-xs font-medium ${statut.color}`}>
         {statut.icon} {statut.label}

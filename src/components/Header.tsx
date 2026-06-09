@@ -127,7 +127,7 @@ const UserMenu = ({
   className="flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5 text-primary ring-1 ring-primary/20 transition-colors hover:bg-primary/20"
 >
   <User size={14} />
-  <span className="text-sm font-medium">{prenom || email.split('@')[0]}</span>
+  <span className="text-sm font-medium">{email}</span>
   <ChevronDown size={12} className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
 </button>
       <AnimatePresence>

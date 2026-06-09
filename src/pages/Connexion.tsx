@@ -82,12 +82,7 @@ const Connexion = () => {
             </button>
           </div>
 
-          <p className="mt-6 text-center text-xs text-muted-foreground">
-            Pas encore membre ?{" "}
-            <Link to="/rejoindre" className="text-primary hover:underline">
-              Faire une demande d'accès
-            </Link>
-          </p>
+
         </motion.div>
       </section>
     </Layout>
