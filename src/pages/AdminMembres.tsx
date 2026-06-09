@@ -1870,6 +1870,7 @@ const AdminMembres = () => {
                 membres={membres}
                 accesGalerie={accesGalerieData}
                 disciplinesSanity={disciplinesSanity}
+                inscriptions={inscriptions}
                 onToggle={handleToggleProfilDiscipline}
               />
             )}
@@ -3442,20 +3443,32 @@ const SectionFamilles = ({
 // Section : Accès galeries
 // ================================================================
 const SectionAccesGaleries = ({
-  membres, accesGalerie, disciplinesSanity, onToggle,
+  membres, accesGalerie, disciplinesSanity, inscriptions, onToggle,
 }: {
   membres: Membre[];
   accesGalerie: { id: string; compte_id: string; discipline_sanity_id: string; actif: boolean; source: string }[];
   disciplinesSanity: { _id: string; nom: string; nomCourt?: string }[];
+  inscriptions: Inscription[];
   onToggle: (profilId: string, disc: string, current: string | null, checked: boolean) => void;
 }) => {
   const [search, setSearch] = useState("");
-  const actifs = membres.filter(m => ["membre", "tiers", "admin", "admin_discipline"].includes(m.role));
+  const [pendingToggle, setPendingToggle] = useState<{
+    membreId: string; membreLabel: string; discId: string; discNom: string; checked: boolean;
+  } | null>(null);
+
+  const discs = disciplinesSanity.filter(d => !d.nom.toLowerCase().includes("stage"));
+  const actifs = membres
+    .filter(m => ["membre", "tiers", "admin", "admin_discipline"].includes(m.role))
+    .sort((a, b) => `${a.nom}${a.prenom}`.localeCompare(`${b.nom}${b.prenom}`, "fr"));
   const filtered = search
     ? actifs.filter(m => `${m.nom} ${m.prenom} ${m.email}`.toLowerCase().includes(search.toLowerCase()))
     : actifs;
 
   const pendingCount = accesGalerie.filter(a => !a.actif && a.source === "suggestion_auto").length;
+
+  const resolveDiscs = (disciplines: string | null) =>
+    (disciplines || "").split(",").map(s => s.trim()).filter(Boolean)
+      .map(id => disciplinesSanity.find(d => d._id === id)?.nom || id);
 
   return (
     <div className="space-y-4">
@@ -3477,42 +3490,110 @@ const SectionAccesGaleries = ({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border/50 bg-secondary/30">
-                <th className="px-4 py-2.5 text-left font-semibold text-xs">Membre</th>
-                {disciplinesSanity.map(d => (
+                <th className="px-4 py-2.5 text-left font-semibold text-xs">Compte</th>
+                {discs.map(d => (
                   <th key={d._id} className="px-2 py-2.5 text-center font-semibold text-xs whitespace-nowrap">{d.nomCourt || d.nom}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/30">
-              {filtered.map(m => (
-                <tr key={m.id} className="hover:bg-secondary/20 transition-colors">
-                  <td className="px-4 py-2.5">
-                    <p className="font-medium text-sm">{m.nom || ""} {m.prenom || ""}</p>
-                    <p className="text-[11px] text-muted-foreground">{m.email}</p>
-                  </td>
-                  {disciplinesSanity.map(d => {
-                    const acces = accesGalerie.find(a => a.compte_id === m.id && a.discipline_sanity_id === d._id);
-                    const isSuggestion = acces && !acces.actif && acces.source === "suggestion_auto";
-                    return (
-                      <td key={d._id} className={`px-2 py-2.5 text-center ${isSuggestion ? "bg-amber-50/40 dark:bg-amber-950/20" : ""}`}>
-                        <Checkbox
-                          checked={acces?.actif === true}
-                          onCheckedChange={v => onToggle(m.id, d._id, null, !!v)}
-                          className={isSuggestion ? "border-amber-400" : ""}
-                        />
+            <tbody>
+              {filtered.map(m => {
+                const linkedInscs = inscriptions.filter(i =>
+                  (i.user_id === m.id || i.email?.toLowerCase() === m.email?.toLowerCase()) &&
+                  i.statut === "validee"
+                );
+                return (
+                  <React.Fragment key={m.id}>
+                    {/* Ligne compte */}
+                    <tr className="border-t border-border/40 bg-secondary/10 hover:bg-secondary/20 transition-colors">
+                      <td className="px-4 py-2.5">
+                        <p className="font-semibold text-xs text-primary truncate">{m.email}</p>
+                        {(m.nom || m.prenom) && (
+                          <p className="text-sm font-medium mt-0.5">{[m.nom, m.prenom].filter(Boolean).join(" ")}</p>
+                        )}
                       </td>
-                    );
-                  })}
-                </tr>
-              ))}
+                      {discs.map(d => {
+                        const acces = accesGalerie.find(a => a.compte_id === m.id && a.discipline_sanity_id === d._id);
+                        const isSuggestion = acces && !acces.actif && acces.source === "suggestion_auto";
+                        const isChecked = acces?.actif === true;
+                        return (
+                          <td key={d._id} className={`px-2 py-2.5 text-center ${isSuggestion ? "bg-amber-50/40 dark:bg-amber-950/20" : ""}`}>
+                            <Checkbox
+                              checked={isChecked}
+                              onCheckedChange={v => setPendingToggle({
+                                membreId: m.id,
+                                membreLabel: [m.nom, m.prenom].filter(Boolean).join(" ") || m.email,
+                                discId: d._id,
+                                discNom: d.nom,
+                                checked: !!v,
+                              })}
+                              className={isSuggestion ? "border-amber-400" : ""}
+                            />
+                          </td>
+                        );
+                      })}
+                    </tr>
+                    {/* Sous-lignes : inscriptions liées */}
+                    {linkedInscs.map(i => {
+                      const discNoms = resolveDiscs(i.disciplines);
+                      return (
+                        <tr key={i.id} className="border-t border-border/20 bg-background">
+                          <td className="px-4 py-1.5 pl-8">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-px bg-border/60 shrink-0" />
+                              <div>
+                                <span className="text-xs text-muted-foreground font-medium">
+                                  {[i.nom, i.prenom].filter(Boolean).join(" ") || <span className="italic">Sans nom</span>}
+                                </span>
+                                {discNoms.length > 0 && (
+                                  <span className="ml-2 text-[11px] text-muted-foreground/70">— {discNoms.join(", ")}</span>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          {discs.map(d => <td key={d._id} />)}
+                        </tr>
+                      );
+                    })}
+                  </React.Fragment>
+                );
+              })}
               {filtered.length === 0 && (
-                <tr><td colSpan={disciplinesSanity.length + 1} className="px-4 py-8 text-center text-muted-foreground text-sm">Aucun résultat.</td></tr>
+                <tr><td colSpan={discs.length + 1} className="px-4 py-8 text-center text-muted-foreground text-sm">Aucun résultat.</td></tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
       <p className="text-[11px] text-muted-foreground">Les cases en jaune sont des suggestions automatiques générées lors de la validation d'une inscription — cochez pour activer l'accès.</p>
+
+      <AlertDialog open={!!pendingToggle} onOpenChange={open => { if (!open) setPendingToggle(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingToggle?.checked ? "Activer l'accès galerie ?" : "Retirer l'accès galerie ?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingToggle?.checked
+                ? <>Autoriser <span className="font-medium text-foreground">{pendingToggle.membreLabel}</span> à accéder aux photos privées de <span className="font-medium text-foreground">{pendingToggle.discNom}</span> ?</>
+                : <>Retirer à <span className="font-medium text-foreground">{pendingToggle?.membreLabel}</span> l'accès aux photos privées de <span className="font-medium text-foreground">{pendingToggle?.discNom}</span> ?</>
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingToggle(null)}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingToggle) onToggle(pendingToggle.membreId, pendingToggle.discId, null, pendingToggle.checked);
+                setPendingToggle(null);
+              }}
+              className={pendingToggle?.checked ? "" : "bg-destructive hover:bg-destructive/90"}
+            >
+              {pendingToggle?.checked ? "Activer" : "Retirer"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
