@@ -201,7 +201,7 @@ const Index = () => {
         );
 
         return (
-          <section className="py-20 bg-secondary/10">
+          <section className="pt-20 pb-8 bg-secondary/10">
             <div className="container mx-auto px-4">
               <div className="mb-12 text-center">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary/60">Agenda</p>
@@ -253,7 +253,7 @@ const Index = () => {
       {/* Disciplines grid */}
       <section className="pt-2 pb-20">
         <div className="container mx-auto px-4">
-          <div className="mb-12 text-center">
+          <div className="mb-16 text-center">
             <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary/60">Arts pratiqués</p>
             <h2 className="font-serif text-3xl font-bold md:text-4xl">
               Nos <span className="text-primary">Disciplines</span>
