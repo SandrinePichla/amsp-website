@@ -12,7 +12,7 @@ import { client } from "@/sanityClient";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   User, Mail, Lock, Baby, ClipboardList, PlusCircle,
-  ChevronRight, CheckCircle, Clock, XCircle, Images,
+  ChevronRight, ChevronDown, CheckCircle, Clock, XCircle, Images,
   Pencil, X, Save,
 } from "lucide-react";
 import {
@@ -25,6 +25,13 @@ import type { Profil, Enfant, LienCompteEnfant, Inscription } from "@/types/supa
 // Helpers
 // ----------------------------------------------------------------
 type TabId = "compte" | "inscriptions" | "enfants" | "demande";
+
+const MOYENS_PAIEMENT: Record<string, string> = {
+  cheque_1x: "Chèque (1×)",
+  cheque_4x: "Chèque (4×)",
+  especes:   "Espèces",
+  virement:  "Virement",
+};
 
 const STATUT_LABELS: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   en_attente: { label: "En attente", color: "text-amber-500", icon: <Clock size={13} /> },
@@ -430,27 +437,103 @@ const TabInscriptions = ({
 };
 
 const InscriptionRow = ({ inscription: i, disciplines }: { inscription: Inscription; disciplines: Discipline[] }) => {
+  const [open, setOpen] = useState(false);
   const statut = STATUT_LABELS[i.statut || "en_attente"] ?? STATUT_LABELS.en_attente;
   const discNoms = (i.disciplines || "")
     .split(",")
     .map((id) => disciplines.find((d) => d._id === id.trim())?.nomCourt || disciplines.find((d) => d._id === id.trim())?.nom)
     .filter(Boolean)
     .join(", ");
-
-  const nomComplet = [i.nom, i.prenom].filter(Boolean).join(" ");
+  const nomComplet = [i.prenom, i.nom].filter(Boolean).join(" ");
+  const isMineur = i.type_inscription === "mineur";
 
   return (
-    <div className="flex items-center justify-between rounded-lg border border-border/50 bg-card px-4 py-3">
-      <div>
-        <p className="font-medium text-sm">{discNoms || "Discipline non trouvée"}</p>
-        <p className="text-xs text-muted-foreground">
-          {nomComplet && <span className="font-medium text-foreground">{nomComplet} · </span>}
-          Soumise le {formatDate(i.created_at)}
-        </p>
-      </div>
-      <span className={`flex items-center gap-1.5 text-xs font-medium ${statut.color}`}>
-        {statut.icon} {statut.label}
-      </span>
+    <div className="rounded-lg border border-border/50 bg-card overflow-hidden">
+      {/* En-tête cliquable */}
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-secondary/30 transition-colors"
+      >
+        <div>
+          <p className="font-medium text-sm">{discNoms || "Discipline non trouvée"}</p>
+          <p className="text-xs text-muted-foreground">
+            {nomComplet && <span className="font-medium text-foreground">{nomComplet} · </span>}
+            Soumise le {formatDate(i.created_at)}
+          </p>
+        </div>
+        <div className="flex items-center gap-3 shrink-0 ml-4">
+          <span className={`flex items-center gap-1.5 text-xs font-medium ${statut.color}`}>
+            {statut.icon} {statut.label}
+          </span>
+          <ChevronDown size={14} className={`text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+        </div>
+      </button>
+
+      {/* Détail complet */}
+      {open && (
+        <div className="border-t border-border/50 px-4 py-4 space-y-4 text-sm">
+
+          <DetailSection title="Identité">
+            <DetailGrid>
+              <DetailItem label="Prénom" value={i.prenom} />
+              <DetailItem label="Nom" value={i.nom} />
+              <DetailItem label="Date de naissance" value={formatDate(i.date_naissance)} />
+              <DetailItem label="Groupe sanguin" value={i.groupe_sanguin} />
+              <DetailItem label="Allergie / Remarque médicale" value={i.allergie} fullWidth />
+            </DetailGrid>
+          </DetailSection>
+
+          <DetailSection title="Coordonnées">
+            <DetailGrid>
+              <DetailItem label="Adresse" value={i.adresse} fullWidth />
+              {!isMineur && (
+                <>
+                  <DetailItem label="Téléphone" value={i.tel_mobile} />
+                  <DetailItem label="Email" value={i.email} />
+                </>
+              )}
+              <DetailItem label="Contact d'urgence" value={i.urgence_contact} fullWidth />
+            </DetailGrid>
+          </DetailSection>
+
+          {isMineur && (
+            <DetailSection title="Responsable légal">
+              <DetailGrid>
+                <DetailItem label="Parent / Tuteur 1" value={[i.parent1_prenom, i.parent1_nom].filter(Boolean).join(" ")} />
+                <DetailItem label="Téléphone parent 1" value={i.parent1_tel} />
+                <DetailItem label="Email parent 1" value={i.parent1_email} fullWidth />
+                {(i.parent2_nom || i.parent2_prenom) && (
+                  <>
+                    <DetailItem label="Parent / Tuteur 2" value={[i.parent2_prenom, i.parent2_nom].filter(Boolean).join(" ")} />
+                    <DetailItem label="Téléphone parent 2" value={i.parent2_tel} />
+                    <DetailItem label="Email parent 2" value={i.parent2_email} fullWidth />
+                  </>
+                )}
+              </DetailGrid>
+            </DetailSection>
+          )}
+
+          <DetailSection title="Inscription">
+            <DetailGrid>
+              <DetailItem label="Discipline(s)" value={discNoms} fullWidth />
+              <DetailItem label="Niveau" value={i.niveau} />
+              <DetailItem label="Saison" value={i.saison} />
+              <DetailItem label="Source" value={i.source === "en_ligne" ? "En ligne" : i.source === "papier" ? "Papier" : null} />
+              <DetailItem label="Date de soumission" value={formatDate(i.created_at)} />
+            </DetailGrid>
+          </DetailSection>
+
+          <DetailSection title="Modalités & autorisations">
+            <DetailGrid>
+              <DetailItem label="Moyen de paiement" value={MOYENS_PAIEMENT[i.moyen_paiement || ""] || i.moyen_paiement} />
+              <DetailItem label="Pass Sport" value={i.pass_sport ? "Oui" : "Non"} />
+              <DetailItem label="Droit à l'image" value={i.droit_image ? "Oui" : "Non"} />
+              {isMineur && <DetailItem label="Autorisation parentale" value={i.autorisation_parentale ? "Oui" : "Non"} />}
+            </DetailGrid>
+          </DetailSection>
+
+        </div>
+      )}
     </div>
   );
 };
@@ -1038,6 +1121,26 @@ const InfoLine = ({ label, value }: { label: string; value: string | null }) => 
   <div className="flex items-center justify-between">
     <span className="text-muted-foreground">{label}</span>
     <span className="font-medium">{value || "—"}</span>
+  </div>
+);
+
+const DetailSection = ({ title, children }: { title: string; children: React.ReactNode }) => (
+  <div>
+    <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">{title}</p>
+    {children}
+  </div>
+);
+
+const DetailGrid = ({ children }: { children: React.ReactNode }) => (
+  <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
+    {children}
+  </div>
+);
+
+const DetailItem = ({ label, value, fullWidth }: { label: string; value: string | null | undefined; fullWidth?: boolean }) => (
+  <div className={fullWidth ? "col-span-2" : ""}>
+    <p className="text-[11px] text-muted-foreground">{label}</p>
+    <p className="text-sm font-medium text-foreground">{value || "—"}</p>
   </div>
 );
 
