@@ -5,9 +5,7 @@ import { Phone, Mail, User, Award, ExternalLink, X } from "lucide-react";
 import Layout from "@/components/Layout";
 import { client } from "@/sanityClient";
 import { urlFor } from "@/sanityImage";
-
-const toAnchor = (name: string) =>
-  name.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "").replace(/^-+|-+$/g, "");
+import { slugify } from "@/lib/utils";
 
 interface Lien {
   label: string;
@@ -55,8 +53,6 @@ const Instructeurs = () => {
       });
   }, []);
 
-  const liste = instructeurs;
-
   const groupLabel = (inst: Instructeur): string => {
     const discs = inst.disciplines;
     if (!discs || discs.length === 0) return "Autre";
@@ -72,7 +68,7 @@ const Instructeurs = () => {
     return commun.length > 0 ? commun.join(" ") : discs[0].nom;
   };
 
-  const parDiscipline = liste.reduce<Record<string, Instructeur[]>>((acc, inst) => {
+  const parDiscipline = instructeurs.reduce<Record<string, Instructeur[]>>((acc, inst) => {
     const disc = groupLabel(inst);
     if (!acc[disc]) acc[disc] = [];
     acc[disc].push(inst);
@@ -134,7 +130,7 @@ const Instructeurs = () => {
                     {membres.map((inst, i) => (
                       <motion.button
                         key={inst._id}
-                        id={toAnchor(inst.nom)}
+                        id={slugify(inst.nom)}
                         initial={{ opacity: 0, y: 16 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}

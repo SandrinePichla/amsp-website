@@ -52,7 +52,6 @@ const App = () => (
             <Route path="/connexion" element={<Connexion />} />
             <Route path="/lasso" element={<Lasso />} />
             <Route path="/instructeurs" element={<Instructeurs />} />
-            <Route path="*" element={<NotFound />} />
             <Route path="/mentions-legales" element={<MentionsLegales />} />
             <Route path="/profil" element={<Profil />} />
             <Route path="/espace-membre" element={<EspaceMembre />} />
@@ -60,6 +59,7 @@ const App = () => (
             <Route path="/rejoindre" element={<Rejoindre />} />
             <Route path="/mot-de-passe-oublie" element={<MotDePasseOublie />} />
             <Route path="/reinitialisation-mot-de-passe" element={<ReinitialisationMotDePasse />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
       </BrowserRouter>

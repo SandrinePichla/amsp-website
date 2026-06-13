@@ -441,7 +441,7 @@ const InscriptionRow = ({ inscription: i, disciplines }: { inscription: Inscript
   const statut = STATUT_LABELS[i.statut || "en_attente"] ?? STATUT_LABELS.en_attente;
   const discNoms = (i.disciplines || "")
     .split(",")
-    .map((id) => disciplines.find((d) => d._id === id.trim())?.nomCourt || disciplines.find((d) => d._id === id.trim())?.nom)
+    .map((id) => disciplines.find((d) => d._id === id.trim())?.nom)
     .filter(Boolean)
     .join(", ");
   const nomComplet = [i.prenom, i.nom].filter(Boolean).join(" ");

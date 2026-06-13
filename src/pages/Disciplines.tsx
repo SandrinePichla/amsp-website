@@ -7,9 +7,7 @@ import { client } from "@/sanityClient";
 import { Sparkles, GraduationCap, Users, Clock } from "lucide-react";
 import { iconesDisciplines } from "@/iconesDisciplines";
 import { urlFor } from "@/sanityImage";
-
-const toAnchor = (name: string) =>
-  name.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "").replace(/^-+|-+$/g, "");
+import { slugify } from "@/lib/utils";
 
 interface Discipline {
   _id: string;
@@ -89,7 +87,7 @@ const Disciplines = () => {
                   >
                     {/* Lien overlay couvrant toute la carte */}
                     <Link
-                      to={`/disciplines/${toAnchor(d.nom)}`}
+                      to={`/disciplines/${slugify(d.nom)}`}
                       className="absolute inset-0 z-0"
                       aria-label={`Voir la page ${d.nom}`}
                     />
@@ -148,7 +146,7 @@ const Disciplines = () => {
                           {d.professeurs?.map((prof) => (
                             <Link
                               key={prof}
-                              to={`/instructeurs#${toAnchor(prof)}`}
+                              to={`/instructeurs#${slugify(prof)}`}
                               className="relative z-10 flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-primary/10 hover:text-primary"
                             >
                               <Users size={12} className="text-primary" />

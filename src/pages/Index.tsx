@@ -10,9 +10,7 @@ import { Sparkles } from "lucide-react";
 import { iconesDisciplines } from "@/iconesDisciplines";
 import heroImage from "@/assets/hero-martial-banner-modif4.webp";
 import { PdfPage } from "@/components/PdfPage";
-
-const toSlug = (name: string) =>
-  name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+import { slugify } from "@/lib/utils";
 
 interface Discipline {
   _id: string;
@@ -276,7 +274,7 @@ const Index = () => {
                   transition={{ delay: i * 0.08 }}
                 >
                   <Link
-                    to={`/disciplines/${toSlug(d.nom)}`}
+                    to={`/disciplines/${slugify(d.nom)}`}
                     className="group block overflow-hidden rounded-xl border border-border/40 bg-card transition-all duration-300 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10"
                   >
                     {/* Header — nom en vedette */}

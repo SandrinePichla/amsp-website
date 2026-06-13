@@ -12,9 +12,7 @@ import {
 import { iconesDisciplines } from "@/iconesDisciplines";
 import { PALETTE, buildColorMap, timeToMinutes, DAYS } from "@/components/PrintablePlanning";
 import type { Cours, Tarif, TarifSpecial } from "@/components/PrintablePlanning";
-
-const toSlug = (name: string) =>
-  name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+import { slugify } from "@/lib/utils";
 
 const LIENS_UTILES: Record<string, { label: string; url: string; description?: string }[]> = {
   "karate-shotokan": [
@@ -78,7 +76,7 @@ const DisciplineDetail = () => {
     client
       .fetch('*[_type == "discipline"] | order(ordre asc) { ..., image }')
       .then((disciplines: Discipline[]) => {
-        const found = disciplines.find((d) => toSlug(d.nom) === slug);
+        const found = disciplines.find((d) => slugify(d.nom) === slug);
         if (!found) { navigate("/disciplines"); return; }
         setDiscipline(found);
 

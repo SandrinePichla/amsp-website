@@ -4,9 +4,7 @@ import { Menu, X, LogOut, User, ChevronDown, ShieldCheck } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { client } from "@/sanityClient";
-
-const toSlug = (name: string) =>
-  name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+import { slugify } from "@/lib/utils";
 
 interface NavChild {
   label: string;
@@ -202,7 +200,7 @@ const Header = () => {
       .then((data: { nom: string }[]) => {
         setDisciplineChildren([
           { label: "Toutes les disciplines", path: "/disciplines" },
-          ...data.map((d) => ({ label: d.nom, path: `/disciplines/${toSlug(d.nom)}` })),
+          ...data.map((d) => ({ label: d.nom, path: `/disciplines/${slugify(d.nom)}` })),
         ]);
       })
       .catch(() => {});
