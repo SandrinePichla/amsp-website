@@ -295,29 +295,26 @@ const Inscription = () => {
 
     setSending(true);
 
-    // Vérification doublon : même nom + prénom + date de naissance pour la même saison
+    // Vérification doublon via RPC SECURITY DEFINER (bypass RLS)
     try {
-      const { data: doublonCheck } = await supabase
-        .from("inscriptions")
-        .select("id")
-        .ilike("nom", form.nom.trim())
-        .ilike("prenom", form.prenom.trim())
-        .eq("date_naissance", form.dateNaissance)
-        .eq("saison", saison)
-        .neq("statut", "refusee")
-        .neq("statut", "supprimee")
-        .limit(1);
+      const { data: isDoublon, error } = await supabase.rpc("check_inscription_doublon", {
+        p_nom:            form.nom.trim(),
+        p_prenom:         form.prenom.trim(),
+        p_saison:         saison,
+        p_user_id:        user?.id ?? null,
+        p_date_naissance: form.dateNaissance || null,
+      });
 
-      if (doublonCheck && doublonCheck.length > 0) {
+      if (!error && isDoublon) {
         setSubmitErrorList([
-          `Vous êtes déjà inscrit(e) pour la saison ${saison}. Si vous souhaitez vous inscrire pour une nouvelle discipline, contactez-nous directement.`,
+          `Vous êtes déjà inscrit(e) pour la saison ${saison}. Si vous souhaitez vous inscrire à une nouvelle discipline, veuillez nous contacter.`,
         ]);
         setTimeout(() => submitErrorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
         setSending(false);
         return;
       }
     } catch {
-      // En cas d'erreur réseau sur la vérification, on laisse passer (l'insert échouera si doublon via contrainte BDD)
+      // Erreur réseau : on laisse passer
     }
 
     const disciplinesIds = selectedDisciplines.join(",");
