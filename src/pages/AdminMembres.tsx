@@ -782,8 +782,12 @@ const AdminMembres = () => {
       return;
     }
     setInscriptions(prev => prev.map(i => i.id === id ? { ...i, statut: "acceptee" } : i));
-    toast.success("Dossier accepté — en attente de paiement.");
     const insc = inscriptions.find(i => i.id === id);
+    const inscNomA = [insc?.prenom, insc?.nom].filter(Boolean).join(" ") || "Dossier";
+    toast.success("Dossier accepté", {
+      description: `${inscNomA} — en attente de paiement.`,
+      duration: 7000,
+    });
     const destEmail = insc?.email || insc?.parent1_email;
     if (destEmail) {
       try {
@@ -848,7 +852,13 @@ const AdminMembres = () => {
       }
     }
 
-    toast.success(accountCreated ? "Inscription validée — compte créé, email envoyé." : "Inscription validée.");
+    const inscNomV = [insc?.prenom, insc?.nom].filter(Boolean).join(" ") || "Inscription";
+    toast.success("Inscription validée", {
+      description: accountCreated
+        ? `${inscNomV} — compte créé, email d'invitation envoyé.`
+        : `${inscNomV} — dossier définitivement validé.`,
+      duration: 7000,
+    });
 
     const destEmail = insc?.email || insc?.parent1_email;
     if (destEmail) {
@@ -883,9 +893,13 @@ const AdminMembres = () => {
     if (error) {
       toast.error("Erreur : " + error.message);
     } else {
-      toast.success("Inscription refusée.");
       setInscriptions((prev) => prev.map((i) => i.id === id ? { ...i, statut: "refusee" } : i));
       const insc = inscriptions.find((i) => i.id === id);
+      const inscNomR = [insc?.prenom, insc?.nom].filter(Boolean).join(" ") || "Dossier";
+      toast.warning("Dossier refusé", {
+        description: `${inscNomR} — le dossier a été refusé et la personne notifiée.`,
+        duration: 7000,
+      });
       if (insc?.email) {
         try {
           await sendBrevoEmail(TEMPLATES.REFUS, { email: insc.email, name: [insc.prenom, insc.nom].filter(Boolean).join(" ") || insc.email }, {
@@ -1068,8 +1082,8 @@ const AdminMembres = () => {
   const matchInscToProfilFull = (i: Inscription, profil: Membre) => {
     const sameNom = (i.nom || "").trim().toLowerCase() === (profil.nom || "").trim().toLowerCase();
     const samePrenom = (i.prenom || "").trim().toLowerCase() === (profil.prenom || "").trim().toLowerCase();
-    // user_id + nom+prenom : c'est la même personne
-    if (matchInscToProfil(i, profil) && sameNom && samePrenom) return true;
+    // user_id seul suffit — c'est un lien explicite, les noms peuvent différer
+    if (matchInscToProfil(i, profil)) return true;
     // Email-match pour inscriptions en ligne (non en_attente pour éviter de les faire disparaître)
     if (!i.user_id && i.source !== "papier" && !!i.email && i.statut !== "en_attente" && i.email.toLowerCase() === profil.email.toLowerCase()) return true;
     // Email-match pour inscriptions papier adulte (adulte avec compte web existant)
@@ -1120,9 +1134,10 @@ const AdminMembres = () => {
 
   // --- Compteurs d'onglets ---
   const countEnAttente = lignes.filter(l =>
-    (l.type === "profil" && (l.profil.role === "en_attente" || l.inscriptions.some(i => i.statut === "en_attente" || i.statut === "acceptee"))) ||
-    (l.type === "inscription_seule" && (l.inscription.statut === "en_attente" || l.inscription.statut === "acceptee"))
+    (l.type === "profil" && (l.profil.role === "en_attente" || l.inscriptions.some(i => i.statut === "en_attente"))) ||
+    (l.type === "inscription_seule" && l.inscription.statut === "en_attente")
   ).length;
+
   const countReglement = inscriptions.filter(i =>
     i.statut === "acceptee" &&
     (isSuperAdmin || disciplineMatch(i.disciplines, currentUserDisciplines))
@@ -1144,22 +1159,57 @@ const AdminMembres = () => {
     return true;
   });
 
+  const countValidés = lignesTableau.filter(l => {
+    if (l.type === "profil") {
+      const isAdminRole = l.profil.role === "admin" || l.profil.role === "admin_discipline";
+      return isAdminRole || !l.inscriptions.some(i => i.statut === "en_attente" || i.statut === "acceptee");
+    }
+    return l.inscription.statut === "validee";
+  }).length;
+
   // --- Filtrage ---
-  const lignesFiltrees = lignesTableau.filter(ligne => {
+  // Le tab en_attente utilise `lignes` pour inclure les inscriptions orphelines en attente
+  const lignesFiltreesSource = activeTab === "en_attente" ? lignes : lignesTableau;
+  const lignesFiltrees = lignesFiltreesSource.filter(ligne => {
+
+    // Onglet "Validés" — exclure les lignes ayant des inscriptions en attente ou acceptée
+    if (activeTab === "tous") {
+      if (ligne.type === "profil") {
+        const isAdminRole = ligne.profil.role === "admin" || ligne.profil.role === "admin_discipline";
+        if (!isAdminRole && ligne.inscriptions.some(i => i.statut === "en_attente" || i.statut === "acceptee")) return false;
+      }
+      if (ligne.type === "inscription_seule" && ligne.inscription.statut !== "validee") return false;
+    }
+
+    // Onglet "Dossiers à examiner" — seulement en_attente (pas acceptée)
     if (activeTab === "en_attente") {
       const isEnAttenteCompte = ligne.type === "profil" && ligne.profil.role === "en_attente";
-      const hasInscEnAttente = ligne.type === "profil" && ligne.inscriptions.some(i => i.statut === "en_attente" || i.statut === "acceptee");
-      const isInscEnAttente = ligne.type === "inscription_seule" && (ligne.inscription.statut === "en_attente" || ligne.inscription.statut === "acceptee");
+      const hasInscEnAttente = ligne.type === "profil" && ligne.inscriptions.some(i => i.statut === "en_attente");
+      const isInscEnAttente = ligne.type === "inscription_seule" && ligne.inscription.statut === "en_attente";
       if (!isEnAttenteCompte && !hasInscEnAttente && !isInscEnAttente) return false;
     }
+
+    // Onglet "En attente de paiement" — acceptée sans en_attente bloquant
+    if (activeTab === "reglement") {
+      if (ligne.type === "profil") {
+        const hasAcceptee = ligne.inscriptions.some(i => i.statut === "acceptee");
+        const hasEnAttente = ligne.inscriptions.some(i => i.statut === "en_attente") || ligne.profil.role === "en_attente";
+        if (!hasAcceptee || hasEnAttente) return false;
+      }
+      if (ligne.type === "inscription_seule" && ligne.inscription.statut !== "acceptee") return false;
+    }
+
     if (filterDiscipline) {
       if (ligne.type === "profil") {
-        const validatedDisciplines = new Set(
-          ligne.inscriptions
-            .filter(i => i.statut === "validee")
-            .flatMap(i => (i.disciplines || "").split(",").map(s => s.trim()).filter(Boolean))
+        const relevantInsc = activeTab === "en_attente"
+          ? ligne.inscriptions.filter(i => i.statut === "en_attente")
+          : activeTab === "reglement"
+          ? ligne.inscriptions.filter(i => i.statut === "acceptee")
+          : ligne.inscriptions.filter(i => i.statut === "validee");
+        const disciplinesSet = new Set(
+          relevantInsc.flatMap(i => (i.disciplines || "").split(",").map(s => s.trim()).filter(Boolean))
         );
-        if (!validatedDisciplines.has(filterDiscipline)) return false;
+        if (!disciplinesSet.has(filterDiscipline)) return false;
       } else {
         const inscIds = (ligne.inscription.disciplines || "").split(",").map(s => s.trim()).filter(Boolean);
         if (!inscIds.includes(filterDiscipline)) return false;
@@ -1450,7 +1500,7 @@ const AdminMembres = () => {
                 {/* Tableau unifié — cartes */}
                 <div className="rounded-lg border border-border/50 bg-card p-5">
                   <h2 className="font-serif font-bold mb-4">
-                    {isSuperAdmin ? `Tous les inscrits (${lignesTableau.length})` : `Inscrits — votre discipline (${lignesTableau.length})`}
+                    {isSuperAdmin ? `Validés (${countValidés})` : `Validés — votre discipline (${countValidés})`}
                   </h2>
 
                   {/* Barre recherche + filtre */}
@@ -1480,7 +1530,7 @@ const AdminMembres = () => {
                   {/* Onglets */}
                   <Tabs value={activeTab} onValueChange={v => setActiveTab(v as ActiveTab)} className="mb-4">
                     <TabsList className="h-8 text-xs">
-                      <TabsTrigger value="tous" className="text-xs px-3 h-7">Tous ({lignesTableau.length})</TabsTrigger>
+                      <TabsTrigger value="tous" className="text-xs px-3 h-7">Validés ({countValidés})</TabsTrigger>
                       <TabsTrigger value="en_attente" className="text-xs px-3 h-7">
                         Dossiers à examiner {countEnAttente > 0 && <span className="ml-1.5 rounded-full bg-amber-500 text-white text-[10px] px-1.5 py-0.5 leading-none">{countEnAttente}</span>}
                       </TabsTrigger>
@@ -1497,76 +1547,7 @@ const AdminMembres = () => {
                   </Tabs>
 
                   {/* Tableau liste */}
-                  {activeTab === "reglement" ? (
-                    reglementItems.length === 0 ? (
-                      <p className="text-center text-sm text-muted-foreground py-8">Aucun résultat.</p>
-                    ) : (
-                      <div className="overflow-x-auto -mx-5 px-5">
-                        <table className="w-full text-sm border-collapse">
-                          <thead>
-                            <tr className="border-b border-border/60">
-                              <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap min-w-[160px]">Inscrit(e)</th>
-                              <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Discipline(s)</th>
-                              <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap w-24">Saison</th>
-                              <th className="text-left pb-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Règlement</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-border/30">
-                            {reglementItems.map((insc, idx) => {
-                              const pCls = PAIEMENT_BADGE_CLS[insc.moyen_paiement ?? ""] ?? "bg-secondary text-muted-foreground";
-                              const pLabel = PAIEMENT_LABELS[insc.moyen_paiement ?? ""] ?? (insc.moyen_paiement || "—");
-                              const discs = resolveDiscNoms(insc.disciplines);
-                              return (
-                                <tr key={insc.id} className={`hover:bg-primary/[0.03] cursor-pointer ${idx % 2 === 0 ? "" : "bg-secondary/20"}`}
-                                  onClick={() => { setModalTab("inscription"); setSelectedKey(`i-${insc.id}`); }}>
-                                  <td className="py-3 pr-4">
-                                    <p className="font-semibold text-sm leading-tight">{[insc.nom, insc.prenom].filter(Boolean).join(" ") || <span className="italic text-muted-foreground font-normal text-xs">Sans nom</span>}</p>
-                                    {insc.email && <p className="text-[11px] text-muted-foreground truncate max-w-[160px]">{insc.email}</p>}
-                                  </td>
-                                  <td className="py-3 pr-4">
-                                    <div className="flex flex-wrap gap-1">
-                                      {discs.length === 0
-                                        ? <span className="text-xs text-muted-foreground">—</span>
-                                        : discs.map(d => <span key={d} className="inline-block rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">{d}</span>)
-                                      }
-                                    </div>
-                                  </td>
-                                  <td className="py-3 pr-4 text-xs text-muted-foreground">{insc.saison || "—"}</td>
-                                  <td className="py-3">
-                                    {insc.moyen_paiement ? (
-                                      <>
-                                        <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium w-fit ${pCls}`}>{pLabel}</span>
-                                        {insc.moyen_paiement === "cheque_4x" && insc.saison && (() => {
-                                          const parts = insc.saison.split("-").map(Number);
-                                          const y1 = parts[0], y2 = parts[1];
-                                          const dates = [
-                                            `Ch.1 : ${new Date(insc.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })}`,
-                                            `Ch.2 : Déc. ${y1}`,
-                                            `Ch.3 : Mar. ${y2}`,
-                                            `Ch.4 : Juin ${y2}`,
-                                          ];
-                                          return (
-                                            <div className="mt-1 flex flex-wrap gap-x-3">
-                                              {dates.map((d, i) => <span key={i} className="text-[10px] text-muted-foreground">{d}</span>)}
-                                            </div>
-                                          );
-                                        })()}
-                                        {insc.pass_sport && (
-                                          <span className="ml-1 inline-block rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-700">Pass Sport</span>
-                                        )}
-                                      </>
-                                    ) : (
-                                      <span className="text-xs text-muted-foreground italic">Non précisé</span>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    )
-                  ) : activeTab === "reglements" ? (
+                  {activeTab === "reglements" ? (
                     <div className="space-y-4">
                       {/* Filtre par échéance */}
                       <div className="flex items-center gap-2 flex-wrap">
@@ -1716,6 +1697,15 @@ const AdminMembres = () => {
                               const initials = getInitials(prenom, nom);
                               const roleBdg = roleBadge(profil.role);
                               const pendingCount = pInsc.filter(i => i.statut === "en_attente").length;
+                              // Priorité au statut le plus urgent (action requise) plutôt qu'au "meilleur"
+                              const bestInscStatut = pInsc.some(i => i.statut === "en_attente") ? "en_attente"
+                                : pInsc.some(i => i.statut === "acceptee") ? "acceptee"
+                                : pInsc.some(i => i.statut === "validee") ? "validee"
+                                : null;
+                              // Le rôle du compte prime quand il est en attente ou refusé ; sinon on montre le statut de l'inscription
+                              const statusBdg = (profil.role === "en_attente" || profil.role === "refuse")
+                                ? roleBdg
+                                : bestInscStatut ? inscBadge(bestInscStatut) : roleBdg;
                               const profilDiscs = (profil.disciplines || "").split(",").map(s => s.trim()).filter(Boolean);
                               const dateNaissance = pInsc.find(i => i.date_naissance)?.date_naissance ?? null;
 
@@ -1732,8 +1722,8 @@ const AdminMembres = () => {
                                   </td>
                                   <td className="py-3 pr-4">
                                     <div className="flex flex-col gap-1">
-                                      <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium w-fit ${roleBdg.cls}`}>{roleBdg.label}</span>
-                                      {pendingCount > 0 && <span className="text-[10px] text-amber-600 font-medium">{pendingCount} inscription(s) en attente</span>}
+                                      <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium w-fit ${statusBdg.cls}`}>{statusBdg.label}</span>
+                                      {pendingCount > 0 && <span className="text-[10px] text-amber-600 font-medium">{pendingCount} en attente</span>}
                                     </div>
                                   </td>
                                   <td className="py-3 pr-4">

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Download, Loader2, CheckCircle2 } from "lucide-react";
+import { Download, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 import { client } from "@/sanityClient";
 import {
   buildColorMap,
@@ -135,6 +135,15 @@ const Inscription = () => {
   }, [user]);
 
   const colorMap = useMemo(() => buildColorMap(cours), [cours]);
+
+  const isMineur = useMemo(() => {
+    if (!form.dateNaissance || typeInscription !== 'adulte') return false;
+    const birth = new Date(form.dateNaissance);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    if (today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) age--;
+    return age < 18;
+  }, [form.dateNaissance, typeInscription]);
 
   const handleDownloadPlanning = async () => {
     if (!planningRef.current) return;
@@ -284,6 +293,31 @@ const Inscription = () => {
     setErrors({});
 
     setSending(true);
+
+    // Vérification doublon : même nom + prénom + date de naissance pour la même saison
+    try {
+      const { data: doublonCheck } = await supabase
+        .from("inscriptions")
+        .select("id")
+        .ilike("nom", form.nom.trim())
+        .ilike("prenom", form.prenom.trim())
+        .eq("date_naissance", form.dateNaissance)
+        .eq("saison", saison)
+        .neq("statut", "refusee")
+        .neq("statut", "supprimee")
+        .limit(1);
+
+      if (doublonCheck && doublonCheck.length > 0) {
+        setSubmitErrorList([
+          `Vous êtes déjà inscrit(e) pour la saison ${saison}. Si vous souhaitez vous inscrire pour une nouvelle discipline, contactez-nous directement.`,
+        ]);
+        setTimeout(() => submitErrorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
+        setSending(false);
+        return;
+      }
+    } catch {
+      // En cas d'erreur réseau sur la vérification, on laisse passer (l'insert échouera si doublon via contrainte BDD)
+    }
 
     const disciplinesIds = selectedDisciplines.join(",");
     const disciplinesNoms = selectedDisciplines
@@ -574,6 +608,23 @@ const Inscription = () => {
                           <Input id="groupeSanguin" maxLength={5} placeholder="Ex: A+" value={form.groupeSanguin} onChange={handleChange} />
                         </div>
                       </div>
+                      {isMineur && (
+                        <div className="rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30 p-4 flex flex-col items-center gap-3 text-center">
+                          <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
+                            <AlertTriangle size={16} className="shrink-0" />
+                            <p className="text-sm font-semibold">Cette personne est mineure.</p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="border-amber-400 text-amber-800 hover:bg-amber-100 dark:border-amber-600 dark:text-amber-300 dark:hover:bg-amber-900/30"
+                            onClick={() => { directionRef.current = 1; setTypeInscription('mineur'); }}
+                          >
+                            Basculer vers le formulaire Mineur
+                          </Button>
+                        </div>
+                      )}
+
                       <div className="space-y-2">
                         <Label htmlFor="allergie">Allergie(s)</Label>
                         <Input id="allergie" maxLength={255} placeholder="Précisez si nécessaire" value={form.allergie} onChange={handleChange} />
