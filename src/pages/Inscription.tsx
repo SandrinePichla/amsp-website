@@ -1,3 +1,4 @@
+import { Helmet } from "react-helmet-async";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Layout from "@/components/Layout";
@@ -462,6 +463,10 @@ const Inscription = () => {
 
   return (
     <Layout>
+      <Helmet>
+        <title>Inscription en ligne — Club A.M.S.P. Saint-Pierre-la-Palud (69)</title>
+        <meta name="description" content="Inscrivez-vous en ligne au club d'arts martiaux A.M.S.P. de Saint-Pierre-la-Palud (69210). Karaté, Tai Chi, Aïkido, Wutao, Épée — adultes et enfants, débutants acceptés." />
+      </Helmet>
       <section className="py-20">
         <div className="container mx-auto max-w-2xl px-4">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>

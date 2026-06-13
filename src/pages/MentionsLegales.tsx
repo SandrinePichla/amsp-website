@@ -1,9 +1,14 @@
+import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
 import Layout from "@/components/Layout";
 
 const MentionsLegales = () => {
   return (
     <Layout>
+      <Helmet>
+        <title>Mentions légales — A.M.S.P. Saint-Pierre-la-Palud</title>
+        <meta name="description" content="Mentions légales du site de l'association Arts Martiaux St Pierrois (A.M.S.P.) de Saint-Pierre-la-Palud (69210)." />
+      </Helmet>
       <section className="py-20">
         <div className="container mx-auto max-w-3xl px-4">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
@@ -20,8 +25,8 @@ const MentionsLegales = () => {
                 <ul className="mt-2 space-y-1 pl-4">
                   <li><strong className="text-foreground">Dénomination :</strong> Arts Martiaux St Pierrois (A.M.S.P.)</li>
                   <li><strong className="text-foreground">Forme juridique :</strong> Association loi 1901</li>
-                  <li><strong className="text-foreground">Siège social :</strong> XXX, Saint-Pierre-la-Palud</li>
-                  <li><strong className="text-foreground">Numéro RNA :</strong> WXXXXXXXXX</li>
+                  <li><strong className="text-foreground">Siège social :</strong> Saint-Pierre-la-Palud, 69210</li>
+                  <li><strong className="text-foreground">Numéro RNA :</strong> W691080354</li>
                   <li><strong className="text-foreground">Email :</strong> artsmartiauxstpierrois@gmail.com</li>
                   <li><strong className="text-foreground">Téléphone :</strong> 06.82.16.22.66</li>
                 </ul>
@@ -39,7 +44,7 @@ const MentionsLegales = () => {
                 <p>Ce site est hébergé par :</p>
                 <ul className="mt-2 space-y-1 pl-4">
                   <li><strong className="text-foreground">GitHub Pages</strong> — Microsoft Corporation, One Microsoft Way, Redmond, WA 98052, États-Unis — <a href="https://pages.github.com" className="hover:text-primary transition-colors">pages.github.com</a></li>
-                  <li><strong className="text-foreground">Netlify</strong> (Sanity Studio) — Netlify, Inc., 512 2nd Street, San Francisco, CA 94107, États-Unis — <a href="https://www.netlify.com" className="hover:text-primary transition-colors">netlify.com</a></li>
+                  <li><strong className="text-foreground">Netlify</strong> (outil d'administration de contenu) — Netlify, Inc., 512 2nd Street, San Francisco, CA 94107, États-Unis — <a href="https://www.netlify.com" className="hover:text-primary transition-colors">netlify.com</a></li>
                 </ul>
               </div>
 
@@ -48,13 +53,16 @@ const MentionsLegales = () => {
                 <h2 className="mb-3 font-serif text-xl font-bold text-foreground">4. Services tiers utilisés</h2>
                 <ul className="mt-2 space-y-3 pl-4">
                   <li>
-                    <strong className="text-foreground">Sanity CMS</strong> — Gestion du contenu du site (textes, images, disciplines, actualités). Données hébergées par Sanity AS, Norvège. <a href="https://www.sanity.io/privacy" className="hover:text-primary transition-colors">Politique de confidentialité</a>
+                    <strong className="text-foreground">Sanity CMS</strong> — Gestion du contenu éditorial du site (textes, images, disciplines, actualités, planning). Données hébergées par Sanity AS, Norvège. <a href="https://www.sanity.io/privacy" className="hover:text-primary transition-colors">Politique de confidentialité</a>
                   </li>
                   <li>
-                    <strong className="text-foreground">Supabase</strong> — Authentification des membres. Données hébergées par Supabase Inc. <a href="https://supabase.com/privacy" className="hover:text-primary transition-colors">Politique de confidentialité</a>
+                    <strong className="text-foreground">Supabase</strong> — Authentification des comptes membres, base de données des inscriptions et profils (nom, prénom, date de naissance, email, téléphone, discipline), gestion des accès à la galerie privée. Données hébergées par Supabase Inc., États-Unis, dans le cadre des clauses contractuelles types RGPD. <a href="https://supabase.com/privacy" className="hover:text-primary transition-colors">Politique de confidentialité</a>
                   </li>
                   <li>
-                    <strong className="text-foreground">EmailJS</strong> — Envoi des formulaires de contact et d'inscription par email. <a href="https://www.emailjs.com/legal/privacy-policy/" className="hover:text-primary transition-colors">Politique de confidentialité</a>
+                    <strong className="text-foreground">Brevo (ex-Sendinblue)</strong> — Envoi des emails transactionnels de l'association : confirmations d'inscription, notifications de validation, réinitialisation de mot de passe. Brevo SAS, 7 rue de Madrid, 75008 Paris. <a href="https://www.brevo.com/legal/privacypolicy/" className="hover:text-primary transition-colors">Politique de confidentialité</a>
+                  </li>
+                  <li>
+                    <strong className="text-foreground">EmailJS</strong> — Transmission des messages envoyés via le formulaire de contact. Les données ne sont pas stockées de façon persistante. <a href="https://www.emailjs.com/legal/privacy-policy/" className="hover:text-primary transition-colors">Politique de confidentialité</a>
                   </li>
                 </ul>
               </div>
@@ -62,20 +70,26 @@ const MentionsLegales = () => {
               {/* Données personnelles */}
               <div>
                 <h2 className="mb-3 font-serif text-xl font-bold text-foreground">5. Données personnelles</h2>
-                <p className="mb-2">Conformément au Règlement Général sur la Protection des Données (RGPD) et à la loi Informatique et Libertés, vous disposez des droits suivants sur vos données personnelles :</p>
+                <p className="mb-2">Conformément au Règlement Général sur la Protection des Données (RGPD) et à la loi Informatique et Libertés, les données suivantes sont collectées :</p>
+                <ul className="mt-2 space-y-1 pl-4 list-disc">
+                  <li><strong className="text-foreground">Formulaire d'inscription :</strong> nom, prénom, date de naissance, email, téléphone, discipline(s) choisie(s)</li>
+                  <li><strong className="text-foreground">Compte membre :</strong> adresse email (identifiant), date de dernière connexion</li>
+                  <li><strong className="text-foreground">Formulaire de contact :</strong> nom, email, message (transmis par email, non stockés)</li>
+                </ul>
+                <p className="mt-3">Ces données sont utilisées exclusivement pour la gestion des adhésions et la communication interne de l'association. Elles ne sont jamais cédées à des tiers à des fins commerciales.</p>
+                <p className="mt-3">Conformément au RGPD, vous disposez des droits suivants :</p>
                 <ul className="mt-2 space-y-1 pl-4 list-disc">
                   <li>Droit d'accès, de rectification et d'effacement de vos données</li>
                   <li>Droit à la portabilité de vos données</li>
                   <li>Droit d'opposition au traitement de vos données</li>
                 </ul>
-                <p className="mt-3">Les données collectées via les formulaires (contact, inscription) sont utilisées uniquement pour le fonctionnement de l'association et ne sont jamais cédées à des tiers.</p>
-                <p className="mt-2">Pour exercer vos droits, contactez-nous à : <a href="mailto:artsmartiauxstpierrois@gmail.com" className="hover:text-primary transition-colors">artsmartiauxstpierrois@gmail.com</a></p>
+                <p className="mt-3">Pour exercer vos droits, contactez-nous à : <a href="mailto:artsmartiauxstpierrois@gmail.com" className="hover:text-primary transition-colors">artsmartiauxstpierrois@gmail.com</a></p>
               </div>
 
               {/* Cookies */}
               <div>
-                <h2 className="mb-3 font-serif text-xl font-bold text-foreground">6. Cookies</h2>
-                <p>Ce site utilise uniquement des cookies techniques nécessaires au fonctionnement de l'authentification des membres (Supabase). Aucun cookie publicitaire ou de tracking n'est utilisé.</p>
+                <h2 className="mb-3 font-serif text-xl font-bold text-foreground">6. Cookies et stockage local</h2>
+                <p>Ce site n'utilise pas de cookies publicitaires ou de tracking. Le seul stockage utilisé est un stockage local technique (<em>localStorage</em>) nécessaire au maintien de la session des membres connectés (Supabase). Ce stockage est strictement fonctionnel et ne nécessite pas de consentement préalable au titre de la réglementation CNIL.</p>
               </div>
 
               {/* Propriété intellectuelle */}

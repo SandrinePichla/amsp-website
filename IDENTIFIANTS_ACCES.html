@@ -248,7 +248,7 @@
   <div class="page-break"></div>
   <h2>Brevo — Emails automatiques</h2>
 
-  <p>Brevo envoie les 7 emails automatiques du site (confirmation d'inscription, validation, etc.). Réservé au développeur pour la configuration.</p>
+  <p>Brevo envoie les 7 emails automatiques du site (confirmation d'inscription, validation, etc.) <strong>et sert de relais SMTP pour les emails d'authentification Supabase</strong> (réinitialisation de mot de passe, invitations membres). Réservé au développeur pour la configuration.</p>
 
   <div class="bloc">
     <div class="bloc-title">Accès Brevo</div>
@@ -282,6 +282,44 @@
 
   <div class="attention">
     ⚠️ La clé API Brevo est un secret. Elle est stockée dans les secrets de la fonction Supabase et dans le fichier <code>.env</code> local du développeur — jamais dans le code source.
+  </div>
+
+  <h3 style="font-size:12pt; color:#333; margin-top:18px;">Configuration SMTP Brevo → Supabase (emails d'authentification)</h3>
+
+  <p>Depuis juin 2026, les emails d'authentification Supabase (réinitialisation de mot de passe, invitations à créer un compte) transitent par Brevo via SMTP — ce qui supprime la limite de 2 emails/heure du plan gratuit Supabase.</p>
+
+  <div class="bloc">
+    <div class="bloc-title">SMTP Supabase (configuré dans Supabase → Project Settings → Auth → SMTP Settings)</div>
+    <table>
+      <tr>
+        <td>Host</td>
+        <td>smtp-relay.brevo.com</td>
+      </tr>
+      <tr>
+        <td>Port</td>
+        <td>587</td>
+      </tr>
+      <tr>
+        <td>Username (login SMTP Brevo)</td>
+        <td>a9b934001@smtp-brevo.com</td>
+      </tr>
+      <tr>
+        <td>Password (clé SMTP Brevo)</td>
+        <td><span class="vide">Clé SMTP nommée "Supabase auth réinitialisa…" — visible dans Brevo → SMTP et API → onglet SMTP</span></td>
+      </tr>
+      <tr>
+        <td>Sender name</td>
+        <td>AMSP</td>
+      </tr>
+      <tr>
+        <td>Sender email</td>
+        <td>amsp69210@gmail.com (expéditeur vérifié dans Brevo)</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="attention">
+    ⚠️ La restriction IP Brevo pour les clés SMTP a été <strong>désactivée</strong> (Brevo → Paramètres → Sécurité → IPs autorisées → "Désactiver pour les clés SMTP"). Ne pas la réactiver : Supabase utilise des IPs variables qui seraient bloquées.
   </div>
 
   <!-- GITHUB -->
@@ -348,7 +386,7 @@
   </table>
 
   <div class="footer">
-    Identifiants et accès — Site AMSP &nbsp;|&nbsp; Document strictement confidentiel &nbsp;|&nbsp; Dernière mise à jour : avril 2026
+    Identifiants et accès — Site AMSP &nbsp;|&nbsp; Document strictement confidentiel &nbsp;|&nbsp; Dernière mise à jour : juin 2026
   </div>
 
 </body>

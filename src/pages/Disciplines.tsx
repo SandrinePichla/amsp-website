@@ -1,3 +1,4 @@
+import { Helmet } from "react-helmet-async";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import Layout from "@/components/Layout";
@@ -43,6 +44,10 @@ const Disciplines = () => {
 
   return (
     <Layout>
+      <Helmet>
+        <title>Nos disciplines — Club A.M.S.P. Saint-Pierre-la-Palud (69)</title>
+        <meta name="description" content="Découvrez nos 7 disciplines : Karaté Shotokan, Viet Vo Dao, Tai Chi Chuan, Aïkido, Wutao, Qi Gong, Épée. Cours pour adultes et enfants à Saint-Pierre-la-Palud (69210)." />
+      </Helmet>
       <section className="py-20">
         <div className="container mx-auto px-4">
           <motion.div

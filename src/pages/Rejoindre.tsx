@@ -1,3 +1,4 @@
+import { Helmet } from "react-helmet-async";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
@@ -103,6 +104,10 @@ const Rejoindre = () => {
 
   return (
     <Layout>
+      <Helmet>
+        <title>Rejoindre le club — A.M.S.P. Arts Martiaux Saint-Pierre-la-Palud (69)</title>
+        <meta name="description" content="Rejoignez le club d'arts martiaux A.M.S.P. de Saint-Pierre-la-Palud (69210). Inscriptions ouvertes pour adultes et enfants, tous niveaux, débutants acceptés." />
+      </Helmet>
       <section className="flex min-h-[70vh] items-center justify-center py-20">
         <motion.div
           initial={{ opacity: 0, y: 20 }}

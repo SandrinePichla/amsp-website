@@ -54,7 +54,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }
 
   useEffect(() => {
+    // Capturer le hash AVANT tout appel Supabase (Supabase l'efface après traitement du token)
+    const isRecoveryLink = window.location.hash.includes('type=recovery')
+
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (isRecoveryLink) {
+        setLoading(false)
+        return
+      }
       const u = session?.user ?? null
       setUser(u)
       if (u) fetchProfil(u.id)
@@ -62,6 +69,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Ignorer les sessions de récupération de mot de passe (lien "mot de passe oublié")
+      if (_event === 'PASSWORD_RECOVERY') return
+      // INITIAL_SESSION peut aussi porter la session recovery avant que PASSWORD_RECOVERY soit émis
+      if (isRecoveryLink && _event === 'INITIAL_SESSION') return
       const u = session?.user ?? null
       setUser(u)
       if (u) {

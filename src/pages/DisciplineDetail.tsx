@@ -1,3 +1,4 @@
+import { Helmet } from "react-helmet-async";
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -130,6 +131,10 @@ const DisciplineDetail = () => {
 
   return (
     <Layout>
+      <Helmet>
+        <title>{`${discipline.nom} — Club A.M.S.P. Saint-Pierre-la-Palud (69)`}</title>
+        <meta name="description" content={`Cours de ${discipline.nom} à Saint-Pierre-la-Palud (69210). ${(discipline.description || "").slice(0, 130).replace(/\n/g, " ")}…`} />
+      </Helmet>
 
       {/* Hero bandeau */}
       <section className="relative overflow-hidden">

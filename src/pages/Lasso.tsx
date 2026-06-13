@@ -1,3 +1,4 @@
+import { Helmet } from "react-helmet-async";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Heart, GraduationCap, Users, Star, Shield, Handshake, Sparkles, ExternalLink } from "lucide-react";
@@ -80,6 +81,10 @@ const Lasso = () => {
 
   return (
     <Layout>
+      <Helmet>
+        <title>L'Association — A.M.S.P. Arts Martiaux Saint-Pierre-la-Palud (69)</title>
+        <meta name="description" content="Découvrez l'association Arts Martiaux St Pierrois (A.M.S.P.) — histoire, valeurs et équipe du club de Saint-Pierre-la-Palud (69210), dans le Rhône." />
+      </Helmet>
       <section className="py-20">
         <div className="container mx-auto px-4">
 

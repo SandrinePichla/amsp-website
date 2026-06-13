@@ -373,13 +373,16 @@
 
   <h3>Ce que voit l'adhérent</h3>
   <div class="schema">
-    <strong>1. Choix du type</strong> — l'adhérent sélectionne <strong>Adulte</strong> ou <strong>Mineur</strong> (le formulaire s'adapte automatiquement).<br><br>
+    <strong>1. Choix du type</strong> — l'adhérent sélectionne <strong>Adulte</strong> ou <strong>Mineur</strong> (le formulaire s'adapte automatiquement). Si une date de naissance mineure est saisie dans le formulaire adulte, un avertissement s'affiche avec un bouton pour basculer vers le formulaire mineur.<br><br>
     <strong>2. Formulaire en ligne</strong> — informations personnelles, disciplines choisies, Pass Sport (oui/non), moyen de paiement, règlement intérieur.<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;• Pour les <strong>mineurs</strong> : coordonnées d'un ou deux parents/tuteurs + autorisation parentale obligatoire.<br><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;• Pour les <strong>mineurs</strong> : coordonnées d'un ou deux parents/tuteurs + autorisation parentale obligatoire.<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;• Un même adhérent (même nom, prénom, date de naissance) ne peut pas s'inscrire deux fois à la même saison.<br><br>
     <strong>3. Email de confirmation immédiat</strong> — il reçoit un email résumant sa demande et l'informant qu'elle est en cours de traitement.<br><br>
-    <strong>4. Décision de l'admin</strong> — une fois que l'administrateur a traité sa demande :<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;✅ <strong>Validée</strong> → il reçoit un email de confirmation avec le récapitulatif complet de son dossier<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;❌ <strong>Refusée</strong> → il reçoit un email l'informant du refus
+    <strong>4. Décision de l'admin (étape 1 — Accepter)</strong> — l'admin examine le dossier et l'accepte :<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;✅ <strong>Accepté</strong> → le dossier passe en "En attente de paiement". L'adhérent est invité à régler sa cotisation.<br><br>
+    <strong>5. Décision de l'admin (étape 2 — Valider ou Refuser)</strong> — après réception du paiement :<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;✅ <strong>Validé</strong> → l'inscription est définitive. Un compte espace membre est créé automatiquement et un email d'invitation lui est envoyé pour définir son mot de passe.<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;❌ <strong>Refusé</strong> → il reçoit un email l'informant du refus.
   </div>
 
   <h3>Ce que reçoit l'administrateur</h3>
@@ -462,7 +465,7 @@
 
   <h3>Ce que contient la page "Gestion des membres"</h3>
 
-  <p>La page est organisée en <strong>4 onglets</strong> :</p>
+  <p>La page est organisée en <strong>5 onglets</strong> :</p>
   <table>
     <tr>
       <th>Onglet</th>
@@ -470,24 +473,29 @@
       <th>Actions disponibles</th>
     </tr>
     <tr>
-      <td><strong>En attente</strong></td>
-      <td>Dossiers d'inscription + demandes d'accès membre à traiter (badge orange = nombre en attente)</td>
-      <td>✅ Valider/Approuver &nbsp; ❌ Refuser</td>
-    </tr>
-    <tr>
-      <td><strong>Actifs</strong></td>
-      <td>Membres approuvés et leurs inscriptions aux disciplines liées</td>
+      <td><strong>Validés (N)</strong></td>
+      <td>Membres dont les inscriptions sont définitivement validées. Admins et membres actifs sans dossier en attente.</td>
       <td>Promouvoir admin / Admin discipline / Imprimer fiche</td>
     </tr>
     <tr>
-      <td><strong>Sans compte</strong></td>
-      <td>Inscriptions reçues via formulaire sans compte espace membre correspondant</td>
-      <td>Créer espace / Lier à un profil existant</td>
+      <td><strong>Dossiers à examiner</strong> <span style="background:#f59e0b;color:white;border-radius:10px;padding:1px 6px;font-size:9pt;">N</span></td>
+      <td>Nouvelles demandes d'inscription + demandes d'accès espace membre autonomes. Badge orange = nombre à traiter.</td>
+      <td>✅ Accepter &nbsp; ❌ Refuser</td>
     </tr>
     <tr>
-      <td><strong>Tous</strong></td>
-      <td>Vue complète avec barre de recherche et filtre discipline</td>
-      <td>Recherche par nom / prénom / email</td>
+      <td><strong>En attente de paiement</strong> <span style="background:#7c3aed;color:white;border-radius:10px;padding:1px 6px;font-size:9pt;">N</span></td>
+      <td>Dossiers acceptés, en attente du règlement de cotisation. Badge violet = nombre en attente.</td>
+      <td>✅ Valider définitivement &nbsp; ❌ Refuser</td>
+    </tr>
+    <tr>
+      <td><strong>Règlements</strong></td>
+      <td>Calendrier des paiements par chèques (échéances par mois : décembre, mars, juin)</td>
+      <td>Consulter uniquement</td>
+    </tr>
+    <tr>
+      <td><strong>Refusées</strong></td>
+      <td>Historique des inscriptions refusées ou supprimées</td>
+      <td>Consulter uniquement</td>
     </tr>
   </table>
 
@@ -556,8 +564,13 @@
       <td>✅ Notification nouvelle demande</td>
     </tr>
     <tr>
-      <td>Admin valide l'inscription</td>
-      <td>✅ Confirmation avec récapitulatif</td>
+      <td>Admin <strong>accepte</strong> l'inscription (étape 1)</td>
+      <td>✅ Email de confirmation "dossier accepté"</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>Admin <strong>valide</strong> définitivement (étape 2, après paiement)</td>
+      <td>✅ Email d'invitation à créer son mot de passe pour l'espace membre (via Supabase/Brevo)</td>
       <td>—</td>
     </tr>
     <tr>
@@ -566,12 +579,12 @@
       <td>—</td>
     </tr>
     <tr>
-      <td>Demande d'accès espace membre</td>
+      <td>Demande d'accès espace membre (autonome)</td>
       <td>—</td>
       <td>✅ Notification nouvelle demande</td>
     </tr>
     <tr>
-      <td>Admin approuve l'accès membre</td>
+      <td>Admin approuve l'accès membre (demande autonome)</td>
       <td>✅ Email de bienvenue</td>
       <td>—</td>
     </tr>
@@ -622,12 +635,17 @@
     </tr>
     <tr>
       <td>Je reçois un email "nouvelle demande d'inscription"</td>
-      <td>Site → Gestion des membres → onglet En attente → Valider ou Refuser</td>
+      <td>Site → Gestion des membres → onglet <strong>Dossiers à examiner</strong> → Accepter (puis Valider après paiement)</td>
+      <td>Site AMSP</td>
+    </tr>
+    <tr>
+      <td>J'ai reçu un paiement de cotisation</td>
+      <td>Site → Gestion des membres → onglet <strong>En attente de paiement</strong> → Valider</td>
       <td>Site AMSP</td>
     </tr>
     <tr>
       <td>Je reçois un email "nouvelle demande d'accès membre"</td>
-      <td>Site → Gestion des membres → onglet En attente → Approuver ou Refuser</td>
+      <td>Site → Gestion des membres → onglet <strong>Dossiers à examiner</strong> → Approuver ou Refuser</td>
       <td>Site AMSP</td>
     </tr>
     <tr>

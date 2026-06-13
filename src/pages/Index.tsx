@@ -1,3 +1,4 @@
+import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, X, MapPin, Euro, Clock, Users, User } from "lucide-react";
@@ -62,6 +63,10 @@ const Index = () => {
 
   return (
     <Layout>
+      <Helmet>
+        <title>Club d'Arts Martiaux à Saint-Pierre-la-Palud (69) — A.M.S.P.</title>
+        <meta name="description" content="Club d'arts martiaux à Saint-Pierre-la-Palud (69210) — Karaté Shotokan, Viet Vo Dao, Tai Chi Chuan, Aïkido, Wutao, Qi Gong, Épée. Cours pour adultes et enfants, débutants bienvenus." />
+      </Helmet>
       {/* Hero */}
       <section className="relative flex h-[200px] items-center justify-center overflow-hidden">
         <img

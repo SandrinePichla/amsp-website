@@ -376,8 +376,28 @@ WITH CHECK (
   <!-- SECTION 7 -->
   <h2>7. Brevo (emails automatiques)</h2>
 
-  <p>Brevo envoie les 7 emails automatiques du site (inscriptions, validations, notifications admin).<br>
+  <p>Brevo envoie les 7 emails automatiques du site (inscriptions, validations, notifications admin) <strong>et sert de relais SMTP pour les emails d'authentification Supabase</strong> (réinitialisation de mot de passe, invitations membres).<br>
   Adresse : <span class="url">https://www.brevo.com</span> → se connecter</p>
+
+  <h3>Emails d'authentification Supabase via Brevo SMTP</h3>
+
+  <p>Depuis juin 2026, les emails envoyés par Supabase (lien "mot de passe oublié", invitation à créer un compte lors de la validation d'une inscription) transitent par Brevo via SMTP. Cela supprime la limite de 2 emails/heure du plan gratuit Supabase.</p>
+
+  <p>Configuration enregistrée dans <strong>Supabase → Project Settings → Auth → SMTP Settings</strong> :</p>
+
+  <table>
+    <tr><th>Paramètre</th><th>Valeur</th></tr>
+    <tr><td>Host</td><td><code>smtp-relay.brevo.com</code></td></tr>
+    <tr><td>Port</td><td><code>587</code></td></tr>
+    <tr><td>Username</td><td><code>a9b934001@smtp-brevo.com</code> (login SMTP Brevo, différent de l'email de connexion Brevo)</td></tr>
+    <tr><td>Password</td><td>Clé SMTP nommée "Supabase auth réinitialisa…" — dans Brevo → SMTP et API → onglet SMTP</td></tr>
+    <tr><td>Sender name</td><td>AMSP</td></tr>
+    <tr><td>Sender email</td><td>amsp69210@gmail.com</td></tr>
+  </table>
+
+  <div class="attention">
+    ⚠️ La restriction IP Brevo pour les clés SMTP a été désactivée (Brevo → Sécurité → IPs autorisées → "Désactiver pour les clés SMTP"). Ne pas la réactiver : Supabase utilise des IPs variables.
+  </div>
 
   <h3>Les 7 templates d'email</h3>
 
@@ -507,8 +527,12 @@ npm run dev</div>
       <td>Vérifier que vous êtes bien connectée à GitHub dans VSCode (icône de compte en bas à gauche).</td>
     </tr>
     <tr>
-      <td>Les emails n'arrivent pas</td>
+      <td>Les emails automatiques du site n'arrivent pas (inscription, validation…)</td>
       <td>Vérifier sur brevo.com → <strong>Transactionnel</strong> → <strong>Logs</strong>. Vérifier que <code>BREVO_API_KEY</code> et <code>BREVO_SENDER_EMAIL</code> sont bien renseignés dans Supabase → Edge Functions → Secrets. Vérifier que <code>VITE_BREVO_ADMIN_EMAIL</code> dans <code>.env</code> est l'adresse correcte.</td>
+    </tr>
+    <tr>
+      <td>L'email "mot de passe oublié" ou l'invitation membre n'arrive pas</td>
+      <td>Ces emails transitent par Brevo SMTP (section 7). Vérifier dans Supabase → <strong>Authentication → Logs</strong>. Si erreur 500 : vérifier les identifiants SMTP dans Supabase → Project Settings → Auth → SMTP Settings (username = <code>a9b934001@smtp-brevo.com</code>, pas l'email de connexion Brevo). Si erreur 200 mais email absent : vérifier que la restriction IP Brevo est bien désactivée pour les clés SMTP (Brevo → Sécurité → IPs autorisées).</td>
     </tr>
     <tr>
       <td>Le fichier <code>.env</code> est manquant</td>

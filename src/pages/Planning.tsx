@@ -1,3 +1,4 @@
+import { Helmet } from "react-helmet-async";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
 import { CalendarDays, Sparkles, Download, Loader2 } from "lucide-react";
@@ -220,6 +221,10 @@ const [downloading, setDownloading] = useState(false);
 
   return (
     <Layout>
+      <Helmet>
+        <title>Planning &amp; Tarifs — Club A.M.S.P. Saint-Pierre-la-Palud (69)</title>
+        <meta name="description" content="Planning des cours et tarifs au club d'arts martiaux A.M.S.P. de Saint-Pierre-la-Palud (69210). Karaté, Tai Chi, Aïkido, Wutao, Épée — horaires de la saison." />
+      </Helmet>
       <section className="py-20">
         <div className="container mx-auto px-4">
           <motion.div

@@ -1,3 +1,4 @@
+import { Helmet } from "react-helmet-async";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Phone, Mail, User, Award, ExternalLink, X } from "lucide-react";
@@ -80,6 +81,10 @@ const Instructeurs = () => {
 
   return (
     <Layout>
+      <Helmet>
+        <title>Nos instructeurs — Club A.M.S.P. Saint-Pierre-la-Palud (69)</title>
+        <meta name="description" content="Les instructeurs et professeurs du club d'arts martiaux A.M.S.P. de Saint-Pierre-la-Palud. Karaté Shotokan, Tai Chi Chuan, Viet Vo Dao, Aïkido, Wutao." />
+      </Helmet>
       <section className="py-20">
         <div className="container mx-auto px-4">
 

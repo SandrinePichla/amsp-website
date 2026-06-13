@@ -167,48 +167,58 @@
   </div>
 
   <!-- SECTION 2 -->
-  <h2>2. Valider ou refuser une inscription aux disciplines</h2>
+  <h2>2. Traiter un dossier d'inscription aux disciplines</h2>
 
-  <p>Lorsqu'une personne remplit le formulaire d'inscription sur le site, vous recevez un email de notification et son dossier apparaît <strong>en attente</strong> dans la gestion des membres.</p>
+  <p>Lorsqu'une personne remplit le formulaire d'inscription sur le site, vous recevez un email de notification et son dossier apparaît dans l'onglet <strong>"Dossiers à examiner"</strong>.</p>
 
   <div class="conseil">
-    💡 Le formulaire d'inscription propose deux modes : <strong>Adulte</strong> (formulaire standard) et <strong>Mineur</strong> (avec coordonnées des parents/tuteurs, autorisation parentale obligatoire). Les dossiers mineurs affichent les infos des parents dans la fiche de l'inscrit.
+    💡 Le formulaire propose deux modes : <strong>Adulte</strong> et <strong>Mineur</strong> (avec coordonnées parents, autorisation parentale obligatoire). Si une date de naissance indique que la personne est mineure dans le formulaire adulte, un avertissement s'affiche avec un bouton pour basculer vers le formulaire mineur. Une même personne ne peut pas s'inscrire deux fois à la même saison (même nom, prénom et date de naissance).
   </div>
 
-  <div class="etapes">
-    <strong>Étapes :</strong>
-    <ol>
-      <li>Connectez-vous à votre compte admin (voir section 1)</li>
-      <li>Cliquer sur l'icône bouclier en haut à droite → <strong>"Gestion des membres"</strong></li>
-      <li>L'onglet <strong>"En attente"</strong> est sélectionné par défaut — vous voyez les dossiers à traiter</li>
-      <li>Cliquer sur un dossier pour dérouler ses informations complètes</li>
-      <li>Pour chaque dossier, cliquer sur :
-        <ul>
-          <li>✅ <strong>Valider</strong> → le membre reçoit un email de confirmation avec le récapitulatif de son dossier</li>
-          <li>❌ <strong>Refuser</strong> → le membre reçoit un email l'informant du refus</li>
-        </ul>
-      </li>
-    </ol>
-  </div>
+  <p>Le traitement d'un dossier se fait en <strong>2 étapes distinctes</strong> :</p>
 
-  <p><strong>Ce que reçoit l'adhérent selon votre décision :</strong></p>
   <table>
     <tr>
-      <th>Décision</th>
-      <th>Email envoyé à l'adhérent</th>
+      <th>Étape</th>
+      <th>Action</th>
+      <th>Ce qui se passe</th>
+      <th>Onglet résultant</th>
     </tr>
     <tr>
-      <td>✅ Validée</td>
-      <td>Email de confirmation avec récapitulatif du dossier (disciplines, infos personnelles…)</td>
+      <td><strong>1 — Accepter</strong></td>
+      <td>Cliquer sur <strong>"Accepter"</strong> dans la fiche du dossier</td>
+      <td>Le dossier est validé en principe ; l'adhérent doit régler sa cotisation. Un toast de confirmation avec son nom s'affiche.</td>
+      <td>→ <strong>En attente de paiement</strong></td>
     </tr>
     <tr>
-      <td>❌ Refusée</td>
-      <td>Email l'informant que son dossier n'a pas pu être accepté</td>
+      <td><strong>2 — Valider</strong></td>
+      <td>Une fois le paiement reçu, cliquer sur <strong>"Valider"</strong></td>
+      <td>L'inscription est définitivement validée. Un compte espace membre est créé automatiquement et un email d'invitation lui est envoyé pour définir son mot de passe.</td>
+      <td>→ <strong>Validés</strong></td>
+    </tr>
+    <tr>
+      <td><strong>Refuser</strong></td>
+      <td>Cliquer sur <strong>"Refuser"</strong> à n'importe quelle étape</td>
+      <td>Le dossier est refusé. L'adhérent reçoit un email de notification. Un toast d'avertissement avec son nom s'affiche.</td>
+      <td>→ <strong>Refusées</strong></td>
     </tr>
   </table>
 
-  <div class="conseil">
-    💡 Le badge rouge sur le titre de la section indique le nombre de dossiers en attente.
+  <div class="etapes">
+    <strong>Procédure complète :</strong>
+    <ol>
+      <li>Connectez-vous à votre compte admin (voir section 1)</li>
+      <li>Cliquer sur l'icône bouclier en haut à droite → <strong>"Gestion des membres"</strong></li>
+      <li>Aller dans l'onglet <strong>"Dossiers à examiner"</strong> (badge orange = nombre de dossiers à traiter)</li>
+      <li>Cliquer sur un dossier pour dérouler ses informations complètes</li>
+      <li>Cliquer sur <strong>"Accepter"</strong> — le dossier passe en "En attente de paiement"</li>
+      <li>Une fois le chèque ou le paiement reçu, retourner dans <strong>"En attente de paiement"</strong> et cliquer sur <strong>"Valider"</strong></li>
+      <li>L'adhérent reçoit automatiquement un email d'invitation pour accéder à son espace membre</li>
+    </ol>
+  </div>
+
+  <div class="attention">
+    ⚠️ Les boutons "Accepter" et "Valider" sont deux actions distinctes. Ne pas cliquer sur "Valider" sans avoir reçu le paiement — la validation définitive crée le compte membre et envoie l'email d'invitation.
   </div>
 
   <!-- SECTION 3 -->
@@ -279,7 +289,7 @@
   <div class="etapes">
     <strong>Étapes :</strong>
     <ol>
-      <li>Aller dans <strong>"Gestion des membres"</strong> → onglet <strong>"Actifs"</strong></li>
+      <li>Aller dans <strong>"Gestion des membres"</strong> → onglet <strong>"Validés"</strong></li>
       <li>Cliquer sur le nom du membre pour dérouler sa fiche</li>
       <li>Cliquer sur <strong>"Promouvoir en admin"</strong> (bouton bleu)</li>
       <li>Confirmer dans la fenêtre qui s'ouvre</li>
@@ -290,7 +300,7 @@
   <div class="etapes">
     <strong>Étapes :</strong>
     <ol>
-      <li>Aller dans <strong>"Gestion des membres"</strong> → onglet <strong>"Actifs"</strong></li>
+      <li>Aller dans <strong>"Gestion des membres"</strong> → onglet <strong>"Validés"</strong></li>
       <li>Cliquer sur le nom du membre pour dérouler sa fiche</li>
       <li>Cliquer sur <strong>"Admin discipline"</strong> (bouton violet)</li>
       <li>Choisir les disciplines dont il sera responsable</li>
@@ -308,32 +318,42 @@
   <h2>5. Rechercher, exporter et imprimer les dossiers</h2>
 
   <h3>Navigation par onglets</h3>
-  <p>La page "Gestion des membres" est organisée en onglets :</p>
+  <p>La page "Gestion des membres" est organisée en <strong>5 onglets</strong> :</p>
   <table>
     <tr>
       <th>Onglet</th>
       <th>Ce qu'on y voit</th>
+      <th>Actions disponibles</th>
     </tr>
     <tr>
-      <td><strong>En attente</strong></td>
-      <td>Dossiers d'inscription et demandes d'accès à traiter (avec badge rouge)</td>
+      <td><strong>Validés (N)</strong></td>
+      <td>Membres dont toutes les inscriptions sont définitivement validées. Admins et membres actifs. Pas de dossiers en attente ou en cours de paiement.</td>
+      <td>Promouvoir admin / admin discipline, imprimer fiche</td>
     </tr>
     <tr>
-      <td><strong>Actifs</strong></td>
-      <td>Membres approuvés et leurs inscriptions liées</td>
+      <td><strong>Dossiers à examiner</strong> <span style="background:#f59e0b;color:white;border-radius:10px;padding:1px 6px;font-size:9pt;">N</span></td>
+      <td>Nouvelles demandes d'inscription reçues via le formulaire, pas encore traitées. Badge orange = nombre à traiter.</td>
+      <td>✅ Accepter &nbsp; ❌ Refuser</td>
     </tr>
     <tr>
-      <td><strong>Sans compte</strong></td>
-      <td>Inscriptions reçues par formulaire mais sans compte espace membre correspondant</td>
+      <td><strong>En attente de paiement</strong> <span style="background:#7c3aed;color:white;border-radius:10px;padding:1px 6px;font-size:9pt;">N</span></td>
+      <td>Dossiers acceptés, en attente du règlement de cotisation. Badge violet = nombre en attente.</td>
+      <td>✅ Valider définitivement &nbsp; ❌ Refuser</td>
     </tr>
     <tr>
-      <td><strong>Tous</strong></td>
-      <td>Vue complète : tous les membres et toutes les inscriptions</td>
+      <td><strong>Règlements</strong></td>
+      <td>Calendrier des paiements pour les règlements par chèques (4× ou 1×) : liste des échéances par mois.</td>
+      <td>Consulter uniquement</td>
+    </tr>
+    <tr>
+      <td><strong>Refusées</strong></td>
+      <td>Inscriptions refusées ou supprimées (historique).</td>
+      <td>Consulter uniquement</td>
     </tr>
   </table>
 
-  <h3>Barre de recherche</h3>
-  <p>Dans l'onglet <strong>"Tous"</strong>, une barre de recherche permet de filtrer par nom, prénom ou email.</p>
+  <h3>Barre de recherche et filtre discipline</h3>
+  <p>Une barre de recherche et un filtre par discipline sont disponibles dans tous les onglets. La recherche filtre par nom, prénom ou email.</p>
 
   <h3>Exporter les dossiers en Excel</h3>
   <div class="etapes">
@@ -540,18 +560,28 @@
       <th>Compétences requises</th>
     </tr>
     <tr>
-      <td>Valider / refuser une inscription aux disciplines</td>
-      <td>Site AMSP → Gestion des membres → En attente</td>
+      <td>Examiner un nouveau dossier d'inscription</td>
+      <td>Site AMSP → Gestion des membres → Dossiers à examiner → Accepter</td>
       <td>Aucune</td>
     </tr>
     <tr>
-      <td>Approuver / refuser un accès espace membre</td>
-      <td>Site AMSP → Gestion des membres → En attente</td>
+      <td>Valider définitivement (après paiement reçu)</td>
+      <td>Site AMSP → Gestion des membres → En attente de paiement → Valider</td>
+      <td>Aucune</td>
+    </tr>
+    <tr>
+      <td>Refuser un dossier</td>
+      <td>Site AMSP → Gestion des membres → bouton Refuser</td>
+      <td>Aucune</td>
+    </tr>
+    <tr>
+      <td>Approuver / refuser un accès espace membre (demande autonome)</td>
+      <td>Site AMSP → Gestion des membres → Dossiers à examiner</td>
       <td>Aucune</td>
     </tr>
     <tr>
       <td>Promouvoir un admin ou admin de discipline</td>
-      <td>Site AMSP → Gestion des membres → Actifs</td>
+      <td>Site AMSP → Gestion des membres → Validés</td>
       <td>Aucune</td>
     </tr>
     <tr>

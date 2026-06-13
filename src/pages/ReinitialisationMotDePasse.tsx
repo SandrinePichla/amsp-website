@@ -45,6 +45,7 @@ const ReinitialisationMotDePasse = () => {
       setError("Une erreur est survenue. Veuillez réessayer ou demander un nouveau lien.");
     } else {
       setSuccess(true);
+      await supabase.auth.signOut();
       setTimeout(() => navigate("/connexion"), 3000);
     }
   };
