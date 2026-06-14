@@ -11,8 +11,9 @@ import { supabase } from "@/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import {
-  Clock, CheckCircle, XCircle, Shield, Download, ChevronDown,
+  Clock, CheckCircle, XCircle, Shield, Download, ChevronDown, ChevronUp, ChevronsUpDown,
   UserX, UserPlus, ClipboardList, Link2, Plus, FileText, Trash2, Search, Pencil, Upload, ExternalLink,
+  List, Users,
 } from "lucide-react";
 import { sendBrevoEmail, TEMPLATES } from "@/lib/brevo";
 import { client } from "@/sanityClient";
@@ -75,7 +76,7 @@ interface Inscription {
 
 type Ligne =
   | { type: "profil"; profil: Membre; inscriptions: Inscription[] }
-  | { type: "inscription_seule"; inscription: Inscription };
+  | { type: "inscription_seule"; inscription: Inscription; profil: Membre | null };
 
 type ActiveTab = "tous" | "en_attente" | "reglement" | "reglements" | "refusees";
 
@@ -161,6 +162,10 @@ const PAIEMENT_BADGE_CLS: Record<string, string> = {
   virement:  "bg-violet-500/10 text-violet-700",
 };
 
+const STATUT_ORDER: Record<string, number> = { validee: 0, acceptee: 1, en_attente: 2, refusee: 3, supprimee: 4 };
+
+type SortCol = "nom" | "statut" | "age" | "disciplines" | "urgence" | "pass_sport" | "droit_image";
+
 
 const calcAge = (dateNaissance: string | null): number | null => {
   if (!dateNaissance) return null;
@@ -217,12 +222,20 @@ const AdminMembres = () => {
   const [connexionsLog, setConnexionsLog] = useState<ConnexionLog[]>([]);
   const [modalTab, setModalTab] = useState("adhesions");
   const [uploadingAttestationId, setUploadingAttestationId] = useState<string | null>(null);
-  const [reglementFilter, setReglementFilter] = useState<"tous" | "dec" | "mars" | "juin">(() => {
+  const [viewMode, setViewMode] = useState<"liste" | "famille">("liste");
+  const [sortCol, setSortCol] = useState<SortCol>("nom");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const handleSort = (col: SortCol) => {
+    if (sortCol === col) { setSortDir(d => d === "asc" ? "desc" : "asc"); }
+    else { setSortCol(col); setSortDir("asc"); }
+  };
+  const [reglementMode, setReglementMode] = useState<"cheque_1x" | "especes" | "virement" | "cheque_4x">("cheque_4x");
+  const [reglementFilter, setReglementFilter] = useState<"inscription" | "dec" | "mars" | "juin">(() => {
     const m = new Date().getMonth();
     if (m === 11) return "dec";
     if (m === 2)  return "mars";
     if (m === 5)  return "juin";
-    return "tous";
+    return "inscription";
   });
   const [adminSection, setAdminSection] = useState<"membres" | "familles" | "galeries" | "tiers" | "administration">("membres");
   const [promouvoirSelectedId, setPromouvoirSelectedId] = useState<string>("");
@@ -236,6 +249,9 @@ const AdminMembres = () => {
   const [linkingInscToProfilMode, setLinkingInscToProfilMode] = useState(false);
   const [linkingInscToProfilId, setLinkingInscToProfilId] = useState("");
   const [adminRecapInsc, setAdminRecapInsc] = useState<Inscription | null>(null);
+  const [saisonCourante, setSaisonCourante] = useState<string | null>(null);
+  const [saisonFilter, setSaisonFilter] = useState<string>("");
+  const [confirmNouvelleSaison, setConfirmNouvelleSaison] = useState(false);
   const [viewInscReadOnly, setViewInscReadOnly] = useState<Inscription | null>(null);
   const adminRecapRef = useRef<HTMLDivElement>(null);
   const dataLoadedRef = useRef(false);
@@ -285,7 +301,7 @@ const AdminMembres = () => {
   const [papierForm, setPapierForm] = useState({
     nom: "", prenom: "", adresse: "", telMobile: "", email: "",
     dateNaissance: "", groupeSanguin: "", allergie: "", niveau: "",
-    urgencePrenom: "", urgenceNom: "", urgenceTel: "", disciplines: "", saison: defaultSaison,
+    urgencePrenom: "", urgenceNom: "", urgenceTel: "", disciplines: "", saison: saisonCourante || defaultSaison,
     autorisationParentale: false, droitImage: false, passSport: false,
     moyenPaiement: "",
     typeInscription: "adulte" as "adulte" | "mineur",
@@ -317,6 +333,15 @@ const AdminMembres = () => {
   useEffect(() => {
     client.fetch(`*[_type == "discipline"] | order(ordre asc) { _id, nom, nomCourt }`)
       .then((data: { _id: string; nom: string; nomCourt?: string }[]) => setDisciplinesSanity(data));
+    client.fetch(`*[_type == "inscription"][0]{ saison }`)
+      .then((data: { saison?: string } | null) => {
+        if (data?.saison) {
+          setSaisonCourante(data.saison);
+          setSaisonFilter(data.saison);
+          setPapierForm(f => ({ ...f, saison: data.saison! }));
+        }
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -354,7 +379,7 @@ const AdminMembres = () => {
       urgenceNom: urgenceNameParts.slice(1).join(" "),
       urgenceTel,
       disciplines: insc.disciplines || "",
-      saison: insc.saison || defaultSaison,
+      saison: insc.saison || saisonCourante || defaultSaison,
       autorisationParentale: insc.autorisation_parentale || false,
       droitImage: insc.droit_image || false,
       passSport: insc.pass_sport || false,
@@ -502,7 +527,7 @@ const AdminMembres = () => {
       setPapierForm({
         nom: "", prenom: "", adresse: "", telMobile: "", email: "",
         dateNaissance: "", groupeSanguin: "", allergie: "", niveau: "",
-        urgencePrenom: "", urgenceNom: "", urgenceTel: "", disciplines: "", saison: defaultSaison,
+        urgencePrenom: "", urgenceNom: "", urgenceTel: "", disciplines: "", saison: saisonCourante || defaultSaison,
         autorisationParentale: false, droitImage: false, passSport: false,
         moyenPaiement: "",
         typeInscription: "adulte",
@@ -671,9 +696,11 @@ const AdminMembres = () => {
 
     const tempPassword = Array.from(crypto.getRandomValues(new Uint8Array(18)))
       .map(b => b.toString(36)).join('').slice(0, 20);
+    const fullName = [prenom, nom].filter(Boolean).join(" ") || null;
     const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email,
       password: tempPassword,
+      options: { data: { full_name: fullName } },
     });
 
     if (signUpError || !signUpData.user) {
@@ -814,17 +841,24 @@ const AdminMembres = () => {
     }
 
     const insc = inscriptions.find((i) => i.id === id);
+    const isMineur = insc?.type_inscription === "mineur";
+    // Pour les mineurs : utiliser l'email du parent 1 pour créer/trouver le compte famille
+    const emailCompte = isMineur ? (insc?.parent1_email || insc?.email) : insc?.email;
+
     let matchedProfil = insc ? membres.find((m) =>
       m.id === insc.user_id ||
-      (!insc.user_id && insc.email && insc.email.toLowerCase() === m.email.toLowerCase())
+      (!insc.user_id && emailCompte && emailCompte.toLowerCase() === m.email.toLowerCase())
     ) : null;
 
     let accountCreated = false;
-    if (!matchedProfil && insc?.email) {
-      const newMembre = await handleCreerCompteDepuisInscription(insc);
+    if (!matchedProfil && emailCompte) {
+      const newMembre = await handleCreerCompteDepuisInscription(insc!, {
+        email: emailCompte,
+        nom: isMineur ? (insc?.parent1_nom || null) : (insc?.nom || null),
+        prenom: isMineur ? (insc?.parent1_prenom || null) : (insc?.prenom || null),
+      });
       if (newMembre) { matchedProfil = newMembre; accountCreated = true; }
     } else if (matchedProfil && !insc?.user_id) {
-      // Email match to existing profil — link the inscription
       await supabase.from("inscriptions").update({ user_id: matchedProfil.id }).eq("id", id);
     }
 
@@ -933,7 +967,8 @@ const AdminMembres = () => {
     try {
     const { data: rawData, error } = await supabase.from('inscriptions').select('*').order('created_at', { ascending: false });
     if (error || !rawData) { toast.error("Erreur lors de l'export."); return; }
-    const data = isSuperAdmin ? rawData : rawData.filter(i => disciplineMatch(i.disciplines, currentUserDisciplines));
+    let data = isSuperAdmin ? rawData : rawData.filter(i => disciplineMatch(i.disciplines, currentUserDisciplines));
+    if (saisonFilter) data = data.filter(i => i.saison === saisonFilter);
 
     const ExcelJS = (await import('exceljs')).default;
     const workbook = new ExcelJS.Workbook();
@@ -1060,13 +1095,29 @@ const AdminMembres = () => {
     }
   };
 
+  const handleNouvelleSaison = async () => {
+    setProcessing("nouvelle-saison");
+    const { error } = await supabase.from("profils").update({ role: "en_attente" }).eq("role", "membre");
+    if (error) {
+      toast.error("Erreur : " + error.message);
+    } else {
+      toast.success("Tous les membres ont été remis en attente. Ils devront se réinscrire pour la nouvelle saison.");
+      await loadData();
+    }
+    setProcessing(null);
+    setConfirmNouvelleSaison(false);
+  };
+
   // --- Calcul des lignes ---
-  const enAttenteCompte = membres.filter(m => m.role === "en_attente");
   const enAttenteInscription = inscriptions.filter(
-    (i) => i.statut === "en_attente" && (isSuperAdmin || disciplineMatch(i.disciplines, currentUserDisciplines))
+    (i) => i.statut === "en_attente" &&
+      (isSuperAdmin || disciplineMatch(i.disciplines, currentUserDisciplines)) &&
+      (!saisonFilter || i.saison === saisonFilter)
   );
   const accepteeInscription = inscriptions.filter(
-    (i) => i.statut === "acceptee" && (isSuperAdmin || disciplineMatch(i.disciplines, currentUserDisciplines))
+    (i) => i.statut === "acceptee" &&
+      (isSuperAdmin || disciplineMatch(i.disciplines, currentUserDisciplines)) &&
+      (!saisonFilter || i.saison === saisonFilter)
   );
 
   const matchInscToProfil = (i: Inscription, profil: Membre) => i.user_id === profil.id;
@@ -1082,48 +1133,26 @@ const AdminMembres = () => {
   const matchInscToProfilFull = (i: Inscription, profil: Membre) => {
     const sameNom = (i.nom || "").trim().toLowerCase() === (profil.nom || "").trim().toLowerCase();
     const samePrenom = (i.prenom || "").trim().toLowerCase() === (profil.prenom || "").trim().toLowerCase();
-    // user_id seul suffit — c'est un lien explicite, les noms peuvent différer
     if (matchInscToProfil(i, profil)) return true;
-    // Email-match pour inscriptions en ligne (non en_attente pour éviter de les faire disparaître)
     if (!i.user_id && i.source !== "papier" && !!i.email && i.statut !== "en_attente" && i.email.toLowerCase() === profil.email.toLowerCase()) return true;
-    // Email-match pour inscriptions papier adulte (adulte avec compte web existant)
-    if (i.source === "papier" && i.type_inscription !== "mineur" && !!i.email && i.email.toLowerCase() === profil.email.toLowerCase()) return true;
-    // Fallback nom+prénom pour inscriptions papier adulte sans email renseigné
-    if (i.source === "papier" && i.type_inscription !== "mineur" && !i.email && sameNom && samePrenom && !!profil.nom && !!profil.prenom) return true;
+    if (i.source === "papier" && !!i.email && i.email.toLowerCase() === profil.email.toLowerCase()) return true;
+    if (i.source === "papier" && !i.email && sameNom && samePrenom && !!profil.nom && !!profil.prenom) return true;
     return false;
   };
 
   const lignes: Ligne[] = [];
-  if (isSuperAdmin) {
-    membres.forEach((profil) => {
-      const profilInsc = inscriptions.filter((i) => matchInscToProfilFull(i, profil));
-      lignes.push({ type: "profil", profil, inscriptions: profilInsc });
-    });
-  } else {
-    const adminDiscs = (currentUserDisciplines || "").split(",").map(s => s.trim()).filter(Boolean);
-    membres.forEach((profil) => {
-      const profilDiscs = (profil.disciplines || "").split(",").map(s => s.trim()).filter(Boolean);
-      const profilInsc = inscriptions.filter((i) => matchInscToProfilFull(i, profil) && disciplineMatch(i.disciplines, currentUserDisciplines));
-      if (profilDiscs.some(d => adminDiscs.includes(d)) || profilInsc.length > 0) {
-        lignes.push({ type: "profil", profil, inscriptions: profilInsc });
-      }
-    });
-  }
 
-  const linkedInscIds = new Set(
-    membres.flatMap((profil) =>
-      inscriptions.filter(i => matchInscToProfilFull(i, profil)).map(i => i.id)
-    )
-  );
+  // Une entrée par inscription (vue inscription-centrique)
   inscriptions.forEach((insc) => {
-    if (!linkedInscIds.has(insc.id) && (isSuperAdmin || disciplineMatch(insc.disciplines, currentUserDisciplines))) {
-      lignes.push({ type: "inscription_seule", inscription: insc });
-    }
+    if (!isSuperAdmin && !disciplineMatch(insc.disciplines, currentUserDisciplines)) return;
+    if (saisonFilter && insc.saison !== saisonFilter) return;
+    const linkedProfil = membres.find(m => matchInscToProfilFull(insc, m)) ?? null;
+    lignes.push({ type: "inscription_seule", inscription: insc, profil: linkedProfil });
   });
 
   lignes.sort((a, b) => {
-    const nomA = a.type === "profil" ? (a.profil.nom || a.inscriptions[0]?.nom || "") : (a.inscription.nom || "");
-    const nomB = b.type === "profil" ? (b.profil.nom || b.inscriptions[0]?.nom || "") : (b.inscription.nom || "");
+    const nomA = a.type === "profil" ? (a.profil.nom || "") : (a.inscription.nom || "");
+    const nomB = b.type === "profil" ? (b.profil.nom || "") : (b.inscription.nom || "");
     const prenomA = (a.type === "profil" ? a.profil.prenom : a.inscription.prenom) || "";
     const prenomB = (b.type === "profil" ? b.profil.prenom : b.inscription.prenom) || "";
     const keyA = nomA || prenomA;
@@ -1134,113 +1163,164 @@ const AdminMembres = () => {
 
   // --- Compteurs d'onglets ---
   const countEnAttente = lignes.filter(l =>
-    (l.type === "profil" && (l.profil.role === "en_attente" || l.inscriptions.some(i => i.statut === "en_attente"))) ||
-    (l.type === "inscription_seule" && l.inscription.statut === "en_attente")
+    l.type === "inscription_seule" && l.inscription.statut === "en_attente"
   ).length;
 
   const countReglement = inscriptions.filter(i =>
     i.statut === "acceptee" &&
-    (isSuperAdmin || disciplineMatch(i.disciplines, currentUserDisciplines))
+    (isSuperAdmin || disciplineMatch(i.disciplines, currentUserDisciplines)) &&
+    (!saisonFilter || i.saison === saisonFilter)
   ).length;
   const countRefusees = inscriptions.filter(i =>
     (i.statut === "refusee" || i.statut === "supprimee") &&
-    (isSuperAdmin || disciplineMatch(i.disciplines, currentUserDisciplines))
+    (isSuperAdmin || disciplineMatch(i.disciplines, currentUserDisciplines)) &&
+    (!saisonFilter || i.saison === saisonFilter)
   ).length;
 
-  // Lignes visibles dans le tableau : exclut les inscriptions orphelines en attente et toutes les lignes purement refusées/supprimées
+  // Lignes visibles dans le tableau principal (excl. en_attente, refusée, supprimée)
   const lignesTableau = lignes.filter(l => {
     if (l.type === "inscription_seule") {
       return l.inscription.statut !== "en_attente" && l.inscription.statut !== "refusee" && l.inscription.statut !== "supprimee";
     }
-    if (l.type === "profil" && l.inscriptions.length > 0) {
-      const toutesRefusees = l.inscriptions.every(i => i.statut === "refusee" || i.statut === "supprimee");
-      if (toutesRefusees) return false;
-    }
+    // profil (compte admin sans inscription) — toujours visible
     return true;
   });
 
-  const countValidés = lignesTableau.filter(l => {
-    if (l.type === "profil") {
-      const isAdminRole = l.profil.role === "admin" || l.profil.role === "admin_discipline";
-      return isAdminRole || !l.inscriptions.some(i => i.statut === "en_attente" || i.statut === "acceptee");
-    }
-    return l.inscription.statut === "validee";
-  }).length;
+  const countValidés = lignesTableau.filter(l =>
+    l.type === "inscription_seule" && l.inscription.statut === "validee"
+  ).length;
 
   // --- Filtrage ---
-  // Le tab en_attente utilise `lignes` pour inclure les inscriptions orphelines en attente
+  // Le tab en_attente utilise `lignes` pour inclure les inscriptions en attente
   const lignesFiltreesSource = activeTab === "en_attente" ? lignes : lignesTableau;
   const lignesFiltrees = lignesFiltreesSource.filter(ligne => {
 
-    // Onglet "Validés" — exclure les lignes ayant des inscriptions en attente ou acceptée
+    // Onglet "Validés"
     if (activeTab === "tous") {
       if (ligne.type === "profil") {
         const isAdminRole = ligne.profil.role === "admin" || ligne.profil.role === "admin_discipline";
-        if (!isAdminRole && ligne.inscriptions.some(i => i.statut === "en_attente" || i.statut === "acceptee")) return false;
+        if (!isAdminRole) return false;
       }
       if (ligne.type === "inscription_seule" && ligne.inscription.statut !== "validee") return false;
     }
 
-    // Onglet "Dossiers à examiner" — seulement en_attente (pas acceptée)
+    // Onglet "Dossiers à examiner"
     if (activeTab === "en_attente") {
-      const isEnAttenteCompte = ligne.type === "profil" && ligne.profil.role === "en_attente";
-      const hasInscEnAttente = ligne.type === "profil" && ligne.inscriptions.some(i => i.statut === "en_attente");
-      const isInscEnAttente = ligne.type === "inscription_seule" && ligne.inscription.statut === "en_attente";
-      if (!isEnAttenteCompte && !hasInscEnAttente && !isInscEnAttente) return false;
+      if (ligne.type === "profil") return false;
+      if (ligne.type === "inscription_seule" && ligne.inscription.statut !== "en_attente") return false;
     }
 
-    // Onglet "En attente de paiement" — acceptée sans en_attente bloquant
+    // Onglet "En attente de paiement"
     if (activeTab === "reglement") {
-      if (ligne.type === "profil") {
-        const hasAcceptee = ligne.inscriptions.some(i => i.statut === "acceptee");
-        const hasEnAttente = ligne.inscriptions.some(i => i.statut === "en_attente") || ligne.profil.role === "en_attente";
-        if (!hasAcceptee || hasEnAttente) return false;
-      }
+      if (ligne.type === "profil") return false;
       if (ligne.type === "inscription_seule" && ligne.inscription.statut !== "acceptee") return false;
     }
 
     if (filterDiscipline) {
       if (ligne.type === "profil") {
-        const relevantInsc = activeTab === "en_attente"
-          ? ligne.inscriptions.filter(i => i.statut === "en_attente")
-          : activeTab === "reglement"
-          ? ligne.inscriptions.filter(i => i.statut === "acceptee")
-          : ligne.inscriptions.filter(i => i.statut === "validee");
-        const disciplinesSet = new Set(
-          relevantInsc.flatMap(i => (i.disciplines || "").split(",").map(s => s.trim()).filter(Boolean))
-        );
-        if (!disciplinesSet.has(filterDiscipline)) return false;
+        const profilDiscs = (ligne.profil.disciplines || "").split(",").map(s => s.trim()).filter(Boolean);
+        if (!profilDiscs.includes(filterDiscipline)) return false;
       } else {
         const inscIds = (ligne.inscription.disciplines || "").split(",").map(s => s.trim()).filter(Boolean);
         if (!inscIds.includes(filterDiscipline)) return false;
       }
     }
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       if (ligne.type === "profil") {
         const mp = (ligne.profil.nom || "").toLowerCase().includes(q) ||
           (ligne.profil.prenom || "").toLowerCase().includes(q) ||
           ligne.profil.email.toLowerCase().includes(q);
-        const mi = ligne.inscriptions.some(i =>
-          (i.nom || "").toLowerCase().includes(q) ||
-          (i.prenom || "").toLowerCase().includes(q) ||
-          (i.email || "").toLowerCase().includes(q)
-        );
-        if (!mp && !mi) return false;
+        if (!mp) return false;
       } else {
         const i = ligne.inscription;
-        if (!(i.nom || "").toLowerCase().includes(q) &&
-            !(i.prenom || "").toLowerCase().includes(q) &&
-            !(i.email || "").toLowerCase().includes(q)) return false;
+        const p = ligne.profil;
+        const matchInsc = (i.nom || "").toLowerCase().includes(q) ||
+          (i.prenom || "").toLowerCase().includes(q) ||
+          (i.email || "").toLowerCase().includes(q) ||
+          (i.parent1_email || "").toLowerCase().includes(q);
+        const matchProfil = p ? (
+          (p.nom || "").toLowerCase().includes(q) ||
+          (p.prenom || "").toLowerCase().includes(q) ||
+          p.email.toLowerCase().includes(q)
+        ) : false;
+        if (!matchInsc && !matchProfil) return false;
       }
     }
     return true;
   });
 
+  const lignesSorted = (() => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...lignesFiltrees].sort((a, b) => {
+      switch (sortCol) {
+        case "nom": {
+          const nA = (a.type === "inscription_seule" ? a.inscription.nom : a.profil.nom) || "";
+          const nB = (b.type === "inscription_seule" ? b.inscription.nom : b.profil.nom) || "";
+          const pA = (a.type === "inscription_seule" ? a.inscription.prenom : a.profil.prenom) || "";
+          const pB = (b.type === "inscription_seule" ? b.inscription.prenom : b.profil.prenom) || "";
+          const c = (nA || pA).localeCompare(nB || pB, "fr", { sensitivity: "base" });
+          return c !== 0 ? c * dir : pA.localeCompare(pB, "fr", { sensitivity: "base" }) * dir;
+        }
+        case "statut": {
+          const sA = a.type === "inscription_seule" ? (STATUT_ORDER[a.inscription.statut] ?? 5) : -1;
+          const sB = b.type === "inscription_seule" ? (STATUT_ORDER[b.inscription.statut] ?? 5) : -1;
+          return (sA - sB) * dir;
+        }
+        case "age": {
+          const dA = a.type === "inscription_seule" ? a.inscription.date_naissance : null;
+          const dB = b.type === "inscription_seule" ? b.inscription.date_naissance : null;
+          if (!dA && !dB) return 0;
+          if (!dA) return dir; if (!dB) return -dir;
+          return (new Date(dA).getTime() - new Date(dB).getTime()) * dir;
+        }
+        case "disciplines": {
+          const dA = a.type === "inscription_seule" ? resolveDiscNoms(a.inscription.disciplines).join(", ") : "";
+          const dB = b.type === "inscription_seule" ? resolveDiscNoms(b.inscription.disciplines).join(", ") : "";
+          return dA.localeCompare(dB, "fr", { sensitivity: "base" }) * dir;
+        }
+        case "urgence": {
+          const uA = a.type === "inscription_seule" ? (a.inscription.urgence_contact || "") : "";
+          const uB = b.type === "inscription_seule" ? (b.inscription.urgence_contact || "") : "";
+          return uA.localeCompare(uB, "fr", { sensitivity: "base" }) * dir;
+        }
+        case "pass_sport": {
+          const pA = a.type === "inscription_seule" ? (a.inscription.pass_sport ? 1 : 0) : 0;
+          const pB = b.type === "inscription_seule" ? (b.inscription.pass_sport ? 1 : 0) : 0;
+          return (pA - pB) * dir;
+        }
+        case "droit_image": {
+          const iA = a.type === "inscription_seule" ? (a.inscription.droit_image ? 1 : 0) : 0;
+          const iB = b.type === "inscription_seule" ? (b.inscription.droit_image ? 1 : 0) : 0;
+          return (iA - iB) * dir;
+        }
+        default: return 0;
+      }
+    });
+  })();
+
+  type FamilleGroupe = { key: string; profil: Membre | null; lignes: Ligne[] };
+  const familleGroupes: FamilleGroupe[] = viewMode === "famille" ? (() => {
+    const map = new Map<string, FamilleGroupe>();
+    lignesSorted.forEach(ligne => {
+      const profil = ligne.type === "profil" ? ligne.profil : ligne.profil;
+      const key = profil ? profil.id : `i-${ligne.type === "inscription_seule" ? ligne.inscription.id : ligne.profil.id}`;
+      if (!map.has(key)) map.set(key, { key, profil: profil ?? null, lignes: [] });
+      map.get(key)!.lignes.push(ligne);
+    });
+    return Array.from(map.values()).sort((a, b) => {
+      const nA = a.profil ? (a.profil.nom || a.profil.prenom || a.profil.email || "") : (a.lignes[0]?.type === "inscription_seule" ? (a.lignes[0].inscription.nom || "") : "");
+      const nB = b.profil ? (b.profil.nom || b.profil.prenom || b.profil.email || "") : (b.lignes[0]?.type === "inscription_seule" ? (b.lignes[0].inscription.nom || "") : "");
+      return nA.localeCompare(nB, "fr", { sensitivity: "base" });
+    });
+  })() : [];
+
   const reglementItems = activeTab === "reglement"
     ? inscriptions.filter(i => {
         if (i.statut !== "acceptee") return false;
         if (!isSuperAdmin && !disciplineMatch(i.disciplines, currentUserDisciplines)) return false;
+        if (saisonFilter && i.saison !== saisonFilter) return false;
         if (filterDiscipline && !(i.disciplines || "").split(",").map(s => s.trim()).includes(filterDiscipline)) return false;
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase();
@@ -1276,7 +1356,8 @@ const AdminMembres = () => {
     const relevant = inscriptions.filter(i =>
       (i.statut === "validee" || i.statut === "acceptee") &&
       i.moyen_paiement &&
-      (isSuperAdmin || disciplineMatch(i.disciplines, currentUserDisciplines))
+      (isSuperAdmin || disciplineMatch(i.disciplines, currentUserDisciplines)) &&
+      (!saisonFilter || i.saison === saisonFilter)
     );
     for (const insc of relevant) {
       const created = new Date(insc.created_at);
@@ -1296,10 +1377,13 @@ const AdminMembres = () => {
   })();
 
   const reglementEvents = (() => {
-    let evts = allPaymentEvents;
-    if (reglementFilter === "dec")  evts = evts.filter(e => e.insc.moyen_paiement === "cheque_4x" && e.installment === 2);
-    else if (reglementFilter === "mars") evts = evts.filter(e => e.insc.moyen_paiement === "cheque_4x" && e.installment === 3);
-    else if (reglementFilter === "juin") evts = evts.filter(e => e.insc.moyen_paiement === "cheque_4x" && e.installment === 4);
+    let evts = allPaymentEvents.filter(e => e.insc.moyen_paiement === reglementMode);
+    if (reglementMode === "cheque_4x") {
+      if (reglementFilter === "inscription") evts = evts.filter(e => e.installment === 1);
+      else if (reglementFilter === "dec")    evts = evts.filter(e => e.installment === 2);
+      else if (reglementFilter === "mars")   evts = evts.filter(e => e.installment === 3);
+      else if (reglementFilter === "juin")   evts = evts.filter(e => e.installment === 4);
+    }
     if (filterDiscipline) evts = evts.filter(e => (e.insc.disciplines || "").split(",").map(s => s.trim()).includes(filterDiscipline));
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -1330,6 +1414,7 @@ const AdminMembres = () => {
     ? inscriptions.filter(i => {
         if (i.statut !== "refusee" && i.statut !== "supprimee") return false;
         if (!isSuperAdmin && !disciplineMatch(i.disciplines, currentUserDisciplines)) return false;
+        if (saisonFilter && i.saison !== saisonFilter) return false;
         if (filterDiscipline && !(i.disciplines || "").split(",").map(s => s.trim()).includes(filterDiscipline)) return false;
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase();
@@ -1346,6 +1431,11 @@ const AdminMembres = () => {
     : null;
 
   const allDisciplinesForTable = useMemo(() => disciplinesSanity, [disciplinesSanity]);
+
+  const saisonsDisponibles = useMemo(() => {
+    const s = new Set(inscriptions.map(i => i.saison).filter(Boolean) as string[]);
+    return Array.from(s).sort((a, b) => b.localeCompare(a));
+  }, [inscriptions]);
 
   if (checkingRole) return (
     <Layout><section className="py-20"><p className="text-center text-muted-foreground">Vérification des droits…</p></section></Layout>
@@ -1369,13 +1459,30 @@ const AdminMembres = () => {
                 )}
               </div>
               {!loading && adminSection === "membres" && (
-                <div className="flex gap-2 flex-wrap justify-center sm:justify-end">
-                  <Button size="sm" onClick={() => setShowPapierModal(true)} className="gap-2 shrink-0">
-                    <Plus size={14} /> Saisir inscription papier
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-2 shrink-0">
-                    <Download size={14} /> Exporter
-                  </Button>
+                <div className="flex flex-col items-end gap-2">
+                  {saisonsDisponibles.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Saison :</span>
+                      <select
+                        value={saisonFilter}
+                        onChange={e => setSaisonFilter(e.target.value)}
+                        className="h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                      >
+                        <option value="">Toutes les saisons</option>
+                        {saisonsDisponibles.map(s => (
+                          <option key={s} value={s}>{s}{s === saisonCourante ? " (en cours)" : ""}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  <div className="flex gap-2 flex-wrap justify-end">
+                    <Button size="sm" onClick={() => setShowPapierModal(true)} className="gap-2 shrink-0">
+                      <Plus size={14} /> Saisir inscription papier
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-2 shrink-0">
+                      <Download size={14} /> Exporter{saisonFilter ? ` (${saisonFilter})` : ""}
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
@@ -1525,6 +1632,15 @@ const AdminMembres = () => {
                         {disciplinesSanity.filter(d => !d.nom.toLowerCase().includes("stage")).map(d => <option key={d._id} value={d._id}>{d.nom}</option>)}
                       </select>
                     )}
+                    {activeTab !== "reglements" && activeTab !== "refusees" && (
+                      <button
+                        onClick={() => setViewMode(v => v === "liste" ? "famille" : "liste")}
+                        title={viewMode === "famille" ? "Vue liste" : "Vue famille"}
+                        className={`h-9 w-9 shrink-0 flex items-center justify-center rounded-md border transition-colors ${viewMode === "famille" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"}`}
+                      >
+                        {viewMode === "famille" ? <List size={15} /> : <Users size={15} />}
+                      </button>
+                    )}
                   </div>
 
                   {/* Onglets */}
@@ -1549,28 +1665,54 @@ const AdminMembres = () => {
                   {/* Tableau liste */}
                   {activeTab === "reglements" ? (
                     <div className="space-y-4">
-                      {/* Filtre par échéance */}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs text-muted-foreground font-medium">Échéance :</span>
-                        {(["tous", "dec", "mars", "juin"] as const).map(f => {
-                          const labels: Record<string, string> = { tous: "Tous", dec: "Décembre", mars: "Mars", juin: "Juin" };
-                          const isCurrent = f !== "tous" && isCurrentFilterMonth(f);
-                          const isActive = reglementFilter === f;
+                      {/* Onglets mode de paiement */}
+                      <div className="flex border-b border-border/50 overflow-x-auto -mx-1 px-1">
+                        {([
+                          { id: "cheque_1x", label: "Chèque 1 fois", cls: "bg-blue-500/10 text-blue-700" },
+                          { id: "especes",   label: "Espèces",        cls: "bg-green-500/10 text-green-700" },
+                          { id: "virement",  label: "Virement",       cls: "bg-violet-500/10 text-violet-700" },
+                          { id: "cheque_4x", label: "Chèque 4 fois",  cls: "bg-orange-500/10 text-orange-700" },
+                        ] as const).map(({ id, label, cls }) => {
+                          const cnt = allPaymentEvents.filter(e =>
+                            e.insc.moyen_paiement === id &&
+                            (!saisonFilter || e.insc.saison === saisonFilter) &&
+                            (isSuperAdmin || disciplineMatch(e.insc.disciplines, currentUserDisciplines))
+                          ).length;
+                          const isActive = reglementMode === id;
                           return (
-                            <button
-                              key={f}
-                              onClick={() => setReglementFilter(f)}
-                              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors flex items-center gap-1.5 ${isActive ? "bg-primary text-primary-foreground" : isCurrent ? "bg-primary/10 text-primary hover:bg-primary/20" : "bg-secondary text-muted-foreground hover:bg-secondary/80"}`}
-                            >
-                              {labels[f]}
-                              {isCurrent && <span className={`rounded-full px-1.5 py-0.5 text-[10px] leading-none ${isActive ? "bg-white/20 text-white" : "bg-primary/20 text-primary"}`}>Ce mois</span>}
+                            <button key={id} onClick={() => setReglementMode(id)}
+                              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium whitespace-nowrap border-b-2 transition-colors shrink-0 ${isActive ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+                              {label}
+                              {cnt > 0 && <span className={`rounded-full px-1.5 py-0.5 text-[10px] leading-none font-semibold ${isActive ? cls : "bg-secondary text-muted-foreground"}`}>{cnt}</span>}
                             </button>
                           );
                         })}
                       </div>
 
+                      {/* Sous-onglets échéances — uniquement pour Chèque 4 fois */}
+                      {reglementMode === "cheque_4x" && (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {([
+                            { id: "inscription", label: "À l'inscription" },
+                            { id: "dec",  label: "Décembre" },
+                            { id: "mars", label: "Mars" },
+                            { id: "juin", label: "Juin" },
+                          ] as const).map(({ id, label }) => {
+                            const isCurrent = id !== "inscription" && isCurrentFilterMonth(id as "dec" | "mars" | "juin");
+                            const isActive = reglementFilter === id;
+                            return (
+                              <button key={id} onClick={() => setReglementFilter(id)}
+                                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors flex items-center gap-1.5 ${isActive ? "bg-primary text-primary-foreground" : isCurrent ? "bg-primary/10 text-primary hover:bg-primary/20" : "bg-secondary text-muted-foreground hover:bg-secondary/80"}`}>
+                                {label}
+                                {isCurrent && <span className={`rounded-full px-1.5 py-0.5 text-[10px] leading-none ${isActive ? "bg-white/20 text-white" : "bg-primary/20 text-primary"}`}>Ce mois</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
                       {reglementEvents.length === 0 ? (
-                        <p className="text-center text-sm text-muted-foreground py-8">Aucun règlement pour ce mois.</p>
+                        <p className="text-center text-sm text-muted-foreground py-8">Aucun règlement pour ce filtre.</p>
                       ) : (
                         <div className="overflow-x-auto -mx-5 px-5">
                           <table className="w-full text-sm border-collapse">
@@ -1578,21 +1720,23 @@ const AdminMembres = () => {
                               <tr className="border-b border-border/60">
                                 <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap min-w-[160px]">Inscrit(e)</th>
                                 <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Discipline(s)</th>
-                                <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Mode</th>
-                                <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Échéance</th>
+                                {reglementMode === "cheque_4x" && (
+                                  <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Chèque</th>
+                                )}
+                                {reglementMode === "cheque_4x" && (
+                                  <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Échéance</th>
+                                )}
                                 <th className="text-left pb-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Saison</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-border/30">
                               {reglementEvents.map((evt, idx) => {
-                                const isCurrentMonth = evt.dueMonth === new Date().getMonth() && evt.dueYear === new Date().getFullYear();
+                                const isCurrentMonth = reglementMode === "cheque_4x" && evt.dueMonth === new Date().getMonth() && evt.dueYear === new Date().getFullYear();
                                 const discs = resolveDiscNoms(evt.insc.disciplines);
-                                const pLabel = PAIEMENT_LABELS[evt.insc.moyen_paiement ?? ""] ?? (evt.insc.moyen_paiement || "—");
-                                const pCls = PAIEMENT_BADGE_CLS[evt.insc.moyen_paiement ?? ""] ?? "bg-secondary text-muted-foreground";
                                 return (
                                   <tr key={`${evt.insc.id}-${evt.installment}`}
                                     className={`cursor-pointer transition-colors ${isCurrentMonth ? "bg-blue-50/60 hover:bg-blue-100/60" : idx % 2 === 0 ? "hover:bg-primary/[0.03]" : "bg-secondary/20 hover:bg-secondary/40"}`}
-                                    onClick={() => { setModalTab("adhesions"); setSelectedKey(evt.insc.user_id ? `p-${evt.insc.user_id}` : `i-${evt.insc.id}`); }}>
+                                    onClick={() => { setModalTab("adhesions"); setSelectedKey(`i-${evt.insc.id}`); }}>
                                     <td className="py-3 pr-4">
                                       <p className="font-semibold text-sm leading-tight">{[evt.insc.nom, evt.insc.prenom].filter(Boolean).join(" ") || <span className="italic text-muted-foreground font-normal text-xs">Sans nom</span>}</p>
                                       {evt.insc.email && <p className="text-[11px] text-muted-foreground truncate max-w-[160px]">{evt.insc.email}</p>}
@@ -1605,16 +1749,17 @@ const AdminMembres = () => {
                                         }
                                       </div>
                                     </td>
-                                    <td className="py-3 pr-4">
-                                      <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${pCls}`}>{pLabel}</span>
-                                      {evt.total > 1 && (
-                                        <span className="ml-1.5 text-[10px] text-muted-foreground font-medium">Ch.{evt.installment}/{evt.total}</span>
-                                      )}
-                                    </td>
-                                    <td className="py-3 pr-4">
-                                      <span className={`text-xs font-medium ${isCurrentMonth ? "text-blue-700" : "text-foreground"}`}>{evt.dueDateLabel}</span>
-                                      {isCurrentMonth && <span className="ml-1.5 inline-block rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">Ce mois</span>}
-                                    </td>
+                                    {reglementMode === "cheque_4x" && (
+                                      <td className="py-3 pr-4">
+                                        <span className="text-xs font-semibold text-orange-700">{evt.installment}/{evt.total}</span>
+                                      </td>
+                                    )}
+                                    {reglementMode === "cheque_4x" && (
+                                      <td className="py-3 pr-4">
+                                        <span className={`text-xs font-medium ${isCurrentMonth ? "text-blue-700" : "text-foreground"}`}>{evt.dueDateLabel}</span>
+                                        {isCurrentMonth && <span className="ml-1.5 inline-block rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">Ce mois</span>}
+                                      </td>
+                                    )}
                                     <td className="py-3 text-xs text-muted-foreground">{evt.insc.saison || "—"}</td>
                                   </tr>
                                 );
@@ -1669,24 +1814,109 @@ const AdminMembres = () => {
                         </table>
                       </div>
                     )
-                  ) : lignesFiltrees.length === 0 ? (
+                  ) : lignesSorted.length === 0 ? (
                     <p className="text-center text-sm text-muted-foreground py-8">Aucun résultat.</p>
+                  ) : viewMode === "famille" ? (
+                    <div className="space-y-3">
+                      {familleGroupes.map(groupe => {
+                        const { profil: gProfil } = groupe;
+                        const lignesSorted = groupe.lignes.slice().sort((a, b) => {
+                          const ageA = a.type === "inscription_seule" ? calcAge(a.inscription.date_naissance) : null;
+                          const ageB = b.type === "inscription_seule" ? calcAge(b.inscription.date_naissance) : null;
+                          if (ageA === null && ageB === null) return 0;
+                          if (ageA === null) return 1;
+                          if (ageB === null) return -1;
+                          return ageB - ageA;
+                        });
+                        return (
+                          <div key={groupe.key} className="rounded-lg border border-border/50 overflow-hidden">
+                            {gProfil && (
+                              <div className="flex items-center gap-2 px-4 py-2.5 bg-secondary/30 border-b border-border/30">
+                                <Users size={13} className="shrink-0 text-muted-foreground" />
+                                {(gProfil.nom || gProfil.prenom) ? (
+                                  <>
+                                    <span className="text-xs font-semibold text-foreground truncate">{[gProfil.nom, gProfil.prenom].filter(Boolean).join(" ")}</span>
+                                    <span className="text-xs text-muted-foreground truncate">— {gProfil.email}</span>
+                                  </>
+                                ) : (
+                                  <span className="text-xs font-semibold text-foreground truncate">{gProfil.email}</span>
+                                )}
+                                <span className={`ml-auto shrink-0 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${roleBadge(gProfil.role).cls}`}>{roleBadge(gProfil.role).label}</span>
+                              </div>
+                            )}
+                            {lignesSorted.map(ligne => {
+                              const lkey = ligne.type === "profil" ? `p-${ligne.profil.id}` : `i-${ligne.inscription.id}`;
+                              if (ligne.type === "profil") {
+                                const { profil: p } = ligne;
+                                const roleBdg = roleBadge(p.role);
+                                return (
+                                  <div key={lkey} className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-primary/[0.03] transition-colors border-b border-border/20 last:border-0" onClick={() => { setModalTab("adhesions"); setSelectedKey(lkey); }}>
+                                    <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${ageBadgeCls(null)}`}><Shield size={12} /></div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-sm font-medium truncate">{[p.nom, p.prenom].filter(Boolean).join(" ") || p.email}</p>
+                                    </div>
+                                    <span className={`shrink-0 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${roleBdg.cls}`}>{roleBdg.label}</span>
+                                  </div>
+                                );
+                              }
+                              const { inscription: insc } = ligne;
+                              const fNom = insc.nom || "";
+                              const fPrenom = insc.prenom || "";
+                              const discs = resolveDiscNoms(insc.disciplines);
+                              const age = calcAge(insc.date_naissance);
+                              return (
+                                <div key={lkey} className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-primary/[0.03] transition-colors border-b border-border/20 last:border-0" onClick={() => { setModalTab("adhesions"); setSelectedKey(lkey); }}>
+                                  <div className="flex flex-col items-center shrink-0 w-9">
+                                    <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${ageBadgeCls(insc.date_naissance)}`}>{age !== null ? age : "—"}</div>
+                                    {age !== null && <span className="text-[9px] text-muted-foreground leading-none mt-0.5">ans</span>}
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-medium truncate">{[fNom, fPrenom].filter(Boolean).join(" ") || <span className="italic text-muted-foreground text-xs font-normal">Sans nom</span>}</p>
+                                    <div className="flex flex-wrap gap-1 mt-0.5">
+                                      {discs.map(d => <span key={d} className="inline-block rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">{d}</span>)}
+                                      {insc.source === "papier" && <span className="inline-block rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-600">papier</span>}
+                                    </div>
+                                  </div>
+                                  {insc.pass_sport && (
+                                    <span className="shrink-0 inline-flex items-center gap-0.5 text-[10px] text-emerald-600 font-medium"><CheckCircle size={9} /> Pass Sport</span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
                   ) : (
                     <div className="overflow-x-auto -mx-5 px-5">
                       <table className="w-full text-sm border-collapse">
                         <thead>
-                          <tr className="border-b border-border/60">
-                            <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap min-w-[200px]">Membre</th>
-                            <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap min-w-[140px]">Statut</th>
-                            <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap w-24">Âge</th>
-                            <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Disciplines</th>
-                            <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Urgence</th>
-                            <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Pass Sport</th>
-                            <th className="text-left pb-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Droit image</th>
-                          </tr>
+                          {(() => {
+                            const thCls = "text-left pb-3 pr-4 font-semibold text-xs uppercase tracking-wide whitespace-nowrap cursor-pointer select-none group";
+                            const ico = (col: SortCol) => sortCol === col
+                              ? sortDir === "asc" ? <ChevronUp size={10} className="ml-0.5 shrink-0 text-primary" /> : <ChevronDown size={10} className="ml-0.5 shrink-0 text-primary" />
+                              : <ChevronsUpDown size={10} className="ml-0.5 shrink-0 text-muted-foreground/40 group-hover:text-muted-foreground/70" />;
+                            const thLabel = (col: SortCol, label: string, extra = "") =>
+                              <th className={`${thCls} ${sortCol === col ? "text-primary" : "text-muted-foreground hover:text-foreground"} ${extra}`} onClick={() => handleSort(col)}>
+                                <span className="inline-flex items-center">{label}{ico(col)}</span>
+                              </th>;
+                            return (
+                              <tr className="border-b border-border/60">
+                                {thLabel("nom", "Membre", "min-w-[200px]")}
+                                {thLabel("statut", "Statut", "min-w-[140px]")}
+                                {thLabel("age", "Âge", "w-24")}
+                                {thLabel("disciplines", "Disciplines")}
+                                {thLabel("urgence", "Urgence")}
+                                {thLabel("pass_sport", "Pass Sport")}
+                                <th className={`${thCls} pb-3 pr-0 ${sortCol === "droit_image" ? "text-primary" : "text-muted-foreground hover:text-foreground"}`} onClick={() => handleSort("droit_image")}>
+                                  <span className="inline-flex items-center">Droit image{ico("droit_image")}</span>
+                                </th>
+                              </tr>
+                            );
+                          })()}
                         </thead>
                         <tbody className="divide-y divide-border/30">
-                          {lignesFiltrees.map((ligne, idx) => {
+                          {lignesSorted.map((ligne, idx) => {
                             const key = ligne.type === "profil" ? `p-${ligne.profil.id}` : `i-${ligne.inscription.id}`;
                             const isEven = idx % 2 === 0;
 
@@ -1776,11 +2006,12 @@ const AdminMembres = () => {
                             }
 
                             // inscription_seule
-                            const { inscription: insc } = ligne;
+                            const { inscription: insc, profil: linkedProfil } = ligne;
                             const nom = insc.nom || "";
                             const prenom = insc.prenom || "";
                             const initials = getInitials(prenom, nom);
                             const iBdg = inscBadge(insc.statut);
+                            const emailAffiche = insc.email || (insc.type_inscription === "mineur" ? insc.parent1_email : null) || null;
 
                             return (
                               <tr key={key} className={`group transition-colors hover:bg-primary/[0.03] cursor-pointer ${isEven ? "bg-transparent" : "bg-secondary/20"}`} onClick={() => { setModalTab("adhesions"); setSelectedKey(key); }}>
@@ -1789,7 +2020,11 @@ const AdminMembres = () => {
                                     <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${ageBadgeCls(insc.date_naissance)}`}>{idx + 1}</div>
                                     <div className="min-w-0">
                                       <p className="font-semibold text-sm leading-tight truncate max-w-[180px]">{[nom, prenom].filter(Boolean).join(" ") || <span className="italic text-muted-foreground font-normal text-xs">Sans nom</span>}</p>
-                                      <p className="text-[11px] text-muted-foreground truncate max-w-[180px]">{insc.email || "—"}{insc.source === "papier" && <span className="ml-1 text-blue-600">· papier</span>}</p>
+                                      <p className="text-[11px] text-muted-foreground truncate max-w-[180px]">
+                                        {emailAffiche || "—"}
+                                        {insc.source === "papier" && <span className="ml-1 text-blue-600">· papier</span>}
+                                        {linkedProfil && <span className={`ml-1 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-medium leading-none align-middle ${roleBadge(linkedProfil.role).cls}`}>{roleBadge(linkedProfil.role).label}</span>}
+                                      </p>
                                     </div>
                                   </div>
                                 </td>
@@ -2009,6 +2244,31 @@ const AdminMembres = () => {
                       className="gap-1.5"
                     >
                       <UserPlus size={14} /> {creerMembreLoading ? "Création en cours…" : "Créer et envoyer l'invitation"}
+                    </Button>
+                  </div>
+
+                  {/* Changement de saison */}
+                  <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-5 space-y-4">
+                    <div>
+                      <h2 className="font-serif text-base font-semibold text-destructive">Démarrer la nouvelle saison</h2>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Remet tous les membres (rôle "Inscrit") en attente de réinscription. Les admins ne sont pas affectés.
+                        À effectuer après avoir mis à jour la saison dans Sanity Studio.
+                      </p>
+                    </div>
+                    {saisonCourante && (
+                      <p className="text-xs text-muted-foreground">
+                        Saison courante dans Sanity : <span className="font-medium text-foreground">{saisonCourante}</span>
+                      </p>
+                    )}
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setConfirmNouvelleSaison(true)}
+                      disabled={processing === "nouvelle-saison"}
+                      className="gap-1.5"
+                    >
+                      <UserX size={14} /> Remettre tous les membres en attente
                     </Button>
                   </div>
 
@@ -2933,7 +3193,19 @@ const AdminMembres = () => {
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1.5">
                         <Label htmlFor="p-ddn">Date de naissance *</Label>
-                        <Input id="p-ddn" type="date" value={papierForm.dateNaissance} onChange={e => setPapierForm(f => ({ ...f, dateNaissance: e.target.value }))} />
+                        <Input id="p-ddn" type="date" value={papierForm.dateNaissance} onChange={e => {
+                          const ddn = e.target.value;
+                          const age = calcAge(ddn);
+                          if (age !== null) {
+                            const newType = age < 18 ? "mineur" : "adulte";
+                            if (newType !== papierForm.typeInscription) {
+                              papierDirRef.current = newType === "mineur" ? 1 : -1;
+                              setPapierForm(f => ({ ...f, dateNaissance: ddn, typeInscription: newType }));
+                              return;
+                            }
+                          }
+                          setPapierForm(f => ({ ...f, dateNaissance: ddn }));
+                        }} />
                       </div>
                       <div className="space-y-1.5">
                         <Label htmlFor="p-gs">Groupe sanguin</Label>
@@ -3206,6 +3478,30 @@ const AdminMembres = () => {
               onClick={() => { if (confirmRefuser) { handleRefuserInscription(confirmRefuser.id); setConfirmRefuser(null); } }}
             >
               Refuser
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmNouvelleSaison} onOpenChange={setConfirmNouvelleSaison}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Démarrer la nouvelle saison ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tous les membres avec le rôle "Inscrit" seront remis en attente de réinscription.
+              Ils devront se réinscrire et être validés pour retrouver leur accès membre.
+              Les administrateurs ne sont pas affectés.
+              {saisonCourante && <><br /><br />Saison courante dans Sanity : <strong>{saisonCourante}</strong>.</>}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleNouvelleSaison}
+              disabled={processing === "nouvelle-saison"}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {processing === "nouvelle-saison" ? "En cours…" : "Confirmer"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

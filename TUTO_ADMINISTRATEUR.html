@@ -23,7 +23,7 @@
       color: #1a3c5e;
       border-left: 4px solid #e63946;
       padding-left: 10px;
-      margin-top: 28px;
+      margin-top: 32px;
     }
     h3 {
       font-size: 12pt;
@@ -124,6 +124,18 @@
       color: #999;
       text-align: center;
     }
+    .badge {
+      display: inline-block;
+      border-radius: 10px;
+      padding: 1px 8px;
+      font-size: 9pt;
+      font-weight: bold;
+      color: white;
+    }
+    .badge-orange { background: #f59e0b; }
+    .badge-violet { background: #7c3aed; }
+    .badge-green  { background: #16a34a; }
+    .badge-red    { background: #dc2626; }
   </style>
 </head>
 <body>
@@ -134,19 +146,25 @@
   <div class="sommaire">
     <p>Sommaire</p>
     <ol>
-      <li>Se connecter à l'espace admin du site</li>
-      <li>Valider ou refuser une inscription aux disciplines</li>
-      <li>Valider ou refuser une demande d'accès à l'espace membre</li>
-      <li>Promouvoir un membre en administrateur ou en admin de discipline</li>
-      <li>Rechercher, exporter et imprimer les dossiers</li>
+      <li>Se connecter</li>
+      <li>Présentation générale — Gestion des membres</li>
+      <li>L'onglet "Inscriptions" et ses sous-onglets</li>
+      <li>Le workflow complet : accepter, valider, refuser</li>
+      <li>Les deux vues du tableau : Liste et Famille</li>
+      <li>Saisir une inscription en format papier</li>
+      <li>L'onglet "Administration" — gérer les rôles</li>
+      <li>L'accès aux galeries privées</li>
+      <li>Rechercher, filtrer, trier, exporter, imprimer</li>
       <li>Modifier le contenu du site avec Sanity</li>
-      <li>Vérifier que les modifications sont bien en ligne</li>
-      <li>Réinitialiser un mot de passe (espace membre)</li>
+      <li>Changer de saison</li>
+      <li>Réinitialiser un mot de passe</li>
+      <li>Récapitulatif — Qui fait quoi</li>
     </ol>
   </div>
 
+
   <!-- SECTION 1 -->
-  <h2>1. Se connecter à l'espace admin du site</h2>
+  <h2>1. Se connecter</h2>
 
   <p>Le site est accessible à l'adresse : <span class="url">https://sandrinepichla.github.io/amsp-website</span></p>
 
@@ -160,115 +178,211 @@
     </ol>
   </div>
 
-  <p>Une fois connecté, votre prénom apparaît en haut à droite. Vous verrez dans le menu un icône bouclier → <strong>"Gestion des membres"</strong>.</p>
+  <p>Une fois connecté, votre prénom apparaît en haut à droite. Un <strong>icône bouclier</strong> apparaît dans le menu : c'est l'accès à <strong>"Gestion des membres"</strong>.</p>
 
   <div class="attention">
-    ⚠️ Si vous ne voyez pas <strong>"Gestion des membres"</strong>, votre compte n'a pas les droits administrateur. Contactez le développeur.
+    ⚠️ Si vous ne voyez pas le bouclier, votre compte n'a pas les droits administrateur. Contactez le développeur.
   </div>
-
-  <!-- SECTION 2 -->
-  <h2>2. Traiter un dossier d'inscription aux disciplines</h2>
-
-  <p>Lorsqu'une personne remplit le formulaire d'inscription sur le site, vous recevez un email de notification et son dossier apparaît dans l'onglet <strong>"Dossiers à examiner"</strong>.</p>
 
   <div class="conseil">
-    💡 Le formulaire propose deux modes : <strong>Adulte</strong> et <strong>Mineur</strong> (avec coordonnées parents, autorisation parentale obligatoire). Si une date de naissance indique que la personne est mineure dans le formulaire adulte, un avertissement s'affiche avec un bouton pour basculer vers le formulaire mineur. Une même personne ne peut pas s'inscrire deux fois à la même saison (même nom, prénom et date de naissance).
+    💡 Le champ mot de passe dispose d'un icône "œil" pour afficher ou masquer ce que vous tapez.
   </div>
 
-  <p>Le traitement d'un dossier se fait en <strong>2 étapes distinctes</strong> :</p>
+
+  <!-- SECTION 2 -->
+  <h2>2. Présentation générale — Gestion des membres</h2>
+
+  <p>La page "Gestion des membres" est divisée en <strong>deux grandes sections</strong>, accessibles par les boutons en haut de page :</p>
+
+  <table>
+    <tr>
+      <th>Bouton</th>
+      <th>Ce qu'on y trouve</th>
+    </tr>
+    <tr>
+      <td><strong>Inscriptions</strong></td>
+      <td>La liste de tous les inscrits, les dossiers à traiter, les paiements à surveiller. C'est ici que se passe l'essentiel du travail quotidien.</td>
+    </tr>
+    <tr>
+      <td><strong>Administration</strong></td>
+      <td>La gestion des rôles : qui est admin, qui est admin de discipline, comment promouvoir ou retirer les droits.</td>
+    </tr>
+  </table>
+
+  <p>Un troisième lien discret, <strong>"Accès galeries"</strong>, permet de gérer qui a accès aux albums photos privés (voir section 8).</p>
+
+  <p>En haut de la page, un compteur de badges indique les actions en attente :</p>
+  <ul>
+    <li><span class="badge badge-orange">3</span> = 3 nouveaux dossiers d'inscription à examiner</li>
+    <li><span class="badge badge-violet">2</span> = 2 paiements en attente de confirmation</li>
+  </ul>
+
+
+  <!-- SECTION 3 -->
+  <h2>3. L'onglet "Inscriptions" et ses sous-onglets</h2>
+
+  <p>Dans la section <strong>"Inscriptions"</strong>, cinq onglets permettent de naviguer selon l'avancement des dossiers :</p>
+
+  <table>
+    <tr>
+      <th>Onglet</th>
+      <th>Ce qu'on y voit</th>
+      <th>Actions disponibles</th>
+    </tr>
+    <tr>
+      <td><strong>Validés</strong> <span class="badge badge-green">N</span></td>
+      <td>Tous les inscrits dont le dossier est définitivement validé (paiement reçu). C'est la liste principale des membres actifs de la saison.</td>
+      <td>Ouvrir la fiche, imprimer, promouvoir</td>
+    </tr>
+    <tr>
+      <td><strong>Dossiers à examiner</strong> <span class="badge badge-orange">N</span></td>
+      <td>Nouvelles demandes d'inscription reçues via le formulaire en ligne, pas encore traitées. Le badge orange indique le nombre de dossiers en attente.</td>
+      <td>✅ Accepter &nbsp;&nbsp; ❌ Refuser</td>
+    </tr>
+    <tr>
+      <td><strong>En attente de paiement</strong> <span class="badge badge-violet">N</span></td>
+      <td>Dossiers acceptés, mais dont le paiement n'a pas encore été encaissé. Le badge violet indique le nombre de dossiers.</td>
+      <td>✅ Valider définitivement &nbsp;&nbsp; ❌ Refuser</td>
+    </tr>
+    <tr>
+      <td><strong>Règlements</strong></td>
+      <td>Calendrier des paiements, organisé par mode de paiement (Chèque 1 fois, Espèces, Virement, Chèque 4 fois). Pour les chèques en 4 fois, quatre sous-onglets : <em>À l'inscription, Décembre, Mars, Juin</em>.</td>
+      <td>Consulter les échéances</td>
+    </tr>
+    <tr>
+      <td><strong>Refusées</strong></td>
+      <td>Historique des dossiers refusés ou supprimés.</td>
+      <td>Consulter uniquement</td>
+    </tr>
+  </table>
+
+  <div class="conseil">
+    💡 Dans chaque onglet, vous pouvez cliquer sur n'importe quelle ligne pour ouvrir la fiche complète de l'inscrit (coordonnées, disciplies, informations de santé, rôle…).
+  </div>
+
+
+  <!-- SECTION 4 -->
+  <h2>4. Le workflow complet : accepter, valider, refuser</h2>
+
+  <p>Lorsqu'une personne remplit le formulaire d'inscription sur le site, vous recevez un email de notification. Son dossier apparaît automatiquement dans l'onglet <strong>"Dossiers à examiner"</strong>.</p>
+
+  <p>Le traitement d'un dossier se fait en <strong>deux étapes distinctes</strong> :</p>
 
   <table>
     <tr>
       <th>Étape</th>
       <th>Action</th>
       <th>Ce qui se passe</th>
-      <th>Onglet résultant</th>
+      <th>Dossier déplacé vers</th>
     </tr>
     <tr>
       <td><strong>1 — Accepter</strong></td>
-      <td>Cliquer sur <strong>"Accepter"</strong> dans la fiche du dossier</td>
-      <td>Le dossier est validé en principe ; l'adhérent doit régler sa cotisation. Un toast de confirmation avec son nom s'affiche.</td>
+      <td>Cliquer sur <strong>"Accepter"</strong> dans la fiche</td>
+      <td>Le dossier est validé en principe. Un message de confirmation avec le nom de l'adhérent s'affiche en haut de page. L'adhérent doit encore régler sa cotisation.</td>
       <td>→ <strong>En attente de paiement</strong></td>
     </tr>
     <tr>
       <td><strong>2 — Valider</strong></td>
       <td>Une fois le paiement reçu, cliquer sur <strong>"Valider"</strong></td>
-      <td>L'inscription est définitivement validée. Un compte espace membre est créé automatiquement et un email d'invitation lui est envoyé pour définir son mot de passe.</td>
+      <td>L'inscription est définitivement enregistrée. Un compte espace membre est créé automatiquement pour l'adhérent, et un email lui est envoyé pour qu'il choisisse son mot de passe.</td>
       <td>→ <strong>Validés</strong></td>
     </tr>
     <tr>
       <td><strong>Refuser</strong></td>
       <td>Cliquer sur <strong>"Refuser"</strong> à n'importe quelle étape</td>
-      <td>Le dossier est refusé. L'adhérent reçoit un email de notification. Un toast d'avertissement avec son nom s'affiche.</td>
+      <td>Le dossier est refusé. L'adhérent reçoit un email de notification. Un message d'alerte avec son nom s'affiche.</td>
       <td>→ <strong>Refusées</strong></td>
     </tr>
   </table>
 
+  <h3>Procédure complète pas à pas</h3>
   <div class="etapes">
-    <strong>Procédure complète :</strong>
     <ol>
-      <li>Connectez-vous à votre compte admin (voir section 1)</li>
-      <li>Cliquer sur l'icône bouclier en haut à droite → <strong>"Gestion des membres"</strong></li>
-      <li>Aller dans l'onglet <strong>"Dossiers à examiner"</strong> (badge orange = nombre de dossiers à traiter)</li>
-      <li>Cliquer sur un dossier pour dérouler ses informations complètes</li>
+      <li>Aller dans <strong>"Gestion des membres"</strong> (icône bouclier en haut à droite)</li>
+      <li>Vous voyez le badge orange : c'est le nombre de nouveaux dossiers à traiter</li>
+      <li>Cliquer sur l'onglet <strong>"Dossiers à examiner"</strong></li>
+      <li>Cliquer sur un nom pour ouvrir la fiche complète du dossier</li>
+      <li>Vérifier les informations (discipline choisie, informations de santé, etc.)</li>
       <li>Cliquer sur <strong>"Accepter"</strong> — le dossier passe en "En attente de paiement"</li>
-      <li>Une fois le chèque ou le paiement reçu, retourner dans <strong>"En attente de paiement"</strong> et cliquer sur <strong>"Valider"</strong></li>
-      <li>L'adhérent reçoit automatiquement un email d'invitation pour accéder à son espace membre</li>
+      <li>Lorsque le chèque, les espèces ou le virement est reçu, aller dans l'onglet <strong>"En attente de paiement"</strong></li>
+      <li>Ouvrir la fiche et cliquer sur <strong>"Valider"</strong></li>
+      <li>L'adhérent reçoit automatiquement un email pour activer son espace membre</li>
     </ol>
   </div>
 
   <div class="attention">
-    ⚠️ Les boutons "Accepter" et "Valider" sont deux actions distinctes. Ne pas cliquer sur "Valider" sans avoir reçu le paiement — la validation définitive crée le compte membre et envoie l'email d'invitation.
+    ⚠️ <strong>"Accepter"</strong> et <strong>"Valider"</strong> sont deux actions bien distinctes. Ne cliquez sur "Valider" qu'après avoir reçu le paiement — c'est à cette étape que le compte membre est créé et l'email d'invitation envoyé.
   </div>
 
-  <!-- SECTION 3 -->
-  <h2>3. Valider ou refuser une demande d'accès à l'espace membre</h2>
+  <h3>Cas particulier : les mineurs</h3>
+  <p>Pour une inscription en mode <strong>mineur</strong>, le compte espace membre est créé au nom du <strong>parent</strong> (email du parent 1). Si le parent a déjà un compte (parce qu'un autre enfant ou lui-même est inscrit), le dossier est simplement rattaché à ce compte existant. Toute la famille se connecte donc avec le même email.</p>
 
-  <p>Lorsqu'une personne fait une demande d'accès à l'espace membre via <em>"Rejoindre l'espace membre"</em>, vous recevez un email de notification et son compte est mis <strong>en attente</strong>.</p>
+  <h3>Cas particulier : le formulaire adulte avec un mineur</h3>
+  <p>Si une personne remplit le formulaire "adulte" mais a moins de 18 ans selon sa date de naissance, un avertissement s'affiche sur le formulaire pour l'inviter à basculer vers le formulaire mineur. Une même personne ne peut pas s'inscrire deux fois à la même saison.</p>
 
-  <div class="etapes">
-    <strong>Étapes :</strong>
-    <ol>
-      <li>Connectez-vous à votre compte admin (voir section 1)</li>
-      <li>Cliquer sur l'icône bouclier en haut à droite → <strong>"Gestion des membres"</strong></li>
-      <li>Dans la section <strong>"Demandes d'accès espace membre"</strong>, vous voyez les demandes à traiter</li>
-      <li>Pour chaque demande, cliquer sur :
-        <ul>
-          <li>✅ <strong>Approuver</strong> → la personne pourra se connecter à l'espace membre (galerie privée…)</li>
-          <li>❌ <strong>Refuser</strong> → la demande est rejetée</li>
-        </ul>
-      </li>
-    </ol>
-  </div>
 
-  <p><strong>Ce que voit le membre selon votre décision :</strong></p>
+  <!-- SECTION 5 -->
+  <div class="page-break"></div>
+  <h2>5. Les deux vues du tableau : Liste et Famille</h2>
+
+  <p>Dans les onglets <strong>"Validés"</strong>, <strong>"Dossiers à examiner"</strong> et <strong>"En attente de paiement"</strong>, un petit bouton en haut à droite de la barre de recherche permet de basculer entre deux modes d'affichage :</p>
+
   <table>
     <tr>
-      <th>Décision</th>
-      <th>Résultat</th>
+      <th>Mode</th>
+      <th>Ce que vous voyez</th>
+      <th>Quand l'utiliser</th>
     </tr>
     <tr>
-      <td>✅ Approuvé</td>
-      <td>Il reçoit un email de confirmation et peut se connecter à l'espace membre</td>
+      <td><strong>Vue Liste</strong> (par défaut)</td>
+      <td>Un tableau avec une ligne par inscription, triable par colonnes (nom, statut, âge, disciplines, contact urgence, Pass'Sport, droit à l'image).</td>
+      <td>Pour traiter les dossiers un par un, trier, rechercher.</td>
     </tr>
     <tr>
-      <td>⏳ En attente</td>
-      <td>À la connexion : "Votre compte est en attente de validation par l'administrateur"</td>
-    </tr>
-    <tr>
-      <td>❌ Refusé</td>
-      <td>À la connexion : "Votre demande d'adhésion a été refusée"</td>
+      <td><strong>Vue Famille</strong></td>
+      <td>Des cartes regroupées par compte (même adresse email). En-tête de chaque carte : nom du titulaire du compte + email. Lignes enfants : chaque inscrit avec son âge, ses disciplines et son statut Pass'Sport. Triés du plus âgé au plus jeune au sein de chaque famille.</td>
+      <td>Pour voir d'un coup d'œil tous les membres d'une même famille et vérifier que personne ne manque.</td>
     </tr>
   </table>
 
   <div class="conseil">
-    💡 Le badge rouge sur "Demandes d'accès" indique le nombre de demandes à traiter.
+    💡 Cliquer sur n'importe quelle ligne, en vue liste comme en vue famille, ouvre la fiche complète de l'inscrit.
   </div>
 
-  <!-- SECTION 4 -->
-  <h2>4. Promouvoir un membre en administrateur ou admin de discipline</h2>
+  <h3>Trier les colonnes (vue liste)</h3>
+  <p>En vue liste, cliquez sur l'en-tête d'une colonne pour trier le tableau. Un deuxième clic inverse l'ordre (croissant/décroissant). Les colonnes triables sont : Membre (nom), Statut, Âge, Disciplines, Contact urgence, Pass'Sport, Droit à l'image.</p>
 
-  <p>Il existe deux niveaux d'administration :</p>
+
+  <!-- SECTION 6 -->
+  <h2>6. Saisir une inscription en format papier</h2>
+
+  <p>Si un adhérent remet un formulaire papier (ou vous en fait parvenir un), vous pouvez le saisir directement dans l'outil sans qu'il ait à remplir le formulaire en ligne.</p>
+
+  <div class="etapes">
+    <strong>Étapes :</strong>
+    <ol>
+      <li>Dans <strong>"Gestion des membres"</strong>, cliquer sur le bouton <strong>"+ Inscription papier"</strong> en haut de la page</li>
+      <li>Sélectionner le type d'inscription : <strong>Adulte</strong> ou <strong>Mineur</strong></li>
+      <li>Saisir la date de naissance — le formulaire bascule <strong>automatiquement</strong> vers le mode Mineur si la personne a moins de 18 ans</li>
+      <li>Remplir les champs : nom, prénom, disciplines choisies, mode de paiement, coordonnées…</li>
+      <li>Pour un mineur, remplir également les informations du parent responsable</li>
+      <li>Cliquer sur <strong>"Enregistrer"</strong></li>
+    </ol>
+  </div>
+
+  <p>Le dossier saisi apparaît directement dans l'onglet <strong>"Dossiers à examiner"</strong> avec la mention <em>papier</em>. Il suit ensuite le même workflow qu'une inscription en ligne (Accepter → Valider).</p>
+
+  <div class="conseil">
+    💡 La date de naissance est le seul champ qui déclenche automatiquement le basculement adulte/mineur. Commencez par la saisir pour que le formulaire s'adapte.
+  </div>
+
+
+  <!-- SECTION 7 -->
+  <h2>7. L'onglet "Administration" — gérer les rôles</h2>
+
+  <p>La section <strong>"Administration"</strong> (bouton en haut de la page Gestion des membres) permet de voir et de modifier qui a des droits d'administration sur le site.</p>
+
+  <h3>Les différents rôles</h3>
 
   <table>
     <tr>
@@ -277,131 +391,106 @@
     </tr>
     <tr>
       <td><strong>Admin</strong></td>
-      <td>Voit et gère toutes les inscriptions et tous les membres, peut exporter, modifier les rôles</td>
+      <td>Accès complet : voit toutes les inscriptions de toutes les disciplines, peut exporter, modifier les rôles, accéder à toutes les fiches.</td>
     </tr>
     <tr>
       <td><strong>Admin de discipline</strong></td>
-      <td>Voit uniquement les inscriptions et membres de sa discipline. Ne peut pas modifier les rôles ni exporter tous les membres.</td>
+      <td>Voit uniquement les inscriptions de sa (ou ses) discipline(s). Ne peut pas modifier les rôles ni voir les autres disciplines.</td>
+    </tr>
+    <tr>
+      <td><strong>Membre</strong></td>
+      <td>Accès à l'espace membre uniquement (ses propres inscriptions, les galeries auxquelles il a accès).</td>
     </tr>
   </table>
 
-  <h3>Promouvoir en admin complet</h3>
+  <h3>Promouvoir un membre en administrateur</h3>
   <div class="etapes">
     <strong>Étapes :</strong>
     <ol>
-      <li>Aller dans <strong>"Gestion des membres"</strong> → onglet <strong>"Validés"</strong></li>
-      <li>Cliquer sur le nom du membre pour dérouler sa fiche</li>
-      <li>Cliquer sur <strong>"Promouvoir en admin"</strong> (bouton bleu)</li>
-      <li>Confirmer dans la fenêtre qui s'ouvre</li>
+      <li>Aller dans <strong>"Gestion des membres"</strong> → bouton <strong>"Administration"</strong></li>
+      <li>Descendre jusqu'à la section <strong>"Promouvoir un membre"</strong></li>
+      <li>Choisir le membre dans la liste déroulante</li>
+      <li>Sélectionner le rôle souhaité : <strong>Admin complet</strong> ou <strong>Admin de discipline</strong></li>
+      <li>Si "Admin de discipline", choisir la ou les disciplines concernées</li>
+      <li>Cliquer sur <strong>"Promouvoir"</strong> et confirmer</li>
     </ol>
   </div>
 
-  <h3>Promouvoir en admin de discipline</h3>
+  <h3>Retirer les droits d'administration</h3>
   <div class="etapes">
     <strong>Étapes :</strong>
     <ol>
-      <li>Aller dans <strong>"Gestion des membres"</strong> → onglet <strong>"Validés"</strong></li>
-      <li>Cliquer sur le nom du membre pour dérouler sa fiche</li>
-      <li>Cliquer sur <strong>"Admin discipline"</strong> (bouton violet)</li>
-      <li>Choisir les disciplines dont il sera responsable</li>
-      <li>Confirmer</li>
+      <li>Dans la section "Administration", repérer l'administrateur dans la liste des admins actuels</li>
+      <li>Cliquer sur le bouton rouge <strong>"Retirer les droits"</strong> à côté de son nom</li>
+      <li>Confirmer — le compte repasse au rôle "Membre"</li>
     </ol>
   </div>
 
   <div class="attention">
-    ⚠️ Un administrateur complet peut gérer tous les membres du site. Ne donnez ce rôle qu'à des personnes de confiance. L'admin de discipline ne voit que sa propre discipline — c'est un rôle plus limité et plus sûr.
+    ⚠️ Un administrateur complet peut gérer tous les membres du site. Ne donnez ce rôle qu'à des personnes de confiance. L'admin de discipline est un rôle plus limité, idéal pour les professeurs qui gèrent leur propre discipline.
   </div>
 
-  <p>Pour <strong>retirer les droits</strong>, même procédure → bouton <strong>"Retirer les droits admin"</strong> (en rouge).</p>
 
-  <!-- SECTION 5 -->
-  <h2>5. Rechercher, exporter et imprimer les dossiers</h2>
-
-  <h3>Navigation par onglets</h3>
-  <p>La page "Gestion des membres" est organisée en <strong>5 onglets</strong> :</p>
-  <table>
-    <tr>
-      <th>Onglet</th>
-      <th>Ce qu'on y voit</th>
-      <th>Actions disponibles</th>
-    </tr>
-    <tr>
-      <td><strong>Validés (N)</strong></td>
-      <td>Membres dont toutes les inscriptions sont définitivement validées. Admins et membres actifs. Pas de dossiers en attente ou en cours de paiement.</td>
-      <td>Promouvoir admin / admin discipline, imprimer fiche</td>
-    </tr>
-    <tr>
-      <td><strong>Dossiers à examiner</strong> <span style="background:#f59e0b;color:white;border-radius:10px;padding:1px 6px;font-size:9pt;">N</span></td>
-      <td>Nouvelles demandes d'inscription reçues via le formulaire, pas encore traitées. Badge orange = nombre à traiter.</td>
-      <td>✅ Accepter &nbsp; ❌ Refuser</td>
-    </tr>
-    <tr>
-      <td><strong>En attente de paiement</strong> <span style="background:#7c3aed;color:white;border-radius:10px;padding:1px 6px;font-size:9pt;">N</span></td>
-      <td>Dossiers acceptés, en attente du règlement de cotisation. Badge violet = nombre en attente.</td>
-      <td>✅ Valider définitivement &nbsp; ❌ Refuser</td>
-    </tr>
-    <tr>
-      <td><strong>Règlements</strong></td>
-      <td>Calendrier des paiements pour les règlements par chèques (4× ou 1×) : liste des échéances par mois.</td>
-      <td>Consulter uniquement</td>
-    </tr>
-    <tr>
-      <td><strong>Refusées</strong></td>
-      <td>Inscriptions refusées ou supprimées (historique).</td>
-      <td>Consulter uniquement</td>
-    </tr>
-  </table>
-
-  <h3>Barre de recherche et filtre discipline</h3>
-  <p>Une barre de recherche et un filtre par discipline sont disponibles dans tous les onglets. La recherche filtre par nom, prénom ou email.</p>
-
-  <h3>Exporter les dossiers en Excel</h3>
-  <div class="etapes">
-    <ol>
-      <li>Cliquer sur le bouton <strong>"Exporter"</strong> (icône téléchargement) en haut de la page</li>
-      <li>Un fichier Excel (<code>.xlsx</code>) est téléchargé avec tous les dossiers visibles selon votre rôle</li>
-    </ol>
-  </div>
-
-  <h3>Imprimer / télécharger une fiche d'inscription</h3>
-  <div class="etapes">
-    <ol>
-      <li>Ouvrir un dossier en cliquant sur le nom du membre</li>
-      <li>Cliquer sur l'icône <strong>"Imprimer"</strong> (ou télécharger) dans la fiche</li>
-      <li>Une fiche formatée s'ouvre — prête à imprimer ou enregistrer en PDF</li>
-    </ol>
-  </div>
-
-  <h3>Lier une inscription à un profil</h3>
-  <p>Si une inscription (formulaire en ligne) ne s'est pas automatiquement associée au bon compte membre :</p>
-  <div class="etapes">
-    <ol>
-      <li>Dans l'onglet <strong>"Sans compte"</strong>, repérer l'inscription orpheline</li>
-      <li>Cliquer sur <strong>"Lier une inscription…"</strong></li>
-      <li>Sélectionner le profil membre correspondant dans la liste</li>
-      <li>Confirmer — l'inscription est rattachée au profil et les disciplines sont mises à jour</li>
-    </ol>
-  </div>
-
-  <!-- SECTION 6 -->
+  <!-- SECTION 8 -->
   <div class="page-break"></div>
-  <h2>6. Modifier le contenu du site avec Sanity</h2>
+  <h2>8. L'accès aux galeries privées</h2>
+
+  <p>Certains albums photos de la galerie peuvent être configurés comme <strong>privés</strong> dans Sanity. Seuls les membres ayant explicitement reçu l'accès peuvent les voir.</p>
+
+  <p>Pour gérer ces accès, cliquer sur le lien discret <strong>"Accès galeries"</strong> (en haut à droite de la navigation dans Gestion des membres).</p>
+
+  <p>Vous y trouvez la liste des membres inscrits, regroupés par compte. Pour chaque membre, vous pouvez activer ou désactiver l'accès aux albums de chaque discipline.</p>
+
+  <div class="conseil">
+    💡 Lorsqu'un dossier est validé, les accès aux galeries des disciplines auxquelles la personne est inscrite sont activés <strong>automatiquement</strong>. Vous n'avez en principe pas à intervenir manuellement sauf cas particulier (accès à une galerie d'une autre discipline, ou retrait d'accès).
+  </div>
+
+
+  <!-- SECTION 9 -->
+  <h2>9. Rechercher, filtrer, trier, exporter, imprimer</h2>
+
+  <h3>Recherche et filtre</h3>
+  <p>En haut du tableau des inscrits, une barre de recherche et un filtre par discipline sont disponibles dans tous les onglets :</p>
+  <ul>
+    <li><strong>Barre de recherche</strong> : tapez un nom, un prénom ou une adresse email pour filtrer instantanément la liste</li>
+    <li><strong>Filtre discipline</strong> : choisissez une discipline dans le menu pour n'afficher que les inscrits à cette discipline</li>
+  </ul>
+
+  <h3>Exporter en Excel</h3>
+  <div class="etapes">
+    <ol>
+      <li>Cliquer sur le bouton <strong>"Exporter"</strong> (icône de téléchargement) en haut de la page</li>
+      <li>Un fichier Excel (<code>.xlsx</code>) est téléchargé avec tous les dossiers selon votre rôle et les filtres actifs</li>
+    </ol>
+  </div>
+
+  <h3>Imprimer ou télécharger une fiche d'inscription</h3>
+  <div class="etapes">
+    <ol>
+      <li>Cliquer sur le nom d'un inscrit pour ouvrir sa fiche</li>
+      <li>Cliquer sur l'icône <strong>"Imprimer"</strong> dans la fiche</li>
+      <li>Une fiche formatée s'ouvre, prête à imprimer ou à enregistrer en PDF</li>
+    </ol>
+  </div>
+
+
+  <!-- SECTION 10 -->
+  <div class="page-break"></div>
+  <h2>10. Modifier le contenu du site avec Sanity</h2>
 
   <p>Sanity est l'outil qui permet de modifier le contenu du site (textes, photos, actualités, disciplines…) <strong>sans toucher au code</strong>. Les modifications sont visibles sur le site en moins d'une minute.</p>
 
   <h3>Se connecter à Sanity</h3>
-
   <div class="etapes">
     <ol>
       <li>Aller sur <span class="url">https://www.sanity.io</span></li>
       <li>Cliquer sur <strong>"Log in"</strong> en haut à droite</li>
       <li>Se connecter avec le compte Google ou email associé au projet AMSP</li>
-      <li>Une fois connecté, accéder au studio AMSP</li>
+      <li>Accéder au studio AMSP (il apparaît dans votre liste de projets)</li>
     </ol>
   </div>
 
   <h3>Ce que vous pouvez modifier</h3>
-
   <table>
     <tr>
       <th>Rubrique dans Sanity</th>
@@ -409,137 +498,133 @@
     </tr>
     <tr>
       <td><strong>Disciplines</strong></td>
-      <td>Modifier descriptions, photos, noms des disciplines</td>
+      <td>Modifier le nom, la description, les horaires, les photos, les professeurs de chaque discipline</td>
     </tr>
     <tr>
       <td><strong>Actualités</strong></td>
-      <td>Créer, modifier, supprimer des articles</td>
+      <td>Créer, modifier ou supprimer des articles d'actualité affichés sur la page d'accueil</td>
     </tr>
     <tr>
       <td><strong>Galerie</strong></td>
-      <td>Ajouter des albums photos, les rendre privés ou publics</td>
+      <td>Créer des albums photos, y ajouter des images, les rendre privés (membres seulement) ou publics</td>
     </tr>
     <tr>
       <td><strong>Inscription</strong></td>
-      <td>Modifier le règlement intérieur, les infos de paiement, l'autorisation parentale…</td>
+      <td>Modifier le règlement intérieur, les informations de paiement, les textes d'autorisation parentale et de droit à l'image affichés dans le formulaire d'inscription</td>
     </tr>
     <tr>
       <td><strong>Paramètres</strong></td>
-      <td>Modifier l'adresse, le téléphone, l'email de contact, les horaires</td>
+      <td>Modifier l'adresse du club, le téléphone, l'email de contact, les horaires d'ouverture</td>
+    </tr>
+    <tr>
+      <td><strong>Cours</strong></td>
+      <td>Gérer les plannings de cours</td>
+    </tr>
+    <tr>
+      <td><strong>Tarifs</strong></td>
+      <td>Modifier les tarifs affichés sur le site</td>
     </tr>
   </table>
 
-  <h3>Comment modifier un contenu</h3>
-
-  <p><strong>Exemple : modifier le texte du règlement intérieur</strong></p>
+  <h3>Comment publier une modification</h3>
+  <p>Toute modification dans Sanity suit la même procédure :</p>
   <div class="etapes">
     <ol>
-      <li>Dans Sanity Studio, cliquer sur <strong>"Inscription"</strong> dans le menu gauche</li>
-      <li>Cliquer sur le document existant</li>
-      <li>Trouver le champ <strong>"Règlement intérieur"</strong> et cliquer dessus</li>
-      <li>Modifier le texte directement</li>
-      <li>Activer le toggle <strong>"Publié"</strong> en bas à gauche du document</li>
-      <li>Cliquer sur le bouton <strong>"Publish"</strong> en bas à droite</li>
-    </ol>
-  </div>
-
-  <p><strong>Exemple : ajouter une actualité</strong></p>
-  <div class="etapes">
-    <ol>
-      <li>Cliquer sur <strong>"Actualités"</strong> dans le menu gauche</li>
-      <li>Cliquer sur le bouton <strong>"+"</strong> ou <strong>"New"</strong></li>
-      <li>Remplir le titre, le texte, ajouter une image</li>
-      <li>Activer le toggle <strong>"Publié"</strong> en bas à gauche du document</li>
-      <li>Cliquer sur le bouton <strong>"Publish"</strong> en bas à droite</li>
-    </ol>
-  </div>
-
-  <p><strong>Exemple : ajouter des photos dans la galerie</strong></p>
-  <div class="etapes">
-    <ol>
-      <li>Cliquer sur <strong>"Galerie"</strong> dans le menu gauche</li>
-      <li>Ouvrir l'album concerné (ou créer un nouveau avec "+")</li>
-      <li>Cliquer sur le champ images → <strong>"Add item"</strong></li>
-      <li>Glisser-déposer ou sélectionner les photos depuis votre ordinateur</li>
-      <li>Activer le toggle <strong>"Publié"</strong> en bas à gauche du document</li>
-      <li>Cliquer sur le bouton <strong>"Publish"</strong> en bas à droite</li>
+      <li>Ouvrir le document à modifier dans le menu gauche de Sanity</li>
+      <li>Modifier le contenu directement dans les champs</li>
+      <li>Vérifier que le champ <strong>"Publié"</strong> (en bas à gauche du document) est bien activé</li>
+      <li>Cliquer sur le bouton <strong>"Publish"</strong> (en bas à droite)</li>
+      <li>Attendre 30 secondes à 1 minute, puis recharger le site pour vérifier</li>
     </ol>
   </div>
 
   <div class="attention">
-    ⚠️ <strong>La publication se fait en deux clics :</strong> d'abord activer le toggle <strong>"Publié"</strong> (en bas à gauche), puis cliquer sur <strong>"Publish"</strong> (en bas à droite). Tant que ces deux étapes ne sont pas faites, les changements ne sont pas visibles sur le site.
+    ⚠️ <strong>Ne pas oublier le bouton "Publish".</strong> Si vous modifiez un texte et fermez la page sans cliquer sur "Publish", les modifications sont perdues et rien ne change sur le site.
   </div>
 
-  <!-- SECTION 7 -->
-  <h2>7. Vérifier que les modifications sont bien en ligne</h2>
-
-  <h3>Après une modification dans Sanity</h3>
-
+  <h3>Exemple : ajouter une actualité</h3>
   <div class="etapes">
     <ol>
-      <li>Après avoir cliqué sur "Publish", attendre <strong>30 secondes à 1 minute</strong></li>
-      <li>Aller sur le site : <span class="url">https://sandrinepichla.github.io/amsp-website</span></li>
-      <li>Appuyer sur <strong>Ctrl + Maj + R</strong> (Windows) pour forcer le rechargement</li>
-      <li>Naviguer vers la page modifiée pour vérifier</li>
+      <li>Cliquer sur <strong>"Actualités"</strong> dans le menu gauche de Sanity</li>
+      <li>Cliquer sur le bouton <strong>"+"</strong> ou <strong>"New"</strong> en haut</li>
+      <li>Remplir le titre, le texte, ajouter une image si besoin</li>
+      <li>Activer le champ <strong>"Publié"</strong> (en bas à gauche)</li>
+      <li>Cliquer sur <strong>"Publish"</strong> (en bas à droite)</li>
+    </ol>
+  </div>
+
+  <h3>Exemple : ajouter des photos dans la galerie</h3>
+  <div class="etapes">
+    <ol>
+      <li>Cliquer sur <strong>"Galerie"</strong> dans le menu gauche</li>
+      <li>Ouvrir l'album existant (ou créer un nouvel album avec <strong>"+"</strong>)</li>
+      <li>Dans le champ <strong>"Photos"</strong>, cliquer sur <strong>"Add item"</strong></li>
+      <li>Glisser-déposer vos photos ou les sélectionner depuis votre ordinateur</li>
+      <li>Pour un album réservé aux membres : activer le champ <strong>"Privé"</strong></li>
+      <li>Activer le champ <strong>"Publié"</strong> puis cliquer sur <strong>"Publish"</strong></li>
     </ol>
   </div>
 
   <div class="conseil">
-    💡 Le contenu Sanity se met à jour automatiquement sur le site. Pas besoin de faire un redéploiement.
+    💡 Un album marqué <strong>"Privé"</strong> dans Sanity n'est visible que par les membres connectés à qui vous avez accordé l'accès à cette galerie (voir section 8).
   </div>
 
-  <h3>Si la mise à jour ne s'affiche pas</h3>
+  <h3>Vérifier que la modification est bien en ligne</h3>
+  <div class="etapes">
+    <ol>
+      <li>Après avoir cliqué sur "Publish", attendre <strong>30 secondes à 1 minute</strong></li>
+      <li>Aller sur le site : <span class="url">https://sandrinepichla.github.io/amsp-website</span></li>
+      <li>Appuyer sur <strong>Ctrl + Maj + R</strong> (Windows) pour forcer le rechargement de la page</li>
+      <li>Naviguer vers la page modifiée pour vérifier</li>
+    </ol>
+  </div>
 
-  <p>Vider complètement le cache du navigateur :</p>
+  <p>Si la modification n'apparaît toujours pas, vider complètement le cache du navigateur :</p>
   <div class="etapes">
     <strong>Sur Chrome :</strong>
     <ol>
       <li>Appuyer sur <strong>Ctrl + Maj + Suppr</strong></li>
       <li>Cocher <strong>"Images et fichiers en cache"</strong></li>
-      <li>Cliquer sur <strong>"Effacer les données"</strong></li>
-      <li>Recharger la page</li>
+      <li>Cliquer sur <strong>"Effacer les données"</strong> puis recharger la page</li>
     </ol>
   </div>
 
-  <h3>Vérifier un déploiement de code (fait par le développeur)</h3>
+
+  <!-- SECTION 11 -->
+  <h2>11. Changer de saison</h2>
+
+  <p>Au début de chaque saison sportive, il faut mettre à jour la saison en cours dans Sanity. Cela permet au formulaire d'inscription d'afficher la bonne saison et de ne pas mélanger les dossiers d'années différentes.</p>
 
   <div class="etapes">
+    <strong>Étapes :</strong>
     <ol>
-      <li>Aller sur <span class="url">https://github.com/SandrinePichla/amsp-website</span></li>
-      <li>Cliquer sur l'onglet <strong>"Actions"</strong></li>
-      <li>La dernière ligne indique le statut du déploiement :</li>
+      <li>Se connecter à Sanity (voir section 10)</li>
+      <li>Cliquer sur <strong>"Inscription"</strong> dans le menu gauche</li>
+      <li>Ouvrir le document existant (il n'y en a qu'un)</li>
+      <li>Trouver le champ <strong>"Saison"</strong> et modifier la valeur (ex : <code>2025-2026</code>)</li>
+      <li>Cliquer sur <strong>"Publish"</strong></li>
     </ol>
   </div>
 
-  <table>
-    <tr>
-      <th>Icône</th>
-      <th>Signification</th>
-    </tr>
-    <tr>
-      <td>✅ Cercle vert</td>
-      <td>Déploiement réussi — le site est à jour</td>
-    </tr>
-    <tr>
-      <td>🟡 Cercle orange</td>
-      <td>Déploiement en cours — attendre 2 à 3 minutes</td>
-    </tr>
-    <tr>
-      <td>❌ Croix rouge</td>
-      <td>Erreur lors du déploiement — contacter le développeur</td>
-    </tr>
-  </table>
+  <div class="attention">
+    ⚠️ Une fois la saison changée, les nouveaux dossiers reçus seront associés à la nouvelle saison. Les anciens dossiers des saisons précédentes restent dans la base de données et sont toujours consultables en sélectionnant la saison dans le filtre de la page "Gestion des membres".
+  </div>
 
-  <!-- SECTION 8 -->
-  <h2>8. Réinitialiser un mot de passe (espace membre)</h2>
+  <div class="conseil">
+    💡 Vous pouvez également modifier dans le même document les textes affichés sur le formulaire d'inscription (règlement intérieur, informations de paiement, texte d'autorisation parentale…). Pensez à les relire et les mettre à jour chaque saison si nécessaire.
+  </div>
 
-  <p>Si un membre a oublié son mot de passe pour accéder à l'espace membre :</p>
+
+  <!-- SECTION 12 -->
+  <h2>12. Réinitialiser un mot de passe</h2>
+
+  <p>Si un membre a oublié son mot de passe pour accéder à son espace membre, il peut le réinitialiser lui-même, sans intervention de votre part :</p>
 
   <div class="etapes">
-    <strong>Étapes pour le membre :</strong>
+    <strong>Procédure pour le membre :</strong>
     <ol>
       <li>Aller sur le site → cliquer sur <strong>"Se connecter"</strong></li>
-      <li>Cliquer sur <strong>"Mot de passe oublié ?"</strong> sous le formulaire de connexion</li>
+      <li>Cliquer sur <strong>"Mot de passe oublié ?"</strong> sous le champ de connexion</li>
       <li>Entrer son adresse email et valider</li>
       <li>Il reçoit un email avec un lien de réinitialisation (valable quelques minutes)</li>
       <li>Cliquer sur le lien → saisir un nouveau mot de passe → confirmer</li>
@@ -547,11 +632,13 @@
   </div>
 
   <div class="conseil">
-    💡 Cette procédure est entièrement autonome — l'administrateur n'a pas à intervenir. Si le membre ne reçoit pas l'email, lui demander de vérifier ses spams.
+    💡 Cette procédure est entièrement automatique — vous n'avez pas à intervenir. Si le membre ne reçoit pas l'email, lui demander de vérifier ses courriers indésirables (spams).
   </div>
 
+
   <!-- RECAP -->
-  <h2>Récapitulatif — Qui fait quoi</h2>
+  <div class="page-break"></div>
+  <h2>13. Récapitulatif — Qui fait quoi</h2>
 
   <table>
     <tr>
@@ -575,13 +662,23 @@
       <td>Aucune</td>
     </tr>
     <tr>
-      <td>Approuver / refuser un accès espace membre (demande autonome)</td>
-      <td>Site AMSP → Gestion des membres → Dossiers à examiner</td>
+      <td>Saisir une inscription papier</td>
+      <td>Site AMSP → Gestion des membres → bouton "+ Inscription papier"</td>
       <td>Aucune</td>
     </tr>
     <tr>
-      <td>Promouvoir un admin ou admin de discipline</td>
-      <td>Site AMSP → Gestion des membres → Validés</td>
+      <td>Voir les paiements à venir (chèques 4 fois)</td>
+      <td>Site AMSP → Gestion des membres → Règlements</td>
+      <td>Aucune</td>
+    </tr>
+    <tr>
+      <td>Rechercher un inscrit</td>
+      <td>Site AMSP → Gestion des membres → barre de recherche</td>
+      <td>Aucune</td>
+    </tr>
+    <tr>
+      <td>Voir les inscrits par famille</td>
+      <td>Site AMSP → Gestion des membres → bouton Vue famille</td>
       <td>Aucune</td>
     </tr>
     <tr>
@@ -595,33 +692,63 @@
       <td>Aucune</td>
     </tr>
     <tr>
-      <td>Lier une inscription à un profil</td>
-      <td>Site AMSP → Gestion des membres → Sans compte</td>
+      <td>Promouvoir un admin ou admin de discipline</td>
+      <td>Site AMSP → Gestion des membres → Administration</td>
       <td>Aucune</td>
     </tr>
     <tr>
-      <td>Modifier textes et photos</td>
-      <td>Sanity Studio</td>
+      <td>Gérer les accès aux galeries privées</td>
+      <td>Site AMSP → Gestion des membres → Accès galeries</td>
+      <td>Aucune</td>
+    </tr>
+    <tr>
+      <td>Ajouter / modifier une actualité</td>
+      <td>Sanity Studio → Actualités</td>
+      <td>Aucune</td>
+    </tr>
+    <tr>
+      <td>Modifier les disciplines, horaires, photos</td>
+      <td>Sanity Studio → Disciplines</td>
+      <td>Aucune</td>
+    </tr>
+    <tr>
+      <td>Ajouter des photos dans la galerie</td>
+      <td>Sanity Studio → Galerie</td>
+      <td>Aucune</td>
+    </tr>
+    <tr>
+      <td>Modifier le règlement intérieur ou les infos de paiement</td>
+      <td>Sanity Studio → Inscription</td>
+      <td>Aucune</td>
+    </tr>
+    <tr>
+      <td>Changer la saison en cours</td>
+      <td>Sanity Studio → Inscription → champ Saison</td>
+      <td>Aucune</td>
+    </tr>
+    <tr>
+      <td>Modifier l'adresse, téléphone, email de contact</td>
+      <td>Sanity Studio → Paramètres</td>
       <td>Aucune</td>
     </tr>
     <tr>
       <td>Modifier le code du site</td>
-      <td>VSCode + GitHub</td>
+      <td>Développeur</td>
       <td>Développeur</td>
     </tr>
     <tr>
-      <td>Déployer une mise à jour</td>
-      <td>Terminal</td>
+      <td>Déployer une mise à jour du site</td>
+      <td>Développeur</td>
       <td>Développeur</td>
     </tr>
     <tr>
-      <td>Modifier les emails automatiques (textes)</td>
-      <td>Brevo → Templates</td>
+      <td>Modifier les emails automatiques (textes et mise en page)</td>
+      <td>Développeur</td>
       <td>Développeur</td>
     </tr>
     <tr>
       <td>Changer l'adresse expéditrice des emails</td>
-      <td>Supabase → Edge Functions → Secrets → BREVO_SENDER_EMAIL</td>
+      <td>Développeur</td>
       <td>Développeur</td>
     </tr>
   </table>
