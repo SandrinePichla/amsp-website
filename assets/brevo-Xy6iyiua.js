@@ -1,1 +1,0 @@
-import{a as m}from"./index-Brgedlbz.js";const a={INSCRIPTION:1,VALIDATION:2,COMPTE:3,CONTACT:4,REJOINDRE:5,REFUS:6,ACCEPTATION:8,INSCRIPTION_ADMIN:7},I=async(e,r,s)=>{const{error:N}=await m.functions.invoke("send-email",{body:{templateId:e,to:r,params:s}});if(N)throw N};export{a as T,I as s};
