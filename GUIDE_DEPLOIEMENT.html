@@ -489,6 +489,55 @@ npm run dev</div>
     💡 Les modifications Sanity sont publiées immédiatement sur le site — pas besoin de redéployer.
   </div>
 
+  <h3>Sauvegarder le contenu Sanity avant toute modification importante</h3>
+
+  <p>Avant de modifier la saison ou tout autre paramètre critique, exporter l'intégralité du contenu Sanity :</p>
+
+  <div class="etapes">
+    <ol>
+      <li>Créer un dossier de sauvegarde si besoin : <code>C:\Dev\AMSP\sauvegarde\</code></li>
+      <li>Ouvrir un terminal dans ce dossier et exécuter :</li>
+    </ol>
+    <div class="commande">npx sanity@latest dataset export production backup-sanity.tar.gz --project-id t7u49x1d</div>
+    <ol start="3">
+      <li>Se connecter avec le compte Sanity si demandé</li>
+      <li>Le fichier <code>backup-sanity.tar.gz</code> est créé — le conserver précieusement</li>
+    </ol>
+  </div>
+
+  <div class="attention">
+    ⚠️ La CLI Sanity nécessite Node.js 22 ou supérieur pour la version 6. Si votre version est plus ancienne, utilisez à la place l'URL d'export directe dans votre navigateur (connecté à sanity.io) :<br><br>
+    <code>https://t7u49x1d.api.sanity.io/v2021-06-07/data/export/production</code><br><br>
+    Puis <strong>Ctrl+S</strong> pour sauvegarder le fichier téléchargé.
+  </div>
+
+  <h3>Restaurer un backup Sanity</h3>
+
+  <p>En cas de problème, restaurer le contenu depuis le fichier de sauvegarde :</p>
+  <div class="commande">npx sanity@latest dataset import backup-sanity.tar.gz --dataset production --project-id t7u49x1d</div>
+
+  <div class="attention">
+    ⚠️ La restauration écrase le contenu actuel du dataset. À n'utiliser qu'en dernier recours.
+  </div>
+
+  <h3>Changer de saison</h3>
+
+  <p>Pour passer à une nouvelle saison (ex. : de 2025-2026 à 2026-2027) :</p>
+
+  <div class="etapes">
+    <ol>
+      <li><strong>Sauvegarder</strong> le dataset Sanity (voir ci-dessus) avant toute manipulation</li>
+      <li>Ouvrir Sanity Studio → <strong>Inscription</strong></li>
+      <li>Modifier le champ <strong>Saison</strong> avec la nouvelle valeur (ex. : <code>2026-2027</code>)</li>
+      <li>Publier le document</li>
+    </ol>
+  </div>
+
+  <div class="conseil">
+    💡 Le champ Saison est une simple chaîne de texte. Toutes les nouvelles inscriptions reçues après ce changement auront automatiquement la nouvelle saison. Les anciennes inscriptions (saison précédente) restent intactes dans Supabase et restent accessibles en changeant le filtre Saison dans la page Gestion des membres.<br><br>
+    Si vous revenez à une ancienne valeur de saison (ex. : pour corriger une erreur), les nouvelles inscriptions créées fusionneront naturellement avec celles déjà existantes pour cette saison — il n'y a pas de duplication.
+  </div>
+
   <!-- SECTION 9 -->
   <div class="page-break"></div>
   <h2>9. Résumé rapide — Workflow type</h2>
