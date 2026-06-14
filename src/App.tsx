@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Suspense, lazy } from "react";
+import ScrollToTop from "@/components/ScrollToTop";
 import { HelmetProvider } from "react-helmet-async";
 
 const Index = lazy(() => import("./pages/Index"));
@@ -40,6 +41,7 @@ const App = () => (
           v7_relativeSplatPath: true
         }}
       >       
+        <ScrollToTop />
         <Suspense fallback={<div className="p-6 text-center text-muted-foreground">Chargement…</div>}>
           <Routes>
             <Route path="/" element={<Index />} />

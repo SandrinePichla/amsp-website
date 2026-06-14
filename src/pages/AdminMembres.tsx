@@ -2331,8 +2331,8 @@ const AdminMembres = () => {
                         </TabsTrigger>
                         <TabsTrigger value="details" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs px-4 h-9">Coordonnées</TabsTrigger>
                         <TabsTrigger value="sante" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs px-4 h-9">Santé</TabsTrigger>
-                        <TabsTrigger value="parametres" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs px-4 h-9">Rôle et permission</TabsTrigger>
-                        <TabsTrigger value="logs" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs px-4 h-9">Logs</TabsTrigger>
+                        <TabsTrigger value="parametres" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs px-4 h-9">Accès web</TabsTrigger>
+                        <TabsTrigger value="logs" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs px-4 h-9">Connexions</TabsTrigger>
                       </TabsList>
                     </div>
 
@@ -2538,7 +2538,7 @@ const AdminMembres = () => {
                         })()}
                       </TabsContent>
 
-                      {/* ——— Rôle et permission ——— */}
+                      {/* ——— Accès web ——— */}
                       <TabsContent value="parametres" className="m-0 p-6 space-y-5">
                         <div>
                           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Rôle & permissions</h3>
@@ -2619,7 +2619,7 @@ const AdminMembres = () => {
                         })()}
                       </TabsContent>
 
-                      {/* ——— Logs ——— */}
+                      {/* ——— Connexions ——— */}
                       <TabsContent value="logs" className="m-0 p-6">
                         {(() => {
                           const logs = connexionsLog.filter(l => l.user_id === profil.id).slice(0, 8);
@@ -2687,8 +2687,8 @@ const AdminMembres = () => {
                         <TabsTrigger value="adhesions" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs px-4 h-9">Adhésions <span className="ml-1.5 rounded-full bg-primary/10 px-1.5 text-primary text-[10px] font-semibold">1</span></TabsTrigger>
                         <TabsTrigger value="details" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs px-4 h-9">Coordonnées</TabsTrigger>
                         <TabsTrigger value="sante" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs px-4 h-9">Santé</TabsTrigger>
-                        <TabsTrigger value="espace" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs px-4 h-9">Rôle et permission</TabsTrigger>
-                        <TabsTrigger value="logs" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs px-4 h-9">Logs</TabsTrigger>
+                        <TabsTrigger value="espace" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs px-4 h-9">Accès web</TabsTrigger>
+                        <TabsTrigger value="logs" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent text-xs px-4 h-9">Connexions</TabsTrigger>
                       </TabsList>
                     </div>
 
@@ -2864,7 +2864,7 @@ const AdminMembres = () => {
                         )}
                       </TabsContent>
 
-                      {/* ——— Rôle et permission ——— */}
+                      {/* ——— Accès web ——— */}
                       <TabsContent value="espace" className="m-0 p-6 space-y-4">
                         {(() => {
                           const linked = [
@@ -2895,7 +2895,7 @@ const AdminMembres = () => {
                         })()}
                       </TabsContent>
 
-                      {/* ——— Logs ——— */}
+                      {/* ——— Connexions ——— */}
                       <TabsContent value="logs" className="m-0 p-6 space-y-5">
                         {(() => {
                           const linked = [
