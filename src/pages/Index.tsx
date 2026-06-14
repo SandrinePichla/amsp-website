@@ -204,7 +204,7 @@ const Index = () => {
         );
 
         return (
-          <section className="pt-20 pb-8 bg-secondary/10">
+          <section className="pt-10 pb-2 bg-secondary/10">
             <div className="container mx-auto px-4">
               <div className="mb-12 text-center">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary/60">Agenda</p>
@@ -254,7 +254,7 @@ const Index = () => {
       })()}
 
       {/* Disciplines grid */}
-      <section className="pt-2 pb-20">
+      <section className="pt-1 pb-20">
         <div className="container mx-auto px-4">
           <div className="mb-16 text-center">
             <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary/60">Arts pratiqués</p>
