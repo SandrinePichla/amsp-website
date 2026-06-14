@@ -815,19 +815,6 @@ const AdminMembres = () => {
       description: `${inscNomA} — en attente de paiement.`,
       duration: 7000,
     });
-    const destEmail = insc?.email || insc?.parent1_email;
-    if (destEmail) {
-      try {
-        await sendBrevoEmail(TEMPLATES.ACCEPTATION, { email: destEmail, name: [insc.prenom, insc.nom].filter(Boolean).join(" ") || destEmail }, {
-          prenom: insc.prenom || "",
-          nom: insc.nom || "",
-          disciplines: resolveDiscNoms(insc.disciplines).join(", "),
-          saison: insc.saison || "",
-        });
-      } catch {
-        // non-bloquant
-      }
-    }
     setProcessing(null);
   };
 
