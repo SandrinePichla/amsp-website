@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Guide de déploiement — Site AMSP</title>
+  <style>
+    body {
+      font-family: Calibri, Arial, sans-serif;
+      font-size: 11pt;
+      color: #222;
+      margin: 2.5cm 2.5cm 2.5cm 2.5cm;
+      line-height: 1.5;
+    }
+    h1 {
+      font-size: 20pt;
+      color: #1a3c5e;
+      border-bottom: 3px solid #1a3c5e;
+      padding-bottom: 6px;
+      margin-top: 0;
+    }
+    h2 {
+      font-size: 14pt;
+      color: #1a3c5e;
+      border-left: 4px solid #e63946;
+      padding-left: 10px;
+      margin-top: 28px;
+    }
+    h3 {
+      font-size: 12pt;
+      color: #333;
+      margin-top: 18px;
+    }
+    .subtitle {
+      font-size: 11pt;
+      color: #666;
+      margin-top: -8px;
+      margin-bottom: 24px;
+      font-style: italic;
+    }
+    .sommaire {
+      background: #f0f4f8;
+      border: 1px solid #c8d6e5;
+      border-radius: 4px;
+      padding: 14px 20px;
+      margin-bottom: 28px;
+    }
+    .sommaire p {
+      margin: 0 0 6px 0;
+      font-weight: bold;
+      font-size: 11pt;
+    }
+    .sommaire ol {
+      margin: 0;
+      padding-left: 20px;
+    }
+    .sommaire li {
+      margin: 3px 0;
+    }
+    .etapes {
+      background: #f8f9fa;
+      border-left: 3px solid #1a3c5e;
+      padding: 10px 16px;
+      margin: 12px 0;
+    }
+    .attention {
+      background: #fff8e1;
+      border-left: 3px solid #f59e0b;
+      padding: 10px 16px;
+      margin: 12px 0;
+      font-size: 10.5pt;
+    }
+    .conseil {
+      background: #e8f5e9;
+      border-left: 3px solid #4caf50;
+      padding: 10px 16px;
+      margin: 12px 0;
+      font-size: 10.5pt;
+    }
+    .commande {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      font-family: Consolas, monospace;
+      font-size: 10.5pt;
+      padding: 12px 16px;
+      border-radius: 4px;
+      margin: 10px 0;
+      white-space: pre;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 10.5pt;
+    }
+    th {
+      background: #1a3c5e;
+      color: white;
+      padding: 8px 12px;
+      text-align: left;
+    }
+    td {
+      padding: 7px 12px;
+      border: 1px solid #d0d7de;
+      vertical-align: top;
+    }
+    tr:nth-child(even) td {
+      background: #f6f8fa;
+    }
+    ol, ul {
+      margin: 8px 0;
+      padding-left: 22px;
+    }
+    li {
+      margin: 4px 0;
+    }
+    code {
+      background: #eef;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-family: Consolas, monospace;
+      font-size: 10pt;
+    }
+    .url {
+      color: #1a73e8;
+      font-weight: bold;
+    }
+    .page-break {
+      page-break-before: always;
+    }
+    .workflow {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      font-family: Consolas, monospace;
+      font-size: 10.5pt;
+      padding: 16px 20px;
+      border-radius: 4px;
+      margin: 12px 0;
+      white-space: pre;
+      line-height: 1.8;
+    }
+    .footer {
+      margin-top: 40px;
+      border-top: 1px solid #ccc;
+      padding-top: 10px;
+      font-size: 9pt;
+      color: #999;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Guide de déploiement — Site AMSP</h1>
+  <p class="subtitle">À destination du développeur — procédure complète du développement à la mise en ligne</p>
+
+  <div class="sommaire">
+    <p>Sommaire</p>
+    <ol>
+      <li>Prérequis (à installer une seule fois)</li>
+      <li>Ouvrir le projet dans VSCode</li>
+      <li>Lancer le serveur de développement</li>
+      <li>Modifier le code</li>
+      <li>Déployer sur le site en ligne (GitHub Pages)</li>
+      <li>Mises à jour Supabase</li>
+      <li>Brevo (emails automatiques)</li>
+      <li>Contenu du site (Sanity CMS)</li>
+      <li>Résumé rapide — Workflow type</li>
+      <li>En cas de problème</li>
+    </ol>
+  </div>
+
+  <!-- SECTION 1 -->
+  <h2>1. Prérequis (à installer une seule fois)</h2>
+
+  <ul>
+    <li><strong>Node.js</strong> (version 18 ou supérieure) — <span class="url">https://nodejs.org</span></li>
+    <li><strong>Git</strong> — <span class="url">https://git-scm.com</span></li>
+    <li><strong>VSCode</strong> — <span class="url">https://code.visualstudio.com</span></li>
+    <li>Un compte <strong>GitHub</strong> avec accès au dépôt <code>sandrinepichla/amsp-website</code></li>
+  </ul>
+
+  <!-- SECTION 2 -->
+  <h2>2. Ouvrir le projet dans VSCode</h2>
+
+  <div class="etapes">
+    <ol>
+      <li>Ouvrir VSCode</li>
+      <li><strong>Fichier</strong> → <strong>Ouvrir le dossier</strong> → sélectionner <code>C:\Dev\AMSP\amsp-project\amsp-website</code></li>
+      <li>Ouvrir le terminal intégré : <code>Ctrl + ù</code> (ou menu <strong>Terminal</strong> → <strong>Nouveau terminal</strong>)</li>
+    </ol>
+  </div>
+
+  <!-- SECTION 3 -->
+  <h2>3. Lancer le serveur de développement (pour tester en local)</h2>
+
+  <p>Dans le terminal, taper la commande suivante et appuyer sur Entrée :</p>
+  <div class="commande">npm run dev</div>
+
+  <p>Puis ouvrir dans le navigateur : <span class="url">http://localhost:8080</span></p>
+
+  <div class="conseil">
+    💡 Le serveur se met à jour automatiquement à chaque modification de fichier — pas besoin de le relancer.<br>
+    Pour l'arrêter : appuyer sur <code>Ctrl + C</code> dans le terminal.
+  </div>
+
+  <!-- SECTION 4 -->
+  <h2>4. Modifier le code</h2>
+
+  <ul>
+    <li>Modifier les fichiers dans le dossier <code>src/</code></li>
+    <li>Le navigateur se recharge automatiquement</li>
+    <li>Vérifier le résultat sur <span class="url">http://localhost:8080</span> avant de déployer</li>
+  </ul>
+
+  <!-- SECTION 5 -->
+  <h2>5. Déployer sur le site en ligne (GitHub Pages)</h2>
+
+  <p>Le site est hébergé sur GitHub Pages à l'adresse :<br>
+  <span class="url">https://sandrinepichla.github.io/amsp-website</span></p>
+
+  <h3>Étape 1 — Enregistrer les modifications dans Git</h3>
+
+  <p>Dans le terminal VSCode, taper ces deux commandes l'une après l'autre :</p>
+  <div class="commande">git add .</div>
+  <div class="commande">git commit -m "Description de ce que vous avez modifié"</div>
+
+  <p>Exemples de messages de commit :</p>
+  <ul>
+    <li><code>"Ajout du champ code postal dans le formulaire d'inscription"</code></li>
+    <li><code>"Correction affichage mobile du header"</code></li>
+  </ul>
+
+  <h3>Étape 2 — Déployer</h3>
+
+  <div class="commande">npm run deploy</div>
+
+  <p>Cette commande :</p>
+  <ol>
+    <li>Compile le projet (<code>npm run build</code>)</li>
+    <li>Publie automatiquement le résultat sur GitHub Pages</li>
+  </ol>
+
+  <p>Attendre <strong>1 à 2 minutes</strong> puis actualiser le site pour vérifier.</p>
+
+  <h3>Étape 3 — Sauvegarder le code source sur GitHub (recommandé)</h3>
+
+  <div class="commande">git push origin main</div>
+
+  <div class="conseil">
+    💡 Cette commande sauvegarde le code source sur GitHub en plus du site déployé. En cas de problème, vous pourrez toujours récupérer une version précédente.
+  </div>
+
+  <!-- SECTION 6 -->
+  <div class="page-break"></div>
+  <h2>6. Mises à jour Supabase</h2>
+
+  <p>Supabase gère les comptes membres, les inscriptions et les profils.<br>
+  Adresse : <span class="url">https://supabase.com</span> → se connecter → projet AMSP</p>
+
+  <h3>Modifier des données (Table Editor)</h3>
+
+  <div class="etapes">
+    <ol>
+      <li>Menu gauche → <strong>Table Editor</strong></li>
+      <li>Sélectionner la table (<code>profils</code>, <code>inscriptions</code>…)</li>
+      <li>Cliquer sur une cellule pour la modifier directement</li>
+      <li>Valider avec <code>Entrée</code></li>
+    </ol>
+  </div>
+
+  <h3>Cas courants</h3>
+
+  <table>
+    <tr>
+      <th>Action</th>
+      <th>Où</th>
+    </tr>
+    <tr>
+      <td>Changer le rôle d'un membre (<code>membre</code> / <code>admin</code> / <code>admin_discipline</code> / <code>tiers</code>)</td>
+      <td>Faisable directement depuis le site → Gestion des membres (bouton Administration ou section Accès galeries → Comptes tiers)</td>
+    </tr>
+    <tr>
+      <td>Voir les inscriptions</td>
+      <td>Table <code>inscriptions</code></td>
+    </tr>
+    <tr>
+      <td>Supprimer un compte</td>
+      <td>Table <code>profils</code> → sélectionner la ligne → icône poubelle</td>
+    </tr>
+  </table>
+
+  <h3>Structure des tables</h3>
+
+  <p><strong>Table <code>profils</code></strong> — colonnes importantes :</p>
+  <table>
+    <tr><th>Colonne</th><th>Type</th><th>Rôle</th></tr>
+    <tr><td><code>role</code></td><td>text</td><td>Valeurs possibles : <code>membre</code>, <code>admin</code>, <code>admin_discipline</code>, <code>tiers</code>, <code>en_attente</code>, <code>refuse</code></td></tr>
+    <tr><td><code>disciplines</code></td><td>text</td><td>IDs Sanity des disciplines de l'adhérent. Utilisé pour filtrer la galerie privée et les droits <code>admin_discipline</code>. Non utilisé pour les comptes <code>tiers</code> (leurs accès galerie passent par <code>liens_compte_enfant</code> + <code>acces_galerie</code>).</td></tr>
+  </table>
+
+  <p><strong>Tables spécifiques aux familles / comptes tiers</strong> :</p>
+  <table>
+    <tr><th>Table</th><th>Rôle</th></tr>
+    <tr><td><code>enfants</code></td><td>Profils des mineurs inscrits (nom, prénom, date de naissance, groupe sanguin, allergie)</td></tr>
+    <tr><td><code>liens_compte_enfant</code></td><td>Lie un compte adulte (parent ou tiers) à un enfant. La colonne <code>type_acces</code> vaut <code>parent</code> ou <code>tiers_galerie</code>.</td></tr>
+    <tr><td><code>acces_galerie</code></td><td>Gère l'accès de chaque compte aux galeries par discipline. Colonne <code>actif</code> : booléen. Colonne <code>source</code> : <code>suggestion_auto</code> (généré lors de l'inscription) ou <code>manuel</code>.</td></tr>
+  </table>
+
+  <p><strong>Table <code>inscriptions</code></strong> — colonnes ajoutées :</p>
+  <table>
+    <tr><th>Colonne</th><th>Type</th><th>Rôle</th></tr>
+    <tr><td><code>type_inscription</code></td><td>text</td><td><code>adulte</code> ou <code>mineur</code></td></tr>
+    <tr><td><code>pass_sport</code></td><td>boolean</td><td>L'adhérent utilise le Pass Sport</td></tr>
+    <tr><td><code>moyen_paiement</code></td><td>text</td><td>Mode de paiement choisi</td></tr>
+    <tr><td><code>parent1_nom</code>, <code>parent1_prenom</code>, <code>parent1_email</code>, <code>parent1_tel</code></td><td>text</td><td>Coordonnées parent/tuteur 1 (mineurs)</td></tr>
+    <tr><td><code>parent2_nom</code>, <code>parent2_prenom</code>, <code>parent2_email</code>, <code>parent2_tel</code></td><td>text</td><td>Coordonnées parent/tuteur 2 (optionnel, mineurs)</td></tr>
+  </table>
+
+  <div class="attention">
+    ⚠️ Si vous reconstruisez la base de données depuis zéro, pensez à créer toutes ces colonnes. Le script SQL complet est disponible dans l'historique git.
+  </div>
+
+  <h3>Modifier la structure des tables (SQL Editor)</h3>
+
+  <div class="etapes">
+    <ol>
+      <li>Menu gauche → <strong>SQL Editor</strong></li>
+      <li>Écrire la commande SQL, par exemple :</li>
+    </ol>
+    <div class="commande">ALTER TABLE profils ADD COLUMN nouvelle_colonne text;</div>
+    <ol start="3">
+      <li>Cliquer sur <strong>Run</strong></li>
+    </ol>
+  </div>
+
+  <h3>Modifier les politiques d'accès (Row Level Security)</h3>
+
+  <div class="etapes">
+    <ol>
+      <li>Menu gauche → <strong>Authentication</strong> → <strong>Policies</strong></li>
+      <li>Sélectionner la table</li>
+      <li>Modifier ou créer une politique</li>
+    </ol>
+  </div>
+
+  <h3>Rôles disponibles dans <code>profils.role</code></h3>
+
+  <table>
+    <tr><th>Valeur</th><th>Accès sur le site</th></tr>
+    <tr><td><code>admin</code></td><td>Super-admin : voit toutes les inscriptions, tous les membres, peut exporter, gérer les rôles</td></tr>
+    <tr><td><code>admin_discipline</code></td><td>Admin limité : voit uniquement les inscriptions de sa discipline (colonne <code>disciplines</code>)</td></tr>
+    <tr><td><code>membre</code></td><td>Membre approuvé : espace membre complet — consulte ses inscriptions et accède à la galerie privée de ses disciplines</td></tr>
+    <tr><td><code>tiers</code></td><td>Accès galerie uniquement, sans espace membre complet. Pour les parents/tuteurs non-inscrits dont un enfant est membre. L'accès galerie est lié aux disciplines des enfants rattachés à leur compte via la table <code>liens_compte_enfant</code>.</td></tr>
+    <tr><td><code>en_attente</code></td><td>Compte créé mais en attente de traitement par l'admin</td></tr>
+    <tr><td><code>refuse</code></td><td>Demande refusée</td></tr>
+  </table>
+
+  <h3>Politiques RLS requises</h3>
+
+  <p>Les politiques suivantes doivent exister sur la table <code>inscriptions</code> pour que les admins puissent valider/refuser les dossiers. Si jamais les boutons Valider/Refuser semblent fonctionner mais que le statut revient en attente au refresh, c'est qu'une politique est manquante.</p>
+
+  <p>Exécuter dans le <strong>SQL Editor</strong> :</p>
+  <div class="commande">-- Permettre aux admins de modifier les inscriptions
+CREATE POLICY "Admins peuvent modifier les inscriptions"
+ON inscriptions FOR UPDATE
+USING (
+  EXISTS (
+    SELECT 1 FROM profils
+    WHERE profils.id = auth.uid()
+    AND profils.role = 'admin'
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM profils
+    WHERE profils.id = auth.uid()
+    AND profils.role = 'admin'
+  )
+);</div>
+
+  <div class="attention">
+    ⚠️ Sans cette politique, Supabase bloque silencieusement les UPDATE (aucune erreur retournée, 0 lignes modifiées). L'interface semble fonctionner mais la base de données n'est pas mise à jour.
+  </div>
+
+  <!-- SECTION 7 -->
+  <h2>7. Brevo (emails automatiques)</h2>
+
+  <p>Brevo envoie les 7 emails automatiques du site (inscriptions, validations, notifications admin) <strong>et sert de relais SMTP pour les emails d'authentification Supabase</strong> (réinitialisation de mot de passe, invitations membres).<br>
+  Adresse : <span class="url">https://www.brevo.com</span> → se connecter</p>
+
+  <h3>Emails d'authentification Supabase via Brevo SMTP</h3>
+
+  <p>Depuis juin 2026, les emails envoyés par Supabase (lien "mot de passe oublié", invitation à créer un compte lors de la validation d'une inscription) transitent par Brevo via SMTP. Cela supprime la limite de 2 emails/heure du plan gratuit Supabase.</p>
+
+  <p>Configuration enregistrée dans <strong>Supabase → Project Settings → Auth → SMTP Settings</strong> :</p>
+
+  <table>
+    <tr><th>Paramètre</th><th>Valeur</th></tr>
+    <tr><td>Host</td><td><code>smtp-relay.brevo.com</code></td></tr>
+    <tr><td>Port</td><td><code>587</code></td></tr>
+    <tr><td>Username</td><td><code>a9b934001@smtp-brevo.com</code> (login SMTP Brevo, différent de l'email de connexion Brevo)</td></tr>
+    <tr><td>Password</td><td>Clé SMTP nommée "Supabase auth réinitialisa…" — dans Brevo → SMTP et API → onglet SMTP</td></tr>
+    <tr><td>Sender name</td><td>AMSP</td></tr>
+    <tr><td>Sender email</td><td>amsp69210@gmail.com</td></tr>
+  </table>
+
+  <div class="attention">
+    ⚠️ La restriction IP Brevo pour les clés SMTP a été désactivée (Brevo → Sécurité → IPs autorisées → "Désactiver pour les clés SMTP"). Ne pas la réactiver : Supabase utilise des IPs variables.
+  </div>
+
+  <h3>Les 7 templates d'email</h3>
+
+  <table>
+    <tr><th>#</th><th>Nom</th><th>Rôle</th></tr>
+    <tr><td>1</td><td>demande d'inscription</td><td>Confirmation au membre à la soumission du formulaire d'inscription</td></tr>
+    <tr><td>2</td><td>validation inscription</td><td>Confirmation au membre quand l'admin valide son inscription aux disciplines</td></tr>
+    <tr><td>3</td><td>validation espace membre</td><td>Email au membre quand son compte espace membre est approuvé</td></tr>
+    <tr><td>4</td><td>Formulaire de contact</td><td>Notification à l'admin quand quelqu'un remplit le formulaire de contact</td></tr>
+    <tr><td>5</td><td>Demande accès espace membre</td><td>Notification à l'admin quand quelqu'un demande un accès membre</td></tr>
+    <tr><td>6</td><td>Refus inscription</td><td>Email au membre quand l'admin refuse son inscription aux disciplines</td></tr>
+    <tr><td>7</td><td>Nouvelle demande d'inscription (admin)</td><td>Notification à l'admin quand un nouveau formulaire d'inscription est soumis</td></tr>
+  </table>
+
+  <h3>Modifier un template</h3>
+
+  <div class="etapes">
+    <ol>
+      <li>Menu gauche → <strong>Email</strong> → <strong>Templates</strong></li>
+      <li>Cliquer sur le template à modifier → <strong>Modifier</strong></li>
+      <li>Modifier le contenu HTML</li>
+      <li>Cliquer sur <strong>Enregistrer et quitter</strong></li>
+    </ol>
+  </div>
+
+  <p>Les variables dans les templates utilisent la syntaxe : <code>{{ params.nom }}</code>, <code>{{ params.email }}</code>, <code>{{ params.disciplines }}</code>…</p>
+
+  <h3>Clé API et configuration</h3>
+
+  <p>La configuration Brevo est répartie en <strong>deux endroits distincts</strong> :</p>
+
+  <table>
+    <tr><th>Variable</th><th>Où la configurer</th><th>Rôle</th></tr>
+    <tr>
+      <td><code>BREVO_API_KEY</code></td>
+      <td>Supabase → <strong>Edge Functions → Secrets</strong></td>
+      <td>Clé API Brevo pour l'envoi des emails (côté serveur)</td>
+    </tr>
+    <tr>
+      <td><code>BREVO_SENDER_EMAIL</code></td>
+      <td>Supabase → <strong>Edge Functions → Secrets</strong></td>
+      <td>Adresse expéditrice des emails (ex : <code>contact@amsp.fr</code>)</td>
+    </tr>
+    <tr>
+      <td><code>VITE_BREVO_ADMIN_EMAIL</code></td>
+      <td>Fichier <code>.env</code> à la racine du projet</td>
+      <td>Email destinataire de l'admin (notifications d'inscription)</td>
+    </tr>
+    <tr>
+      <td><code>VITE_BREVO_TEMPLATE_*</code></td>
+      <td>Fichier <code>.env</code> à la racine du projet</td>
+      <td>IDs des 7 templates Brevo (1 à 7)</td>
+    </tr>
+  </table>
+
+  <div class="conseil">
+    💡 Pour modifier l'adresse expéditrice ou la clé API : Supabase Dashboard → Project → Edge Functions → Secrets → modifier <code>BREVO_SENDER_EMAIL</code> ou <code>BREVO_API_KEY</code>.<br>
+    Pour modifier l'email de réception des notifications admin : modifier <code>VITE_BREVO_ADMIN_EMAIL</code> dans le fichier <code>.env</code> puis redéployer (<code>npm run deploy</code>).
+  </div>
+
+  <div class="attention">
+    ⚠️ Le fichier <code>.env</code> n'est pas envoyé sur GitHub. Sur un nouvel ordinateur, copier <code>.env.example</code> en <code>.env</code> et remplir les valeurs. La clé API et l'email expéditeur sont à récupérer dans Supabase Secrets.
+  </div>
+
+  <!-- SECTION 8 -->
+  <h2>8. Contenu du site (Sanity CMS)</h2>
+
+  <p>Le contenu éditorial (disciplines, actualités, galerie, textes du formulaire…) est géré dans Sanity Studio.</p>
+
+  <h3>Lancer Sanity Studio en local</h3>
+
+  <div class="commande">cd C:\Dev\AMSP\amsp-project\amsp-admin
+npm run dev</div>
+
+  <p>Ouvrir dans le navigateur : <span class="url">http://localhost:3333</span></p>
+
+  <h3>Contenu modifiable</h3>
+
+  <ul>
+    <li><strong>Disciplines</strong> : textes, images, descriptions — chaque discipline a sa page détail (<code>/disciplines/:slug</code>) avec instructeurs associés et liens externes configurés dans le code (<code>LIENS_UTILES</code> dans <code>DisciplineDetail.tsx</code>)</li>
+    <li><strong>Actualités</strong> : articles, photos</li>
+    <li><strong>Galerie</strong> : albums photos (privés ou publics) — les albums privés peuvent être associés à une discipline : seuls les membres de cette discipline les voient</li>
+    <li><strong>Inscription</strong> : textes du formulaire (règlement intérieur, infos paiement, autorisation parentale…)</li>
+    <li><strong>Instructeurs</strong> : fiches des instructeurs, avec champ <code>liens</code> pour leurs réseaux sociaux / sites externes</li>
+    <li><strong>Paramètres</strong> : informations de contact, horaires</li>
+  </ul>
+
+  <div class="conseil">
+    💡 Les modifications Sanity sont publiées immédiatement sur le site — pas besoin de redéployer.
+  </div>
+
+  <h3>Sauvegarder le contenu Sanity avant toute modification importante</h3>
+
+  <p>Avant de modifier la saison ou tout autre paramètre critique, exporter l'intégralité du contenu Sanity :</p>
+
+  <div class="etapes">
+    <ol>
+      <li>Créer un dossier de sauvegarde si besoin : <code>C:\Dev\AMSP\sauvegarde\</code></li>
+      <li>Ouvrir un terminal dans ce dossier et exécuter :</li>
+    </ol>
+    <div class="commande">npx sanity@latest dataset export production backup-sanity.tar.gz --project-id t7u49x1d</div>
+    <ol start="3">
+      <li>Se connecter avec le compte Sanity si demandé</li>
+      <li>Le fichier <code>backup-sanity.tar.gz</code> est créé — le conserver précieusement</li>
+    </ol>
+  </div>
+
+  <div class="attention">
+    ⚠️ La CLI Sanity nécessite Node.js 22 ou supérieur pour la version 6. Si votre version est plus ancienne, utilisez à la place l'URL d'export directe dans votre navigateur (connecté à sanity.io) :<br><br>
+    <code>https://t7u49x1d.api.sanity.io/v2021-06-07/data/export/production</code><br><br>
+    Puis <strong>Ctrl+S</strong> pour sauvegarder le fichier téléchargé.
+  </div>
+
+  <h3>Restaurer un backup Sanity</h3>
+
+  <p>En cas de problème, restaurer le contenu depuis le fichier de sauvegarde :</p>
+  <div class="commande">npx sanity@latest dataset import backup-sanity.tar.gz --dataset production --project-id t7u49x1d</div>
+
+  <div class="attention">
+    ⚠️ La restauration écrase le contenu actuel du dataset. À n'utiliser qu'en dernier recours.
+  </div>
+
+  <h3>Changer de saison</h3>
+
+  <p>Pour passer à une nouvelle saison (ex. : de 2025-2026 à 2026-2027) :</p>
+
+  <div class="etapes">
+    <ol>
+      <li><strong>Sauvegarder</strong> le dataset Sanity (voir ci-dessus) avant toute manipulation</li>
+      <li>Ouvrir Sanity Studio → <strong>Inscription</strong></li>
+      <li>Modifier le champ <strong>Saison</strong> avec la nouvelle valeur (ex. : <code>2026-2027</code>)</li>
+      <li>Publier le document</li>
+    </ol>
+  </div>
+
+  <div class="conseil">
+    💡 Le champ Saison est une simple chaîne de texte. Toutes les nouvelles inscriptions reçues après ce changement auront automatiquement la nouvelle saison. Les anciennes inscriptions (saison précédente) restent intactes dans Supabase et restent accessibles en changeant le filtre Saison dans la page Gestion des membres.<br><br>
+    Si vous revenez à une ancienne valeur de saison (ex. : pour corriger une erreur), les nouvelles inscriptions créées fusionneront naturellement avec celles déjà existantes pour cette saison — il n'y a pas de duplication.
+  </div>
+
+  <!-- SECTION 9 -->
+  <div class="page-break"></div>
+  <h2>9. Résumé rapide — Workflow type</h2>
+
+  <div class="workflow">1. Ouvrir VSCode + terminal
+2. npm run dev             ← tester en local sur localhost:8080
+3. Modifier les fichiers dans src/
+4. Vérifier dans le navigateur
+5. git add .
+6. git commit -m "description de la modification"
+7. npm run deploy          ← publier sur le site en ligne
+8. git push origin main    ← sauvegarder le code source</div>
+
+  <!-- SECTION 10 -->
+  <h2>10. En cas de problème</h2>
+
+  <table>
+    <tr>
+      <th>Problème</th>
+      <th>Solution</th>
+    </tr>
+    <tr>
+      <td><code>npm run dev</code> ne démarre pas</td>
+      <td>Vérifier que Node.js est installé : taper <code>node -v</code> dans le terminal. Si erreur, réinstaller Node.js.</td>
+    </tr>
+    <tr>
+      <td><code>npm run deploy</code> échoue</td>
+      <td>Vérifier la connexion internet et les droits GitHub (être bien connecté dans VSCode).</td>
+    </tr>
+    <tr>
+      <td>Le site ne se met pas à jour</td>
+      <td>Vider le cache navigateur : <code>Ctrl + Maj + R</code>, attendre 2 min. Si toujours pas à jour : <code>Ctrl + Maj + Suppr</code> → effacer le cache.</td>
+    </tr>
+    <tr>
+      <td>Erreur "permission denied" sur Git</td>
+      <td>Vérifier que vous êtes bien connectée à GitHub dans VSCode (icône de compte en bas à gauche).</td>
+    </tr>
+    <tr>
+      <td>Les emails automatiques du site n'arrivent pas (inscription, validation…)</td>
+      <td>Vérifier sur brevo.com → <strong>Transactionnel</strong> → <strong>Logs</strong>. Vérifier que <code>BREVO_API_KEY</code> et <code>BREVO_SENDER_EMAIL</code> sont bien renseignés dans Supabase → Edge Functions → Secrets. Vérifier que <code>VITE_BREVO_ADMIN_EMAIL</code> dans <code>.env</code> est l'adresse correcte.</td>
+    </tr>
+    <tr>
+      <td>L'email "mot de passe oublié" ou l'invitation membre n'arrive pas</td>
+      <td>Ces emails transitent par Brevo SMTP (section 7). Vérifier dans Supabase → <strong>Authentication → Logs</strong>. Si erreur 500 : vérifier les identifiants SMTP dans Supabase → Project Settings → Auth → SMTP Settings (username = <code>a9b934001@smtp-brevo.com</code>, pas l'email de connexion Brevo). Si erreur 200 mais email absent : vérifier que la restriction IP Brevo est bien désactivée pour les clés SMTP (Brevo → Sécurité → IPs autorisées).</td>
+    </tr>
+    <tr>
+      <td>Le fichier <code>.env</code> est manquant</td>
+      <td>Copier <code>.env.example</code> en <code>.env</code> et remplir <code>VITE_BREVO_ADMIN_EMAIL</code> et les IDs de templates. La clé API Brevo est dans Supabase Secrets, pas dans <code>.env</code>.</td>
+    </tr>
+    <tr>
+      <td>Les boutons Valider/Refuser semblent fonctionner mais le statut revient en attente</td>
+      <td>Politique RLS manquante sur la table <code>inscriptions</code>. Exécuter le script SQL de la section 6 (Politiques RLS requises) dans le SQL Editor de Supabase.</td>
+    </tr>
+  </table>
+
+  <div class="footer">
+    Guide de déploiement — Site AMSP &nbsp;|&nbsp; Document confidentiel &nbsp;|&nbsp; À conserver précieusement
+  </div>
+
+</body>
+</html>
