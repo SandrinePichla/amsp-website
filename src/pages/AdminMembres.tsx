@@ -216,7 +216,7 @@ const AdminMembres = () => {
   const [confirmRefuser, setConfirmRefuser] = useState<Inscription | null>(null);
   const [confirmValider, setConfirmValider] = useState<Inscription | null>(null);
   const [disciplinesSanity, setDisciplinesSanity] = useState<{ _id: string; nom: string; nomCourt?: string }[]>([]);
-  const [accesGalerieData, setAccesGalerieData] = useState<{ id: string; compte_id: string; discipline_sanity_id: string; actif: boolean; source: string }[]>([]);
+  const [accesGalerieData, setAccesGalerieData] = useState<{ id: string; compte_id: string; discipline_sanity_id: string; actif: boolean; source: string; saison: string }[]>([]);
   const [enfantsData, setEnfantsData] = useState<{ id: string; nom: string; prenom: string; date_naissance: string | null; groupe_sanguin: string | null; allergie: string | null }[]>([]);
   const [liensData, setLiensData] = useState<{ id: string; compte_id: string; enfant_id: string; type_acces: string; enfant?: { id: string; nom: string; prenom: string; date_naissance: string | null } }[]>([]);
   const [connexionsLog, setConnexionsLog] = useState<ConnexionLog[]>([]);
@@ -314,7 +314,7 @@ const AdminMembres = () => {
     const [{ data: profilsData }, { data: inscData }, { data: accesData }, { data: enfantsRes }, { data: liensRes }, { data: logsRes }] = await Promise.all([
       supabase.from("profils").select("id, email, prenom, nom, adresse, telephone, role, disciplines, created_at").order("created_at", { ascending: false }),
       supabase.from("inscriptions").select("*").order("created_at", { ascending: false }),
-      supabase.from("acces_galerie").select("id, compte_id, discipline_sanity_id, actif, source"),
+      supabase.from("acces_galerie").select("id, compte_id, discipline_sanity_id, actif, source, saison"),
       supabase.from("enfants").select("id, nom, prenom, date_naissance, groupe_sanguin, allergie"),
       supabase.from("liens_compte_enfant").select("id, compte_id, enfant_id, type_acces, enfant:enfants(id, nom, prenom, date_naissance)"),
       supabase.from("connexions_log").select("id, user_id, email, prenom, created_at").order("created_at", { ascending: false }).limit(1000),
@@ -461,6 +461,25 @@ const AdminMembres = () => {
       return;
     }
 
+    // Vérification doublon (uniquement pour les nouvelles inscriptions)
+    if (!editingInscId) {
+      try {
+        const { data: isDoublon, error: doublonError } = await supabase.rpc("check_inscription_doublon", {
+          p_nom:            papierForm.nom.trim(),
+          p_prenom:         papierForm.prenom.trim(),
+          p_saison:         papierForm.saison.trim(),
+          p_user_id:        null,
+          p_date_naissance: papierForm.dateNaissance || null,
+        });
+        if (!doublonError && isDoublon) {
+          toast.error(`${papierForm.prenom} ${papierForm.nom} est déjà inscrit(e) pour la saison ${papierForm.saison}.`);
+          return;
+        }
+      } catch {
+        // Erreur réseau : on laisse passer
+      }
+    }
+
     setSavingPapier(true);
     const urgenceNomComplet = [papierForm.urgencePrenom, papierForm.urgenceNom].filter(Boolean).join(" ");
     const urgenceContact = [urgenceNomComplet, papierForm.urgenceTel].filter(Boolean).join(" — ");
@@ -541,10 +560,12 @@ const AdminMembres = () => {
 
 
   const handleToggleProfilDiscipline = async (profilId: string, disc: string, _currentDiscs: string | null, checked: boolean) => {
-    const existing = accesGalerieData.find(a => a.compte_id === profilId && a.discipline_sanity_id === disc);
+    const profilRole = membres.find(m => m.id === profilId)?.role ?? "";
+    const isAdmin = profilRole === "admin" || profilRole === "admin_discipline";
+    const saison = isAdmin ? "" : (saisonCourante || "");
+    const existing = accesGalerieData.find(a => a.compte_id === profilId && a.discipline_sanity_id === disc && a.saison === saison);
     if (checked) {
       if (existing) {
-        // Mise à jour optimiste
         setAccesGalerieData(prev => prev.map(a => a.id === existing.id ? { ...a, actif: true, source: "admin_manuel" } : a));
         const { error } = await supabase.from("acces_galerie").update({ actif: true, source: "admin_manuel" }).eq("id", existing.id);
         if (error) {
@@ -553,8 +574,8 @@ const AdminMembres = () => {
         }
       } else {
         const tempId = `tmp-${profilId}-${disc}`;
-        setAccesGalerieData(prev => [...prev, { id: tempId, compte_id: profilId, discipline_sanity_id: disc, actif: true, source: "admin_manuel" }]);
-        const { data, error } = await supabase.from("acces_galerie").insert({ compte_id: profilId, discipline_sanity_id: disc, actif: true, source: "admin_manuel" }).select().single();
+        setAccesGalerieData(prev => [...prev, { id: tempId, compte_id: profilId, discipline_sanity_id: disc, actif: true, source: "admin_manuel", saison }]);
+        const { data, error } = await supabase.from("acces_galerie").insert({ compte_id: profilId, discipline_sanity_id: disc, actif: true, source: "admin_manuel", saison }).select().single();
         if (error) {
           setAccesGalerieData(prev => prev.filter(a => a.id !== tempId));
           toast.error("Erreur activation galerie : " + error.message);
@@ -594,7 +615,7 @@ const AdminMembres = () => {
     if (inscDisciplines) {
       const discIds = inscDisciplines.split(",").map(s => s.trim()).filter(Boolean);
       for (const discId of discIds) {
-        const { data } = await supabase.from("acces_galerie").upsert({ compte_id: profilId, discipline_sanity_id: discId, actif: false, source: "suggestion_auto" }, { onConflict: "compte_id,discipline_sanity_id", ignoreDuplicates: true }).select().single();
+        const { data } = await supabase.from("acces_galerie").upsert({ compte_id: profilId, discipline_sanity_id: discId, actif: false, source: "suggestion_auto", saison: saisonCourante || "" }, { onConflict: "compte_id,discipline_sanity_id,saison", ignoreDuplicates: true }).select().single();
         if (data) setAccesGalerieData(prev => prev.some(a => a.id === data.id) ? prev : [...prev, data]);
       }
     }
@@ -619,7 +640,7 @@ const AdminMembres = () => {
         linkedInsc.flatMap(i => (i.disciplines || "").split(",").map(s => s.trim()).filter(Boolean))
       )];
       for (const discId of allDiscIds) {
-        const { data } = await supabase.from("acces_galerie").upsert({ compte_id: id, discipline_sanity_id: discId, actif: false, source: "suggestion_auto" }, { onConflict: "compte_id,discipline_sanity_id", ignoreDuplicates: true }).select().single();
+        const { data } = await supabase.from("acces_galerie").upsert({ compte_id: id, discipline_sanity_id: discId, actif: false, source: "suggestion_auto", saison: saisonCourante || "" }, { onConflict: "compte_id,discipline_sanity_id,saison", ignoreDuplicates: true }).select().single();
         if (data) setAccesGalerieData(prev => prev.some(a => a.id === data.id) ? prev : [...prev, data]);
       }
       const m = membres.find((m) => m.id === id);
@@ -859,8 +880,8 @@ const AdminMembres = () => {
       const discIds = insc.disciplines.split(",").map(s => s.trim()).filter(Boolean);
       for (const discId of discIds) {
         const { data, error: upsertErr } = await supabase.from("acces_galerie").upsert(
-          { compte_id: matchedProfil.id, discipline_sanity_id: discId, actif: true, source: "suggestion_auto", inscription_id: id },
-          { onConflict: "compte_id,discipline_sanity_id", ignoreDuplicates: false }
+          { compte_id: matchedProfil.id, discipline_sanity_id: discId, actif: true, source: "suggestion_auto", inscription_id: id, saison: insc?.saison || saisonCourante || "" },
+          { onConflict: "compte_id,discipline_sanity_id,saison", ignoreDuplicates: false }
         ).select().single();
         if (upsertErr) {
           toast.warning("Inscription validée mais erreur galerie : " + upsertErr.message);
@@ -2082,7 +2103,8 @@ const AdminMembres = () => {
                 membres={membres}
                 accesGalerie={accesGalerieData}
                 disciplinesSanity={disciplinesSanity}
-                inscriptions={inscriptions}
+                inscriptions={inscriptions.filter(i => !saisonFilter || i.saison === saisonFilter)}
+                saisonFilter={saisonFilter || saisonCourante || ""}
                 onToggle={handleToggleProfilDiscipline}
               />
             )}
@@ -3310,7 +3332,16 @@ const AdminMembres = () => {
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1.5">
                         <Label htmlFor="p-saison">Saison</Label>
-                        <Input id="p-saison" placeholder="2025-2026" value={papierForm.saison} onChange={e => setPapierForm(f => ({ ...f, saison: e.target.value }))} />
+                        <select
+                          id="p-saison"
+                          value={papierForm.saison}
+                          onChange={e => setPapierForm(f => ({ ...f, saison: e.target.value }))}
+                          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                        >
+                          {saisonsDisponibles.map(s => (
+                            <option key={s} value={s}>{s}{s === saisonCourante ? " (en cours)" : ""}</option>
+                          ))}
+                        </select>
                       </div>
                       <div className="space-y-1.5">
                         <Label htmlFor="p-niveau">Niveau</Label>
@@ -3716,12 +3747,13 @@ const SectionFamilles = ({
 // Section : Accès galeries
 // ================================================================
 const SectionAccesGaleries = ({
-  membres, accesGalerie, disciplinesSanity, inscriptions, onToggle,
+  membres, accesGalerie, disciplinesSanity, inscriptions, saisonFilter, onToggle,
 }: {
   membres: Membre[];
-  accesGalerie: { id: string; compte_id: string; discipline_sanity_id: string; actif: boolean; source: string }[];
+  accesGalerie: { id: string; compte_id: string; discipline_sanity_id: string; actif: boolean; source: string; saison: string }[];
   disciplinesSanity: { _id: string; nom: string; nomCourt?: string }[];
   inscriptions: Inscription[];
+  saisonFilter: string;
   onToggle: (profilId: string, disc: string, current: string | null, checked: boolean) => void;
 }) => {
   const [search, setSearch] = useState("");
@@ -3730,14 +3762,21 @@ const SectionAccesGaleries = ({
   } | null>(null);
 
   const discs = disciplinesSanity.filter(d => !d.nom.toLowerCase().includes("stage"));
+  const membresAvecInscSaison = new Set(
+    inscriptions.filter(i => i.statut === "validee").map(i => i.user_id).filter(Boolean)
+  );
   const actifs = membres
-    .filter(m => ["membre", "tiers", "admin", "admin_discipline"].includes(m.role))
+    .filter(m => {
+      if (["admin", "admin_discipline"].includes(m.role)) return true;
+      if (!["membre", "tiers"].includes(m.role)) return false;
+      return membresAvecInscSaison.has(m.id);
+    })
     .sort((a, b) => `${a.nom}${a.prenom}`.localeCompare(`${b.nom}${b.prenom}`, "fr"));
   const filtered = search
     ? actifs.filter(m => `${m.nom} ${m.prenom} ${m.email}`.toLowerCase().includes(search.toLowerCase()))
     : actifs;
 
-  const pendingCount = accesGalerie.filter(a => !a.actif && a.source === "suggestion_auto").length;
+  const pendingCount = accesGalerie.filter(a => !a.actif && a.source === "suggestion_auto" && a.saison === saisonFilter).length;
 
   const resolveDiscs = (disciplines: string | null) =>
     (disciplines || "").split(",").map(s => s.trim()).filter(Boolean)
@@ -3786,7 +3825,8 @@ const SectionAccesGaleries = ({
                         )}
                       </td>
                       {discs.map(d => {
-                        const acces = accesGalerie.find(a => a.compte_id === m.id && a.discipline_sanity_id === d._id);
+                        const isAdminRole = m.role === "admin" || m.role === "admin_discipline";
+                        const acces = accesGalerie.find(a => a.compte_id === m.id && a.discipline_sanity_id === d._id && a.saison === (isAdminRole ? "" : saisonFilter));
                         const isSuggestion = acces && !acces.actif && acces.source === "suggestion_auto";
                         const isChecked = acces?.actif === true;
                         return (

@@ -366,7 +366,8 @@ const Inscription = () => {
             discipline_sanity_id: discId,
             actif: false,
             source: "suggestion_auto",
-          }, { onConflict: "compte_id,discipline_sanity_id", ignoreDuplicates: true });
+            saison: saison,
+          }, { onConflict: "compte_id,discipline_sanity_id,saison", ignoreDuplicates: true });
         }
       }
 
@@ -475,8 +476,11 @@ const Inscription = () => {
             <h1 className="mb-4 text-center font-serif text-4xl font-black md:text-5xl">
               <span className="text-primary">Inscription</span> en ligne
             </h1>
-            <p className="mx-auto mb-10 max-w-xl text-center text-muted-foreground">
+            <p className="mx-auto mb-4 max-w-xl text-center text-muted-foreground">
               Remplissez le formulaire ci-dessous pour vous inscrire à l'A.M.S.P.
+            </p>
+            <p className="mb-10 text-center text-sm font-semibold text-primary">
+              {saison}
             </p>
 
             {/* Écran de confirmation après envoi */}
