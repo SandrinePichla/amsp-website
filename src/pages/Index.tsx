@@ -66,7 +66,7 @@ const Index = () => {
         <meta name="description" content="Club d'arts martiaux à Saint-Pierre-la-Palud (69210) — Karaté Shotokan, Viet Vo Dao, Tai Chi Chuan, Aïkido, Wutao, Qi Gong, Épée. Cours pour adultes et enfants, débutants bienvenus." />
       </Helmet>
       {/* Hero */}
-      <section className="relative flex h-[200px] items-center justify-center overflow-hidden">
+      <section className="relative flex h-[160px] sm:h-[200px] items-center justify-center overflow-hidden">
         <img
           src={heroImage}
           alt="Arts martiaux AMSP"
@@ -204,7 +204,7 @@ const Index = () => {
         );
 
         return (
-          <section className="pt-10 pb-2 bg-secondary/10">
+          <section className="pt-4 sm:pt-10 pb-2 bg-secondary/10">
             <div className="container mx-auto px-4">
               <div className="mb-12 text-center">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary/60">Agenda</p>
