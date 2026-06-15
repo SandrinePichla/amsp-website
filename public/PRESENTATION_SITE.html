@@ -298,7 +298,7 @@
     </tr>
     <tr>
       <td><strong>Galerie</strong></td>
-      <td>Albums photos publics (visibles par tous) et albums privés filtrés par discipline (visibles uniquement par les membres de la discipline concernée)</td>
+      <td>Albums photos et vidéos publics (visibles par tous) et albums privés filtrés par discipline (visibles uniquement par les membres concernés). Chaque album peut contenir des photos, des vidéos uploadées et/ou des liens YouTube.</td>
       <td>Oui — via Sanity</td>
     </tr>
     <tr>
@@ -412,7 +412,7 @@
     🖥️ <strong>À montrer en live</strong> — démontrer la connexion et la galerie privée.
   </div>
 
-  <p>L'espace membre permet aux adhérents de <strong>consulter leurs inscriptions</strong> et d'accéder à la <strong>galerie photos privée</strong> du club.</p>
+  <p>L'espace membre permet aux adhérents de <strong>consulter leurs inscriptions</strong> et d'accéder à la <strong>galerie photos et vidéos privée</strong> du club.</p>
 
   <h3>Création du compte — automatique à la validation</h3>
   <div class="schema">
@@ -421,7 +421,7 @@
     <strong>3. L'adhérent se connecte</strong> — il clique sur le lien dans l'email, choisit son mot de passe, et accède à son espace membre.<br><br>
     <strong>4. Dans son espace membre</strong>, l'adhérent peut :<br>
     &nbsp;&nbsp;&nbsp;&nbsp;• Consulter ses inscriptions (toutes saisons, avec statut et détails)<br>
-    &nbsp;&nbsp;&nbsp;&nbsp;• Accéder à la galerie photos privée de ses disciplines
+    &nbsp;&nbsp;&nbsp;&nbsp;• Accéder à la galerie photos et vidéos privée de ses disciplines
   </div>
 
   <div class="conseil">
@@ -433,6 +433,7 @@
   <p>L'admin crée ce compte depuis la section <strong>"Accès galeries" → "Comptes tiers"</strong> et lie l'enfant concerné depuis la section <strong>"Familles"</strong>.</p>
 
   <h3>Galerie privée vs publique</h3>
+  <p>Un album peut contenir des <strong>photos</strong>, des <strong>vidéos uploadées</strong> et/ou des <strong>liens YouTube</strong>. La règle de confidentialité (public ou privé) s'applique à tout le contenu de l'album.</p>
   <table>
     <tr>
       <th>Type d'album</th>
@@ -472,7 +473,28 @@
 
   <h3>Ce que contient la page "Gestion des membres"</h3>
 
-  <p>La page est organisée en <strong>5 onglets</strong> :</p>
+  <p>La page est organisée en <strong>3 sections principales</strong> (boutons en haut) puis en <strong>5 onglets</strong> dans la section Inscriptions :</p>
+
+  <table>
+    <tr>
+      <th>Bouton de navigation</th>
+      <th>Ce qu'on y trouve</th>
+    </tr>
+    <tr>
+      <td><strong>Inscriptions</strong></td>
+      <td>Tous les dossiers d'inscription, par état d'avancement (voir onglets ci-dessous)</td>
+    </tr>
+    <tr>
+      <td><strong>Administration</strong></td>
+      <td>Gérer les rôles : promouvoir ou retirer les droits admin et admin de discipline</td>
+    </tr>
+    <tr>
+      <td><strong>Accès galeries</strong></td>
+      <td>Gérer qui peut voir les albums photos et vidéos privés, par membre et par discipline</td>
+    </tr>
+  </table>
+
+  <p>Dans la section <strong>Inscriptions</strong>, 5 onglets permettent de naviguer selon l'état des dossiers :</p>
   <table>
     <tr>
       <th>Onglet</th>
@@ -682,7 +704,12 @@
     </tr>
     <tr>
       <td>Je veux ajouter des photos</td>
-      <td>Sanity → Galerie → Ouvrir l'album → Add item → Publish</td>
+      <td>Sanity → Galerie → Ouvrir l'album → champ "Photos" → Add item → Publish</td>
+      <td>Sanity</td>
+    </tr>
+    <tr>
+      <td>Je veux ajouter une vidéo ou un lien YouTube</td>
+      <td>Sanity → Galerie → Ouvrir l'album → champ "Vidéos" → Add item → choisir le type → Publish</td>
       <td>Sanity</td>
     </tr>
     <tr>
@@ -736,7 +763,7 @@
     </tr>
     <tr>
       <td><strong>Galerie</strong></td>
-      <td>Créer des albums, y ajouter des photos, les rendre publics ou privés</td>
+      <td>Créer des albums, y ajouter des photos, des vidéos uploadées ou des liens YouTube, les rendre publics ou privés</td>
       <td>Page Galerie</td>
     </tr>
     <tr>

@@ -207,9 +207,11 @@
       <td><strong>Administration</strong></td>
       <td>La gestion des rôles : qui est admin, qui est admin de discipline, comment promouvoir ou retirer les droits.</td>
     </tr>
+    <tr>
+      <td><strong>Accès galeries</strong></td>
+      <td>Gérer qui peut voir les albums photos et vidéos privés — par membre et par discipline (voir section 8).</td>
+    </tr>
   </table>
-
-  <p>Un troisième lien discret, <strong>"Accès galeries"</strong>, permet de gérer qui a accès aux albums photos privés (voir section 8).</p>
 
   <p>En haut de la page, un compteur de badges indique les actions en attente :</p>
   <ul>
@@ -439,9 +441,9 @@
   <div class="page-break"></div>
   <h2>8. L'accès aux galeries privées</h2>
 
-  <p>Certains albums photos de la galerie peuvent être configurés comme <strong>privés</strong> dans Sanity. Seuls les membres ayant l'accès peuvent les voir.</p>
+  <p>Certains albums de la galerie (photos et/ou vidéos) peuvent être configurés comme <strong>privés</strong> dans Sanity. Seuls les membres ayant l'accès peuvent les voir.</p>
 
-  <p>Pour gérer ces accès, cliquer sur le lien discret <strong>"Accès galeries"</strong> (en haut à droite de la navigation dans Gestion des membres).</p>
+  <p>Pour gérer ces accès, cliquer sur le bouton <strong>"Accès galeries"</strong> dans la barre de navigation de la page Gestion des membres (à côté de "Inscriptions" et "Administration").</p>
 
   <p>Vous y trouvez la liste des membres inscrits. Pour chaque membre, vous pouvez activer ou désactiver l'accès aux albums de chaque discipline.</p>
 
@@ -535,7 +537,7 @@
     </tr>
     <tr>
       <td><strong>Galerie</strong></td>
-      <td>Créer des albums photos, y ajouter des images, les rendre privés (membres seulement) ou publics</td>
+      <td>Créer des albums, y ajouter des photos et/ou des vidéos (fichier uploadé ou lien YouTube), les rendre privés (membres seulement) ou publics</td>
     </tr>
     <tr>
       <td><strong>Inscription</strong></td>
@@ -596,6 +598,40 @@
 
   <div class="conseil">
     💡 Un album marqué <strong>"Privé"</strong> dans Sanity n'est visible que par les membres connectés à qui vous avez accordé l'accès à cette galerie (voir section 8).
+  </div>
+
+  <h3>Exemple : ajouter des vidéos dans la galerie</h3>
+  <p>Chaque album peut contenir des photos <em>et</em> des vidéos. Deux types sont disponibles :</p>
+  <table>
+    <tr>
+      <th>Type</th>
+      <th>Quand l'utiliser</th>
+      <th>Ce qu'il faut renseigner</th>
+    </tr>
+    <tr>
+      <td><strong>Vidéo uploadée</strong></td>
+      <td>Pour une vidéo stockée sur votre ordinateur (MP4, MOV…)</td>
+      <td>Champ <strong>"Fichier vidéo"</strong> + légende optionnelle</td>
+    </tr>
+    <tr>
+      <td><strong>Lien YouTube</strong></td>
+      <td>Pour une vidéo déjà publiée sur YouTube</td>
+      <td>Champ <strong>"URL YouTube"</strong> (ex : https://www.youtube.com/watch?v=abc123) + légende optionnelle</td>
+    </tr>
+  </table>
+  <div class="etapes">
+    <ol>
+      <li>Cliquer sur <strong>"Galerie"</strong> dans le menu gauche</li>
+      <li>Ouvrir l'album existant (ou créer un nouvel album avec <strong>"+"</strong>)</li>
+      <li>Dans le champ <strong>"Vidéos"</strong>, cliquer sur <strong>"Add item"</strong></li>
+      <li>Choisir le type : <strong>"Vidéo uploadée"</strong> ou <strong>"Lien YouTube"</strong></li>
+      <li>Renseigner le fichier ou l'URL selon le type choisi, ajouter une légende si besoin</li>
+      <li>Pour un album réservé aux membres : activer le champ <strong>"Privé"</strong></li>
+      <li>Activer le champ <strong>"Publié"</strong> puis cliquer sur <strong>"Publish"</strong></li>
+    </ol>
+  </div>
+  <div class="conseil">
+    💡 Les vidéos et les photos peuvent coexister dans le même album — les photos s'affichent en haut, les vidéos en dessous. Sur le site, les vidéos YouTube sont jouées directement dans la page (sans cookies de tracking).
   </div>
 
   <h3>Vérifier que la modification est bien en ligne</h3>
@@ -742,7 +778,17 @@
     </tr>
     <tr>
       <td>Ajouter des photos dans la galerie</td>
-      <td>Sanity Studio → Galerie</td>
+      <td>Sanity Studio → Galerie → champ "Photos" → Add item</td>
+      <td>Aucune</td>
+    </tr>
+    <tr>
+      <td>Ajouter une vidéo (uploadée) dans la galerie</td>
+      <td>Sanity Studio → Galerie → champ "Vidéos" → Add item → "Vidéo uploadée"</td>
+      <td>Aucune</td>
+    </tr>
+    <tr>
+      <td>Ajouter un lien YouTube dans la galerie</td>
+      <td>Sanity Studio → Galerie → champ "Vidéos" → Add item → "Lien YouTube"</td>
       <td>Aucune</td>
     </tr>
     <tr>
