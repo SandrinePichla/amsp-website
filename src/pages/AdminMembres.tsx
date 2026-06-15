@@ -1797,7 +1797,7 @@ const AdminMembres = () => {
                               const discs = resolveDiscNoms(insc.disciplines);
                               return (
                                 <tr key={insc.id} className={`hover:bg-primary/[0.03] cursor-pointer ${idx % 2 === 0 ? "" : "bg-secondary/20"}`}
-                                  onClick={() => { setModalTab("adhesions"); setSelectedKey(insc.user_id ? `p-${insc.user_id}` : `i-${insc.id}`); }}>
+                                  onClick={() => { setModalTab("adhesions"); setSelectedKey(`i-${insc.id}`); }}>
                                   <td className="py-3 pr-4">
                                     <p className="font-semibold text-sm leading-tight">{[insc.nom, insc.prenom].filter(Boolean).join(" ") || <span className="italic text-muted-foreground font-normal text-xs">Sans nom</span>}</p>
                                     {insc.email && <p className="text-[11px] text-muted-foreground truncate max-w-[160px]">{insc.email}</p>}

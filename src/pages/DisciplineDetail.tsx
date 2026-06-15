@@ -134,74 +134,109 @@ const DisciplineDetail = () => {
         <meta name="description" content={`Cours de ${discipline.nom} à Saint-Pierre-la-Palud (69210). ${(discipline.description || "").slice(0, 130).replace(/\n/g, " ")}…`} />
       </Helmet>
 
-      {/* Hero bandeau */}
-      <section className="relative overflow-hidden">
+      {/*
+        ╔══════════════════════════════════════════════════════════════════╗
+        ║  BANDEAU DISCIPLINE — PARAMÈTRES                                ║
+        ╠══════════════════════════════════════════════════════════════════╣
+        ║  VERSION ACTUELLE (noir & blanc, image en fond de page) :       ║
+        ║    Image   → h-1/2  (= 50% de la page)  |  grayscale           ║
+        ║             opacity-[0.15]  |  object-cover                     ║
+        ║    Gradient → from-transparent from-10% via-background/70       ║
+        ║               via-40% to-background to-55%                      ║
+        ║                                                                  ║
+        ║  VERSION D'ORIGINE (bandeau coloré, image recadrée) :           ║
+        ║    Remplacer le <div className="relative overflow-hidden">       ║
+        ║    et le <img ...> par :                                         ║
+        ║                                                                  ║
+        ║    <section className="relative overflow-hidden">               ║
+        ║      {discipline.image ? (                                       ║
+        ║        <img                                                      ║
+        ║          src={urlFor(discipline.image)                           ║
+        ║                .width(1200).height(320).fit("crop").url()}       ║
+        ║          alt={discipline.nom}                                    ║
+        ║          className="h-48 w-full object-cover md:h-64"           ║
+        ║        />                                                        ║
+        ║      ) : ( <div className="h-48 w-full md:h-64"                 ║
+        ║        style={{background:`linear-gradient(...)`}} /> )}         ║
+        ║      <div className="absolute inset-0                           ║
+        ║        bg-gradient-to-t from-background                         ║
+        ║        via-background/60 to-transparent" />                     ║
+        ║    </section>                                                    ║
+        ║    (+ refermer en </section> au lieu de </div>)                 ║
+        ╚══════════════════════════════════════════════════════════════════╝
+      */}
+      {/* Zone image : couvre toute la page, gradient efface l'image vers le bas */}
+      <div className="relative overflow-hidden">
+        {/* Image en fond sur toute la zone */}
         {discipline.image ? (
           <img
-            src={urlFor(discipline.image).width(1200).height(320).fit("crop").url()}
-            alt={discipline.nom}
-            className="h-48 w-full object-cover md:h-64"
+            src={urlFor(discipline.image).width(1200).url()}
+            alt=""
+            aria-hidden="true"
+            className="absolute top-0 left-0 right-0 w-full h-1/2 object-cover opacity-[0.15] grayscale"
           />
         ) : (
-          <div
-            className="h-48 w-full md:h-64"
-            style={{ background: `linear-gradient(135deg, ${color.bg}30, ${color.bg}10)` }}
-          />
+          <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${color.bg}30, ${color.bg}10)` }} />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
 
-        {/* Breadcrumb */}
-        <div className="absolute left-4 top-4 z-10">
-          <Link
-            to="/disciplines"
-            className="inline-flex items-center gap-1.5 rounded-full bg-background/70 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur-sm transition-colors hover:bg-background"
-          >
-            <ChevronLeft size={13} />
-            Toutes les disciplines
-          </Link>
-        </div>
+        {/* Gradient : image visible en haut, disparaît vers 40% */}
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent from-10% via-background/70 via-40% to-background to-55%" />
 
-        {/* Titre */}
-        <div className="absolute bottom-0 left-0 right-0 px-4 pb-6">
-          <div className="container mx-auto flex items-end gap-4">
-            <div
-              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl shadow-lg"
-              style={{ backgroundColor: `${color.bg}20`, border: `2px solid ${color.bg}40` }}
+        {/* Hero — titre en bas comme à l'origine */}
+        <section className="relative h-48 md:h-64">
+          {/* Breadcrumb */}
+          <div className="absolute left-4 top-4 z-10">
+            <Link
+              to="/disciplines"
+              className="inline-flex items-center gap-1.5 rounded-full bg-background/70 px-3 py-1.5 text-xs font-medium text-foreground backdrop-blur-sm transition-colors hover:bg-background"
             >
-              <IconeComposant size={26} style={{ color: color.bg }} />
-            </div>
-            <div>
-              <h1 className="font-serif text-3xl font-black md:text-4xl">{discipline.nom}</h1>
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {discipline.horaires && (
-                  <span className="flex items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-foreground">
-                    <Clock size={10} className="text-primary" />{discipline.horaires}
-                  </span>
-                )}
-                {discipline.niveaux?.map((n) => (
-                  <span key={n} className="flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-                    <GraduationCap size={10} />{n}
-                  </span>
-                ))}
-                {discipline.ages?.map((a) => (
-                  <span key={a} className="flex items-center gap-1 rounded-full border border-border/40 px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-                    <Users size={10} />{a}
-                  </span>
-                ))}
+              <ChevronLeft size={13} />
+              Toutes les disciplines
+            </Link>
+          </div>
+
+          {/* Titre */}
+          <div className="absolute bottom-0 left-0 right-0 px-4 pb-6">
+            <div className="container mx-auto flex items-end gap-4">
+              <div
+                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl shadow-lg"
+                style={{ backgroundColor: `${color.bg}20`, border: `2px solid ${color.bg}40` }}
+              >
+                <IconeComposant size={26} style={{ color: color.bg }} />
+              </div>
+              <div>
+                <h1 className="font-serif text-3xl font-black md:text-4xl">{discipline.nom}</h1>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {discipline.horaires && (
+                    <span className="flex items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-foreground">
+                      <Clock size={10} className="text-primary" />{discipline.horaires}
+                    </span>
+                  )}
+                  {discipline.niveaux?.map((n) => (
+                    <span key={n} className="flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                      <GraduationCap size={10} />{n}
+                    </span>
+                  ))}
+                  {discipline.ages?.map((a) => (
+                    <span key={a} className="flex items-center gap-1 rounded-full border border-border/40 px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                      <Users size={10} />{a}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      <div className="container mx-auto max-w-4xl px-4 py-10 space-y-14">
+        </section>
 
         {/* Description */}
         {discipline.description && (
-          <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+          <div className="relative container mx-auto max-w-4xl px-4 pt-8 pb-10">
             <p className="text-base leading-relaxed text-muted-foreground">{discipline.description}</p>
-          </motion.section>
+          </div>
         )}
+
+        {/* Tout le contenu de la page — dans la zone image, l'image est déjà effacée */}
+        <div className="relative container mx-auto max-w-4xl px-4 pb-10 space-y-14">
 
         {/* Instructeurs */}
         {instructeurs.length > 0 && (
@@ -478,6 +513,7 @@ const DisciplineDetail = () => {
           </Link>
         </motion.section>
 
+        </div>
       </div>
       {/* Lightbox photo */}
       <AnimatePresence>
