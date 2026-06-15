@@ -468,8 +468,8 @@ const Inscription = () => {
       <section className="py-20">
         <div className="container mx-auto max-w-2xl px-4">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <div className="mx-auto mb-8 max-w-xl rounded-md border border-primary/20 bg-primary/5 px-5 py-4 text-center">
-              <p className="text-sm font-semibold text-foreground">Inscription lors du forum des associations</p>
+            <div className="mx-auto mb-8 max-w-xl px-5 py-4 text-center">
+              <p className="text-base font-semibold text-foreground">Inscription lors du forum des associations</p>
               <p className="mt-1 text-sm text-muted-foreground">ou</p>
             </div>
 

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, X, MapPin, Euro, Clock, Users, User } from "lucide-react";
 import Layout from "@/components/Layout";
-import { useEffect, useState } from "react";
+import { useEffect, useState, memo } from "react";
 import { client } from "@/sanityClient";
 import { urlFor } from "@/sanityImage";
 import { Sparkles } from "lucide-react";
@@ -43,7 +43,7 @@ interface Actualite {
 
 const today = new Date().toISOString().split('T')[0];
 
-const ActuCard = ({ a, i, onSelect }: { a: Actualite; i: number; onSelect: (a: Actualite) => void }) => (
+const ActuCard = memo(({ a, i, onSelect }: { a: Actualite; i: number; onSelect: (a: Actualite) => void }) => (
   <motion.div
     initial={{ opacity: 0, y: 24 }}
     whileInView={{ opacity: 1, y: 0 }}
@@ -133,7 +133,7 @@ const ActuCard = ({ a, i, onSelect }: { a: Actualite; i: number; onSelect: (a: A
       </div>
     </div>
   </motion.div>
-);
+));
 
 const Index = () => {
   const [disciplines, setDisciplines] = useState<Discipline[]>([]);
@@ -141,6 +141,7 @@ const Index = () => {
   const [selectedActu, setSelectedActu] = useState<Actualite | null>(null);
   const [flyerZoom, setFlyerZoom] = useState(false);
   const [showPast, setShowPast] = useState(false);
+  const [pdfReady, setPdfReady] = useState(false);
 
   useEffect(() => {
     client
@@ -338,8 +339,9 @@ const Index = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-            onClick={() => setSelectedActu(null)}
+            onAnimationComplete={() => setPdfReady(true)}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+            onClick={() => { setSelectedActu(null); setPdfReady(false); }}
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -351,7 +353,7 @@ const Index = () => {
             >
               {/* Bouton fermer */}
               <button
-                onClick={() => setSelectedActu(null)}
+                onClick={() => { setSelectedActu(null); setPdfReady(false); }}
                 className="absolute top-4 right-4 z-10 rounded-full bg-background/80 p-2 hover:bg-secondary transition-colors"
               >
                 <X size={20} />
@@ -383,7 +385,7 @@ const Index = () => {
               {/* Flyer PDF */}
               {selectedActu.flyer?.asset?.url && (
                 <div className="border-b border-border bg-secondary/20 px-6 py-4 flex flex-col items-center gap-3">
-                  <PdfPage url={selectedActu.flyer.asset.url} maxHeight={400} className="w-full" />
+                  {pdfReady && <PdfPage url={selectedActu.flyer.asset.url} maxHeight={400} className="w-full" />}
                   <a
                     href={selectedActu.flyer.asset.url}
                     target="_blank"

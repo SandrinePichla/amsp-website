@@ -1501,6 +1501,7 @@ const AdminMembres = () => {
                 {([
                   { id: "membres",  label: "Inscriptions", primary: true },
                   { id: "administration", label: "Administration", primary: false },
+                  { id: "galeries", label: "Accès galeries", primary: false },
                 ] as { id: typeof adminSection; label: string; primary: boolean }[]).map(s => (
                   <button
                     key={s.id}
@@ -1514,18 +1515,6 @@ const AdminMembres = () => {
                     {s.label}
                   </button>
                 ))}
-                <div className="ml-auto">
-                  <button
-                    onClick={() => setAdminSection("galeries")}
-                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                      adminSection === "galeries"
-                        ? "bg-secondary text-foreground"
-                        : "text-muted-foreground/60 hover:text-muted-foreground"
-                    }`}
-                  >
-                    Accès galeries
-                  </button>
-                </div>
               </div>
             )}
 
