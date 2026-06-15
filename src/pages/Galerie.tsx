@@ -1,7 +1,7 @@
 import { Helmet } from "react-helmet-async";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Lock, Images, ArrowLeft } from "lucide-react";
+import { X, Lock, Images, Play } from "lucide-react";
 import Layout from "@/components/Layout";
 import { client } from "@/sanityClient";
 import { urlFor } from "@/sanityImage";
@@ -13,6 +13,22 @@ interface Photo {
   asset: { _ref: string };
 }
 
+interface VideoUpload {
+  _key: string;
+  _type: 'video_upload';
+  legende?: string;
+  fichier?: { asset: { url: string } };
+}
+
+interface VideoYoutube {
+  _key: string;
+  _type: 'video_youtube';
+  legende?: string;
+  youtubeUrl?: string;
+}
+
+type Video = VideoUpload | VideoYoutube;
+
 interface Album {
   _id: string;
   titre?: string;
@@ -20,6 +36,12 @@ interface Album {
   prive: boolean;
   discipline?: { _id: string; nom: string; nomCourt: string };
   photos: Photo[];
+  videos?: Video[];
+}
+
+function getYoutubeId(url: string): string | null {
+  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : null;
 }
 
 const Galerie = () => {
@@ -35,7 +57,8 @@ const Galerie = () => {
       .fetch(`*[_type == "galerie" && publie == true] | order(date desc) {
         _id, titre, date, prive,
         discipline-> { _id, nom, nomCourt },
-        photos[] { _key, legende, asset }
+        photos[] { _key, legende, asset },
+        videos[] { _key, _type, legende, youtubeUrl, fichier { asset-> { url } } }
       }`)
       .then((data) => {
         setAlbums(data);
@@ -44,10 +67,10 @@ const Galerie = () => {
   }, []);
 
   const albumsVisibles = albums.filter((a) => {
-    if (!user) return !a.prive;           // non connecté → publics uniquement
-    if (!a.prive) return false;           // connecté → on masque les publics
+    if (!user) return !a.prive;
+    if (!a.prive) return false;
     if (role === "admin" || role === "admin_discipline") return true;
-    if (!a.discipline) return true;       // album "toute discipline" → tous les membres connectés
+    if (!a.discipline) return true;
     return accesGalerie.includes(a.discipline._id);
   });
 
@@ -82,20 +105,19 @@ const Galerie = () => {
     setLightbox({ album: lightbox.album, index: (lightbox.index - 1 + photos.length) % photos.length });
   };
 
-
   return (
     <Layout>
       <Helmet>
-        <title>Galerie photos — Club A.M.S.P. Saint-Pierre-la-Palud (69)</title>
-        <meta name="description" content="Photos des cours et événements du club d'arts martiaux A.M.S.P. de Saint-Pierre-la-Palud (69210)." />
+        <title>Galerie photos & vidéos — Club A.M.S.P. Saint-Pierre-la-Palud (69)</title>
+        <meta name="description" content="Photos et vidéos des cours et événements du club d'arts martiaux A.M.S.P. de Saint-Pierre-la-Palud (69210)." />
       </Helmet>
       <section className="py-20">
         <div className="container mx-auto px-4">
           <h1 className="mb-4 text-center font-serif text-4xl font-black md:text-5xl">
-            <span className="text-primary">Galerie</span> photos
+            <span className="text-primary">Galerie</span> photos & vidéos
           </h1>
           <p className="mx-auto mb-10 max-w-xl text-center text-muted-foreground">
-            Retrouvez les moments forts de l'association en images.
+            Retrouvez les moments forts de l'association en images et vidéos.
           </p>
 
           {loading ? (
@@ -129,6 +151,18 @@ const Galerie = () => {
                   {albumsFiltres.map((album, i) => {
                     const cover = album.photos?.[0];
                     const label = album.titre || album.discipline?.nomCourt || album.discipline?.nom || 'Album';
+                    const photoCount = album.photos?.length || 0;
+                    const videoCount = album.videos?.length || 0;
+                    const countLabel = [
+                      photoCount > 0 ? `${photoCount} photo${photoCount > 1 ? 's' : ''}` : '',
+                      videoCount > 0 ? `${videoCount} vidéo${videoCount > 1 ? 's' : ''}` : '',
+                    ].filter(Boolean).join(' · ');
+
+                    const firstVideo = album.videos?.[0];
+                    const youtubeCoverId = !cover && firstVideo?._type === 'video_youtube' && firstVideo.youtubeUrl
+                      ? getYoutubeId(firstVideo.youtubeUrl)
+                      : null;
+
                     return (
                       <motion.button
                         key={album._id}
@@ -146,15 +180,30 @@ const Galerie = () => {
                               loading="lazy"
                               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                             />
+                          ) : youtubeCoverId ? (
+                            <img
+                              src={`https://img.youtube.com/vi/${youtubeCoverId}/mqdefault.jpg`}
+                              alt={label}
+                              loading="lazy"
+                              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            />
                           ) : (
                             <div className="flex h-full w-full items-center justify-center bg-secondary/50">
-                              <Images size={32} className="text-muted-foreground/30" />
+                              {videoCount > 0
+                                ? <Play size={32} className="text-muted-foreground/30" />
+                                : <Images size={32} className="text-muted-foreground/30" />
+                              }
                             </div>
                           )}
                           <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
                           {album.prive && (
-                            <span className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-black/50 px-2 py-0.5 text-[10px] text-white backdrop-blur-sm">
+                            <span className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-black/50 px-2 py-0.5 text-[10px] text-white">
                               <Lock size={9} /> Membres
+                            </span>
+                          )}
+                          {videoCount > 0 && (
+                            <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] text-white">
+                              <Play size={9} fill="white" />
                             </span>
                           )}
                           <div className="absolute bottom-0 left-0 right-0 p-2.5">
@@ -165,7 +214,7 @@ const Galerie = () => {
                                   {new Date(album.date).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}
                                 </p>
                               )}
-                              <p className="text-[10px] text-white/60">{album.photos?.length} photos</p>
+                              <p className="text-[10px] text-white/60">{countLabel}</p>
                             </div>
                           </div>
                         </div>
@@ -197,7 +246,14 @@ const Galerie = () => {
                 {openAlbum.date && (
                   <p className="text-xs text-muted-foreground">
                     {new Date(openAlbum.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                    {' · '}{openAlbum.photos?.length} photos
+                    {' · '}{[
+                      (openAlbum.photos?.length || 0) > 0
+                        ? `${openAlbum.photos.length} photo${openAlbum.photos.length > 1 ? 's' : ''}`
+                        : '',
+                      (openAlbum.videos?.length || 0) > 0
+                        ? `${openAlbum.videos!.length} vidéo${openAlbum.videos!.length > 1 ? 's' : ''}`
+                        : '',
+                    ].filter(Boolean).join(' · ')}
                   </p>
                 )}
               </div>
@@ -210,30 +266,73 @@ const Galerie = () => {
               </button>
             </div>
 
-            {/* Photos */}
+            {/* Contenu */}
             <div className="flex-1 overflow-y-auto p-3">
-              <div className="columns-4 sm:columns-6 md:columns-8 lg:columns-10 xl:columns-12 gap-1.5">
-                {openAlbum.photos?.map((photo, index) => (
-                  <div
-                    key={photo._key}
-                    className="group cursor-pointer overflow-hidden rounded-md break-inside-avoid mb-1.5"
-                    onClick={() => setLightbox({ album: openAlbum, index })}
-                  >
-                    <img
-                      src={urlFor(photo).width(160).url()}
-                      alt={photo.legende || ''}
-                      loading="lazy"
-                      className="w-full object-cover transition-transform duration-200 group-hover:scale-105"
-                    />
-                  </div>
-                ))}
-              </div>
+              {/* Photos */}
+              {openAlbum.photos?.length > 0 && (
+                <div className="columns-4 sm:columns-6 md:columns-8 lg:columns-10 xl:columns-12 gap-1.5">
+                  {openAlbum.photos.map((photo, index) => (
+                    <div
+                      key={photo._key}
+                      className="group cursor-pointer overflow-hidden rounded-md break-inside-avoid mb-1.5"
+                      onClick={() => setLightbox({ album: openAlbum, index })}
+                    >
+                      <img
+                        src={urlFor(photo).width(160).url()}
+                        alt={photo.legende || ''}
+                        loading="lazy"
+                        className="w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Vidéos */}
+              {openAlbum.videos && openAlbum.videos.length > 0 && (
+                <div className={`grid gap-4 grid-cols-1 sm:grid-cols-2 ${openAlbum.photos?.length > 0 ? 'mt-6' : ''}`}>
+                  {openAlbum.videos.map((video) => {
+                    if (video._type === 'video_youtube' && video.youtubeUrl) {
+                      const ytId = getYoutubeId(video.youtubeUrl);
+                      if (!ytId) return null;
+                      return (
+                        <div key={video._key} className="overflow-hidden rounded-xl bg-black">
+                          <div className="aspect-video">
+                            <iframe
+                              src={`https://www.youtube-nocookie.com/embed/${ytId}`}
+                              className="h-full w-full"
+                              allowFullScreen
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            />
+                          </div>
+                          {video.legende && (
+                            <p className="px-3 py-2 text-xs text-white/70">{video.legende}</p>
+                          )}
+                        </div>
+                      );
+                    }
+                    if (video._type === 'video_upload' && video.fichier?.asset?.url) {
+                      return (
+                        <div key={video._key} className="overflow-hidden rounded-xl bg-black">
+                          <video controls className="aspect-video w-full object-contain">
+                            <source src={video.fichier.asset.url} />
+                          </video>
+                          {video.legende && (
+                            <p className="px-3 py-2 text-xs text-white/70">{video.legende}</p>
+                          )}
+                        </div>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+              )}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Lightbox */}
+      {/* Lightbox photos */}
       <AnimatePresence>
         {lightbox && (
           <motion.div
