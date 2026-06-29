@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import Layout from "@/components/Layout";
@@ -13,7 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   User, Mail, Lock, Baby, ClipboardList, PlusCircle,
   ChevronRight, ChevronDown, CheckCircle, Clock, XCircle, Images,
-  Pencil, X, Save,
+  Pencil, X, Save, AlertTriangle,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
@@ -52,6 +52,19 @@ interface InscriptionConfig {
   texteAutorisationImage?: string;
   texteAutorisationParentale?: string;
   texteInfosCertificatMedical?: string;
+}
+
+const REGLEMENT_BOLD_PHRASES = ["RÈGLEMENT INTÉRIEUR COMMUN", "RÈGLEMENT COMPLEMENTAIRE SPÉCIAL KARATÉ"];
+function renderReglement(text: string) {
+  let parts: (string | JSX.Element)[] = [text];
+  for (const phrase of REGLEMENT_BOLD_PHRASES) {
+    parts = parts.flatMap((part, i) => {
+      if (typeof part !== 'string') return [part];
+      const segments = part.split(phrase);
+      return segments.flatMap((seg, j) => j < segments.length - 1 ? [seg, <strong key={`${i}-${j}`}>{phrase}</strong>] : [seg]);
+    });
+  }
+  return <>{parts}</>;
 }
 
 // ----------------------------------------------------------------
@@ -713,6 +726,8 @@ const TabDemande = ({
   const [droitImage, setDroitImage] = useState(false);
   const [autorisationParentale, setAutorisationParentale] = useState(false);
   const [reglementAccepte, setReglementAccepte] = useState(false);
+  const [reglementLu, setReglementLu] = useState(false);
+  const reglementScrollRef = useRef<HTMLDivElement>(null);
   const [sending, setSending] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
@@ -1050,17 +1065,34 @@ const TabDemande = ({
       {/* Autorisations */}
       <Card icon={<ClipboardList size={18} />} title="Autorisations &amp; règlement">
         {inscriptionConfig.reglementInterieur && (
-          <details className="mb-4 rounded-lg border border-border/50 bg-secondary/30">
-            <summary className="cursor-pointer px-4 py-2.5 text-sm font-medium">Lire le règlement intérieur</summary>
-            <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap px-4 pb-4 pt-2 text-xs text-muted-foreground">
-              {inscriptionConfig.reglementInterieur}
-            </pre>
-          </details>
+          <div className="relative mb-1">
+            <div
+              ref={reglementScrollRef}
+              className="max-h-48 overflow-y-auto rounded-md border border-border/50 bg-secondary/30 p-4 text-xs text-muted-foreground whitespace-pre-wrap mb-1"
+              onScroll={(e) => {
+                const el = e.currentTarget;
+                if (el.scrollTop + el.clientHeight >= el.scrollHeight - 20) setReglementLu(true);
+              }}
+            >
+              {renderReglement(inscriptionConfig.reglementInterieur)}
+            </div>
+            {!reglementLu && (
+              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                <AlertTriangle size={12} className="shrink-0" />
+                Faites défiler jusqu'en bas pour débloquer la case à cocher.
+              </p>
+            )}
+          </div>
         )}
         <div className="space-y-3">
-          <div className="flex items-start gap-3">
-            <Checkbox id="reglement" checked={reglementAccepte} onCheckedChange={(v) => setReglementAccepte(!!v)} />
-            <label htmlFor="reglement" className="text-sm cursor-pointer leading-snug">
+          <div className={`flex items-start gap-3 ${reglementLu || !inscriptionConfig.reglementInterieur ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
+            <Checkbox
+              id="reglement"
+              checked={reglementAccepte}
+              onCheckedChange={(v) => (reglementLu || !inscriptionConfig.reglementInterieur) && setReglementAccepte(!!v)}
+              disabled={!reglementLu && !!inscriptionConfig.reglementInterieur}
+            />
+            <label htmlFor="reglement" className="text-sm leading-snug">
               J'ai lu et j'accepte le règlement intérieur *
             </label>
           </div>

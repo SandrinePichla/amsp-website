@@ -429,6 +429,16 @@ const AdminMembres = () => {
       toast.error("La date de naissance est obligatoire.");
       return;
     }
+    if (papierForm.typeInscription === "adulte") {
+      const birth = new Date(papierForm.dateNaissance);
+      const today = new Date();
+      let age = today.getFullYear() - birth.getFullYear();
+      if (today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) age--;
+      if (age < 18) {
+        toast.error("Cette personne est mineure. Veuillez utiliser le formulaire Mineur.");
+        return;
+      }
+    }
     if (!papierForm.urgenceTel.trim() && !papierForm.urgenceNom.trim() && !papierForm.urgencePrenom.trim()) {
       toast.error("La personne à contacter en cas d'urgence est obligatoire.");
       return;

@@ -66,6 +66,19 @@ const formVariants = {
   exit: (dir: number) => ({ x: dir * -80, opacity: 0, transition: { duration: 0.22, ease: [0.4, 0, 1, 1] as [number, number, number, number] } }),
 };
 
+const REGLEMENT_BOLD_PHRASES = ["RÈGLEMENT INTÉRIEUR COMMUN", "RÈGLEMENT COMPLEMENTAIRE SPÉCIAL KARATÉ"];
+function renderReglement(text: string) {
+  let parts: (string | JSX.Element)[] = [text];
+  for (const phrase of REGLEMENT_BOLD_PHRASES) {
+    parts = parts.flatMap((part, i) => {
+      if (typeof part !== 'string') return [part];
+      const segments = part.split(phrase);
+      return segments.flatMap((seg, j) => j < segments.length - 1 ? [seg, <strong key={`${i}-${j}`}>{phrase}</strong>] : [seg]);
+    });
+  }
+  return <>{parts}</>;
+}
+
 /* ------------------------------------------------------------------ */
 /* Page principale                                                      */
 /* ------------------------------------------------------------------ */
@@ -78,6 +91,7 @@ const Inscription = () => {
   const [tarifsSpeciaux, setTarifsSpeciaux] = useState<TarifSpecial[]>([]);
   const [selectedDisciplines, setSelectedDisciplines] = useState<string[]>([]);
   const [reglementAccepte, setReglementAccepte] = useState(false);
+  const [reglementLu, setReglementLu] = useState(false);
   const [droitImage, setDroitImage] = useState(false);
   const [sending, setSending] = useState(false);
   const [downloadingPlanning, setDownloadingPlanning] = useState(false);
@@ -106,6 +120,7 @@ const Inscription = () => {
   const [submitErrorList, setSubmitErrorList] = useState<string[]>([]);
   const submitErrorRef = useRef<HTMLDivElement>(null);
   const directionRef = useRef(1);
+  const reglementScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     client.fetch(`*[_type == "discipline" && lower(nom) != "stages"] | order(ordre asc) { _id, nom, nomCourt }`).then(setDisciplines);
@@ -145,6 +160,22 @@ const Inscription = () => {
     if (today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) age--;
     return age < 18;
   }, [form.dateNaissance, typeInscription]);
+
+  const disciplinesAffichees = useMemo(() =>
+    typeInscription === 'mineur'
+      ? disciplines.filter((d) => d.nom.toLowerCase().includes('karaté') || d.nom.toLowerCase().includes('karate'))
+      : disciplines,
+    [disciplines, typeInscription]
+  );
+
+  useEffect(() => {
+    if (typeInscription === 'mineur') {
+      const idsKarate = disciplines
+        .filter((d) => d.nom.toLowerCase().includes('karaté') || d.nom.toLowerCase().includes('karate'))
+        .map((d) => d._id);
+      setSelectedDisciplines((prev) => prev.filter((id) => idsKarate.includes(id)));
+    }
+  }, [typeInscription, disciplines]);
 
   const handleDownloadPlanning = async () => {
     if (!planningRef.current) return;
@@ -248,6 +279,7 @@ const Inscription = () => {
     const formErrorList: string[] = [];
     const newFieldErrors: Record<string, string> = {};
 
+    if (isMineur) formErrorList.push("Cette personne est mineure. Veuillez utiliser le formulaire Mineur.");
     if (selectedDisciplines.length === 0) formErrorList.push("Sélectionnez au moins une discipline.");
     if (!reglementAccepte) formErrorList.push("Acceptez le règlement intérieur.");
     if (!moyenPaiement) formErrorList.push("Sélectionnez un moyen de paiement.");
@@ -780,7 +812,7 @@ const Inscription = () => {
                       </button>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2">
-                      {disciplines.map((d) => (
+                      {disciplinesAffichees.map((d) => (
                         <label
                           key={d._id}
                           className="flex cursor-pointer items-center gap-3 rounded-md border border-border/50 p-3 transition-colors hover:border-primary/40"
@@ -807,13 +839,29 @@ const Inscription = () => {
                   {/* Règlement intérieur */}
                   <div>
                     <h2 className="mb-4 font-serif text-lg font-bold border-b border-border/50 pb-2">Règlement intérieur</h2>
-                    <div className="mb-4 max-h-48 overflow-y-auto rounded-md border border-border/50 bg-secondary/30 p-4 text-xs text-muted-foreground whitespace-pre-line">
-                      {reglement}
+                    <div className="relative mb-1">
+                      <div
+                        ref={reglementScrollRef}
+                        className="max-h-48 overflow-y-auto rounded-md border border-border/50 bg-secondary/30 p-4 text-xs text-muted-foreground whitespace-pre-line"
+                        onScroll={(e) => {
+                          const el = e.currentTarget;
+                          if (el.scrollTop + el.clientHeight >= el.scrollHeight - 20) setReglementLu(true);
+                        }}
+                      >
+                        {renderReglement(reglement)}
+                      </div>
+                      {!reglementLu && (
+                        <p className="mt-1 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                          <AlertTriangle size={12} className="shrink-0" />
+                          Faites défiler jusqu'en bas pour débloquer la case à cocher.
+                        </p>
+                      )}
                     </div>
-                    <label className="flex cursor-pointer items-start gap-3">
+                    <label className={`mt-3 flex items-start gap-3 ${reglementLu ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
                       <Checkbox
                         checked={reglementAccepte}
-                        onCheckedChange={(v) => setReglementAccepte(v as boolean)}
+                        onCheckedChange={(v) => reglementLu && setReglementAccepte(v as boolean)}
+                        disabled={!reglementLu}
                         className="mt-0.5"
                       />
                       <span className="text-sm">
@@ -829,7 +877,7 @@ const Inscription = () => {
                       />
                       <span className="text-sm">Détenteur d'un code Pass Sport 2026-2027</span>
                     </label>
-                    <p className="mt-2 text-xs text-muted-foreground">Le code Pass Sport est obligatoire et devra être communiqué au club dès sa réception.</p>
+                    <p className="mt-2 text-xs text-muted-foreground">Le code Pass Sport est obligatoire et devra être communiqué au club dès sa réception afin de bénéficier immédiatement de la remise de 70&nbsp;€ sur votre inscription.</p>
                   </div>
 
                   {/* Mode de règlement */}
@@ -853,7 +901,7 @@ const Inscription = () => {
                     <div className="space-y-3">
                       {[
                         { value: 'cheque_1x', label: 'Chèque — en 1 fois' },
-                        { value: 'cheque_4x', label: 'Chèque — en 4 fois', detail: '60 € à l\'inscription (non remboursable) + solde en 3 échéances (décembre, mars, juin)' },
+                        { value: 'cheque_4x', label: 'Chèque — en 4 fois' },
                         { value: 'especes', label: 'Espèces' },
                         { value: 'virement', label: 'Virement bancaire (en une seule fois)' },
                       ].map(option => (
