@@ -320,7 +320,10 @@
   <p>Pour une inscription en mode <strong>mineur</strong>, le compte espace membre est créé au nom du <strong>parent</strong> (email du parent 1). Si le parent a déjà un compte (parce qu'un autre enfant ou lui-même est inscrit), le dossier est simplement rattaché à ce compte existant. Toute la famille se connecte donc avec le même email.</p>
 
   <h3>Cas particulier : le formulaire adulte avec un mineur</h3>
-  <p>Si une personne remplit le formulaire "adulte" mais a moins de 18 ans selon sa date de naissance, un avertissement s'affiche sur le formulaire pour l'inviter à basculer vers le formulaire mineur. Une même personne ne peut pas s'inscrire deux fois à la même saison.</p>
+  <p>Si une personne remplit le formulaire "adulte" mais a moins de 18 ans selon sa date de naissance, la soumission est <strong>bloquée</strong> — le formulaire affiche une erreur et invite la personne à basculer vers le formulaire mineur via le bouton dédié. Il en va de même pour la saisie papier : si le type "Adulte" est sélectionné avec une date de naissance correspondant à un mineur, l'enregistrement est refusé. Une même personne ne peut pas s'inscrire deux fois à la même saison.</p>
+
+  <h3>Cas particulier : disciplines des mineurs</h3>
+  <p>Dans les formulaires d'inscription (en ligne et papier), les mineurs ne peuvent choisir que le <strong>Karaté</strong>. Toutes les autres disciplines sont réservées aux adultes. Si un mineur avait sélectionné une autre discipline avant de basculer en mode Mineur, sa sélection est automatiquement effacée.</p>
 
 
   <!-- SECTION 5 -->
@@ -365,8 +368,8 @@
     <ol>
       <li>Dans <strong>"Gestion des membres"</strong>, cliquer sur le bouton <strong>"+ Inscription papier"</strong> en haut de la page</li>
       <li>Sélectionner le type d'inscription : <strong>Adulte</strong> ou <strong>Mineur</strong></li>
-      <li>Saisir la date de naissance — le formulaire bascule <strong>automatiquement</strong> vers le mode Mineur si la personne a moins de 18 ans</li>
-      <li>Remplir les champs : nom, prénom, disciplines choisies, mode de paiement, coordonnées…</li>
+      <li>Saisir la date de naissance — le formulaire bascule <strong>automatiquement</strong> vers le mode Mineur si la personne a moins de 18 ans. Si le type reste sur "Adulte" avec une date de naissance de mineur, l'enregistrement est <strong>bloqué</strong>.</li>
+      <li>Remplir les champs : nom, prénom, disciplines choisies (Karaté uniquement pour les mineurs), mode de paiement, coordonnées…</li>
       <li>Pour un mineur, remplir également les informations du parent responsable</li>
       <li>Cliquer sur <strong>"Enregistrer"</strong></li>
     </ol>
