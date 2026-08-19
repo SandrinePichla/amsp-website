@@ -429,13 +429,17 @@ const AdminMembres = () => {
       toast.error("La date de naissance est obligatoire.");
       return;
     }
-    if (papierForm.typeInscription === "adulte") {
+    {
       const birth = new Date(papierForm.dateNaissance);
       const today = new Date();
       let age = today.getFullYear() - birth.getFullYear();
       if (today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) age--;
-      if (age < 18) {
+      if (papierForm.typeInscription === "adulte" && age < 18) {
         toast.error("Cette personne est mineure. Veuillez utiliser le formulaire Mineur.");
+        return;
+      }
+      if (papierForm.typeInscription === "mineur" && age >= 18) {
+        toast.error("Cette personne est majeure. Veuillez utiliser le formulaire Adulte.");
         return;
       }
     }

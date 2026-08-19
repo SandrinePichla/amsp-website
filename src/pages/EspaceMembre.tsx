@@ -776,6 +776,13 @@ const TabDemande = ({
     if (selectedDisciplines.length === 0) { toast.error("Sélectionnez au moins une discipline."); return; }
     if (!reglementAccepte) { toast.error("Veuillez accepter le règlement intérieur."); return; }
     if (!moyenPaiement) { toast.error("Veuillez sélectionner un moyen de paiement."); return; }
+    if (typeInscription === "mineur" && form.dateNaissance) {
+      const birth = new Date(form.dateNaissance);
+      const today = new Date();
+      let age = today.getFullYear() - birth.getFullYear();
+      if (today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) age--;
+      if (age >= 18) { toast.error("Cette personne est majeure. Veuillez utiliser le formulaire Adulte."); return; }
+    }
     if (typeInscription === "mineur" && (!parent1.nom.trim() || !parent1.prenom.trim())) {
       toast.error("Le nom et prénom du parent / tuteur 1 sont obligatoires."); return;
     }

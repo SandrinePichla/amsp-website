@@ -161,6 +161,15 @@ const Inscription = () => {
     return age < 18;
   }, [form.dateNaissance, typeInscription]);
 
+  const isMajeur = useMemo(() => {
+    if (!form.dateNaissance || typeInscription !== 'mineur') return false;
+    const birth = new Date(form.dateNaissance);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    if (today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) age--;
+    return age >= 18;
+  }, [form.dateNaissance, typeInscription]);
+
   const disciplinesAffichees = useMemo(() =>
     typeInscription === 'mineur'
       ? disciplines.filter((d) => d.nom.toLowerCase().includes('karaté') || d.nom.toLowerCase().includes('karate'))
@@ -280,6 +289,7 @@ const Inscription = () => {
     const newFieldErrors: Record<string, string> = {};
 
     if (isMineur) formErrorList.push("Cette personne est mineure. Veuillez utiliser le formulaire Mineur.");
+    if (isMajeur) formErrorList.push("Cette personne est majeure. Veuillez utiliser le formulaire Adulte.");
     if (selectedDisciplines.length === 0) formErrorList.push("Sélectionnez au moins une discipline.");
     if (!reglementAccepte) formErrorList.push("Acceptez le règlement intérieur.");
     if (!moyenPaiement) formErrorList.push("Sélectionnez un moyen de paiement.");
@@ -659,6 +669,22 @@ const Inscription = () => {
                             onClick={() => { directionRef.current = 1; setTypeInscription('mineur'); }}
                           >
                             Basculer vers le formulaire Mineur
+                          </Button>
+                        </div>
+                      )}
+                      {isMajeur && (
+                        <div className="rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30 p-4 flex flex-col items-center gap-3 text-center">
+                          <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
+                            <AlertTriangle size={16} className="shrink-0" />
+                            <p className="text-sm font-semibold">Cette personne est majeure.</p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="border-amber-400 text-amber-800 hover:bg-amber-100 dark:border-amber-600 dark:text-amber-300 dark:hover:bg-amber-900/30"
+                            onClick={() => { directionRef.current = -1; setTypeInscription('adulte'); }}
+                          >
+                            Basculer vers le formulaire Adulte
                           </Button>
                         </div>
                       )}
