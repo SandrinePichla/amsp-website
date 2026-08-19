@@ -27,10 +27,11 @@ import type { Profil, Enfant, LienCompteEnfant, Inscription } from "@/types/supa
 type TabId = "compte" | "inscriptions" | "enfants" | "demande";
 
 const MOYENS_PAIEMENT: Record<string, string> = {
-  cheque_1x: "Chèque (1×)",
-  cheque_4x: "Chèque (4×)",
-  especes:   "Espèces",
-  virement:  "Virement",
+  cheque_1x:          "Chèque (1×)",
+  cheque_4x:          "Chèque (4×)",
+  cheque_3x_pass_sport: "Chèque (3×) + Pass Sport",
+  especes:            "Espèces",
+  virement:           "Virement",
 };
 
 const STATUT_LABELS: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
@@ -1043,10 +1044,11 @@ const TabDemande = ({
             <Label className="mb-2 block text-sm font-medium">Moyen de paiement *</Label>
             <div className="flex flex-wrap gap-2">
               {[
-                { val: "cheque_1x", label: "Chèque (1×)" },
-                { val: "cheque_4x", label: "Chèque (4×)" },
-                { val: "especes", label: "Espèces" },
-                { val: "virement", label: "Virement" },
+                { val: "cheque_1x",          label: "Chèque (1×)" },
+                { val: "cheque_4x",          label: "Chèque (4×)" },
+                { val: "cheque_3x_pass_sport", label: "Chèque (3×) + Pass Sport 2026-2027" },
+                { val: "especes",            label: "Espèces" },
+                { val: "virement",           label: "Virement" },
               ].map(({ val, label }) => (
                 <button key={val} type="button" onClick={() => setMoyenPaiement(val)}
                   className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${

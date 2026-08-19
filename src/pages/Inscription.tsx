@@ -928,6 +928,7 @@ const Inscription = () => {
                       {[
                         { value: 'cheque_1x', label: 'Chèque — en 1 fois' },
                         { value: 'cheque_4x', label: 'Chèque — en 4 fois' },
+                        { value: 'cheque_3x_pass_sport', label: 'Chèque — en 3 fois + code Pass Sport 2026-2027', detail: 'Réservé aux détenteurs d\'un code Pass Sport 2026-2027' },
                         { value: 'especes', label: 'Espèces' },
                         { value: 'virement', label: 'Virement bancaire (en une seule fois)' },
                       ].map(option => (

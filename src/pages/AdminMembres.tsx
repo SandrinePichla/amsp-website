@@ -149,17 +149,19 @@ const inscBadge = (statut: string | null) => {
 };
 
 const PAIEMENT_LABELS: Record<string, string> = {
-  cheque_1x: "Chèque 1 fois",
-  cheque_4x: "Chèque 4 fois",
-  especes: "Espèces",
-  virement: "Virement",
+  cheque_1x:            "Chèque 1 fois",
+  cheque_4x:            "Chèque 4 fois",
+  cheque_3x_pass_sport: "Chèque 3 fois + Pass Sport",
+  especes:              "Espèces",
+  virement:             "Virement",
 };
 
 const PAIEMENT_BADGE_CLS: Record<string, string> = {
-  cheque_1x: "bg-blue-500/10 text-blue-700",
-  cheque_4x: "bg-orange-500/10 text-orange-700",
-  especes:   "bg-green-500/10 text-green-700",
-  virement:  "bg-violet-500/10 text-violet-700",
+  cheque_1x:            "bg-blue-500/10 text-blue-700",
+  cheque_4x:            "bg-orange-500/10 text-orange-700",
+  cheque_3x_pass_sport: "bg-pink-500/10 text-pink-700",
+  especes:              "bg-green-500/10 text-green-700",
+  virement:             "bg-violet-500/10 text-violet-700",
 };
 
 const STATUT_ORDER: Record<string, number> = { validee: 0, acceptee: 1, en_attente: 2, refusee: 3, supprimee: 4 };
@@ -229,7 +231,7 @@ const AdminMembres = () => {
     if (sortCol === col) { setSortDir(d => d === "asc" ? "desc" : "asc"); }
     else { setSortCol(col); setSortDir("asc"); }
   };
-  const [reglementMode, setReglementMode] = useState<"cheque_1x" | "especes" | "virement" | "cheque_4x">("cheque_4x");
+  const [reglementMode, setReglementMode] = useState<"cheque_1x" | "especes" | "virement" | "cheque_4x" | "cheque_3x_pass_sport">("cheque_4x");
   const [reglementFilter, setReglementFilter] = useState<"inscription" | "dec" | "mars" | "juin">(() => {
     const m = new Date().getMonth();
     if (m === 11) return "dec";
@@ -1353,7 +1355,7 @@ const AdminMembres = () => {
         return true;
       }).sort((a, b) => {
         if ((b.saison || "") !== (a.saison || "")) return (b.saison || "").localeCompare(a.saison || "");
-        const ord: Record<string, number> = { cheque_4x: 0, cheque_1x: 1, virement: 2, especes: 3 };
+        const ord: Record<string, number> = { cheque_4x: 0, cheque_3x_pass_sport: 1, cheque_1x: 2, virement: 3, especes: 4 };
         const pa = ord[a.moyen_paiement ?? ""] ?? 4;
         const pb = ord[b.moyen_paiement ?? ""] ?? 4;
         if (pa !== pb) return pa - pb;
@@ -1391,6 +1393,13 @@ const AdminMembres = () => {
         evts.push({ insc, installment: 2, total: 4, dueMonth: 11, dueYear: y1, dueDateLabel: `Décembre ${y1}`, isFirstCheck: false });
         evts.push({ insc, installment: 3, total: 4, dueMonth: 2,  dueYear: y2, dueDateLabel: `Mars ${y2}`,     isFirstCheck: false });
         evts.push({ insc, installment: 4, total: 4, dueMonth: 5,  dueYear: y2, dueDateLabel: `Juin ${y2}`,     isFirstCheck: false });
+      } else if (insc.moyen_paiement === "cheque_3x_pass_sport" && insc.saison) {
+        const years = (insc.saison.match(/\d{4}/g) || []).map(Number);
+        const y1 = years[0], y2 = years[1];
+        if (!y1 || !y2) continue;
+        evts.push({ insc, installment: 1, total: 3, dueMonth: created.getMonth(), dueYear: created.getFullYear(), dueDateLabel: "À l'inscription", isFirstCheck: true });
+        evts.push({ insc, installment: 2, total: 3, dueMonth: 11, dueYear: y1, dueDateLabel: `Décembre ${y1}`, isFirstCheck: false });
+        evts.push({ insc, installment: 3, total: 3, dueMonth: 2,  dueYear: y2, dueDateLabel: `Mars ${y2}`,     isFirstCheck: false });
       } else {
         evts.push({ insc, installment: 1, total: 1, dueMonth: created.getMonth(), dueYear: created.getFullYear(), dueDateLabel: "À l'inscription", isFirstCheck: true });
       }
@@ -1405,6 +1414,10 @@ const AdminMembres = () => {
       else if (reglementFilter === "dec")    evts = evts.filter(e => e.installment === 2);
       else if (reglementFilter === "mars")   evts = evts.filter(e => e.installment === 3);
       else if (reglementFilter === "juin")   evts = evts.filter(e => e.installment === 4);
+    } else if (reglementMode === "cheque_3x_pass_sport") {
+      if (reglementFilter === "inscription") evts = evts.filter(e => e.installment === 1);
+      else if (reglementFilter === "dec")    evts = evts.filter(e => e.installment === 2);
+      else if (reglementFilter === "mars")   evts = evts.filter(e => e.installment === 3);
     }
     if (filterDiscipline) evts = evts.filter(e => (e.insc.disciplines || "").split(",").map(s => s.trim()).includes(filterDiscipline));
     if (searchQuery.trim()) {
@@ -1679,10 +1692,11 @@ const AdminMembres = () => {
                       {/* Onglets mode de paiement */}
                       <div className="flex border-b border-border/50 overflow-x-auto -mx-1 px-1">
                         {([
-                          { id: "cheque_1x", label: "Chèque 1 fois", cls: "bg-blue-500/10 text-blue-700" },
-                          { id: "especes",   label: "Espèces",        cls: "bg-green-500/10 text-green-700" },
-                          { id: "virement",  label: "Virement",       cls: "bg-violet-500/10 text-violet-700" },
-                          { id: "cheque_4x", label: "Chèque 4 fois",  cls: "bg-orange-500/10 text-orange-700" },
+                          { id: "cheque_1x",            label: "Chèque 1 fois",       cls: "bg-blue-500/10 text-blue-700" },
+                          { id: "especes",              label: "Espèces",              cls: "bg-green-500/10 text-green-700" },
+                          { id: "virement",             label: "Virement",             cls: "bg-violet-500/10 text-violet-700" },
+                          { id: "cheque_4x",            label: "Chèque 4 fois",        cls: "bg-orange-500/10 text-orange-700" },
+                          { id: "cheque_3x_pass_sport", label: "Chèque 3 fois + Pass Sport", cls: "bg-pink-500/10 text-pink-700" },
                         ] as const).map(({ id, label, cls }) => {
                           const cnt = allPaymentEvents.filter(e =>
                             e.insc.moyen_paiement === id &&
@@ -3102,8 +3116,9 @@ const AdminMembres = () => {
                   <h2 className="mb-4 font-serif text-lg font-bold border-b border-border/50 pb-2">Mode de règlement</h2>
                   <div className="space-y-3">
                     {([
-                      { value: "cheque_1x", label: "Chèque — en 1 fois" },
-                      { value: "cheque_4x", label: "Chèque — en 4 fois", detail: "60 € à l'inscription (non remboursable) + solde en 3 échéances (décembre, mars, juin)" },
+                      { value: "cheque_1x",            label: "Chèque — en 1 fois" },
+                      { value: "cheque_4x",            label: "Chèque — en 4 fois", detail: "60 € à l'inscription (non remboursable) + solde en 3 échéances (décembre, mars, juin)" },
+                      { value: "cheque_3x_pass_sport", label: "Chèque — en 3 fois + code Pass Sport 2026-2027", detail: "Réservé aux détenteurs d'un code Pass Sport 2026-2027" },
                       { value: "especes", label: "Espèces" },
                       { value: "virement", label: "Virement bancaire (en une seule fois)" },
                     ] as const).map(option => (
@@ -3358,8 +3373,9 @@ const AdminMembres = () => {
                   <h3 className="mb-3 text-sm font-semibold border-b border-border/50 pb-1.5">Mode de règlement</h3>
                   <div className="space-y-2">
                     {[
-                      { value: "cheque_1x", label: "Chèque — en 1 fois" },
-                      { value: "cheque_4x", label: "Chèque — en 4 fois", detail: "60 € à l'inscription + solde en 3 échéances" },
+                      { value: "cheque_1x",            label: "Chèque — en 1 fois" },
+                      { value: "cheque_4x",            label: "Chèque — en 4 fois", detail: "60 € à l'inscription + solde en 3 échéances" },
+                      { value: "cheque_3x_pass_sport", label: "Chèque — en 3 fois + code Pass Sport 2026-2027", detail: "Réservé aux détenteurs d'un code Pass Sport 2026-2027" },
                       { value: "especes", label: "Espèces" },
                       { value: "virement", label: "Virement bancaire (en une seule fois)" },
                     ].map(option => (

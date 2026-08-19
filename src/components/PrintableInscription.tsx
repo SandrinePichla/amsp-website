@@ -25,6 +25,7 @@ export interface RecapData {
 export const MOYEN_PAIEMENT_LABELS: Record<string, string> = {
   cheque_1x: 'Chèque — en 1 fois',
   cheque_4x: 'Chèque — en 4 fois',
+  cheque_3x_pass_sport: 'Chèque — en 3 fois (Pass Sport 2026-2027)',
   especes: 'Espèces',
   virement: 'Virement bancaire (en une seule fois)',
 };

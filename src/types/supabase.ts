@@ -12,7 +12,7 @@ export type SourceInscription = 'en_ligne' | 'papier'
 
 export type TypeInscription = 'adulte' | 'mineur'
 
-export type MoyenPaiement = 'cheque_1x' | 'cheque_4x' | 'especes' | 'virement'
+export type MoyenPaiement = 'cheque_1x' | 'cheque_4x' | 'cheque_3x_pass_sport' | 'especes' | 'virement'
 
 // ----------------------------------------------------------------
 // Table profils
