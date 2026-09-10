@@ -149,7 +149,7 @@ const UserMenu = ({
               </Link>
             )}
 
-            {/* Mon espace membre */}
+            {/* Mon espace membre — masqué
             {role !== "tiers" && (
               <Link
                 to="/espace-membre"
@@ -160,6 +160,7 @@ const UserMenu = ({
                 Mon espace membre
               </Link>
             )}
+            */}
 
             {/* Galerie membres */}
             <Link
@@ -359,6 +360,7 @@ const Header = () => {
           Gestion des membres
         </Link>
       )}
+      {/* Mon espace membre — masqué
       {role !== "tiers" && (
         <Link
           to="/espace-membre"
@@ -369,6 +371,7 @@ const Header = () => {
           Mon espace membre
         </Link>
       )}
+      */}
       <Link
         to="/galerie"
         onClick={() => setMobileOpen(false)}

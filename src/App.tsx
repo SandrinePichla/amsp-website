@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Suspense, lazy } from "react";
 import ScrollToTop from "@/components/ScrollToTop";
 import { HelmetProvider } from "react-helmet-async";
@@ -19,7 +19,8 @@ const Instructeurs = lazy(() => import("./pages/Instructeurs"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const MentionsLegales = lazy(() => import("./pages/MentionsLegales"));
 const Profil = lazy(() => import("./pages/Profil"));
-const EspaceMembre = lazy(() => import("./pages/EspaceMembre"));
+// Espace membre masqué — page conservée mais inaccessible (redirigée vers l'accueil)
+// const EspaceMembre = lazy(() => import("./pages/EspaceMembre"));
 const AdminMembres = lazy(() => import("./pages/AdminMembres"));
 const Rejoindre = lazy(() => import("./pages/Rejoindre"));
 const DisciplineDetail = lazy(() => import("./pages/DisciplineDetail"));
@@ -56,7 +57,7 @@ const App = () => (
             <Route path="/instructeurs" element={<Instructeurs />} />
             <Route path="/mentions-legales" element={<MentionsLegales />} />
             <Route path="/profil" element={<Profil />} />
-            <Route path="/espace-membre" element={<EspaceMembre />} />
+            <Route path="/espace-membre" element={<Navigate to="/" replace />} />
             <Route path="/admin/membres" element={<AdminMembres />} />
             <Route path="/rejoindre" element={<Rejoindre />} />
             <Route path="/mot-de-passe-oublie" element={<MotDePasseOublie />} />
