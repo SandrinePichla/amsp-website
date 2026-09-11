@@ -179,8 +179,14 @@ const DisciplineDetail = () => {
         {/* Gradient : image visible en haut, disparaît vers 40% */}
         <div className="absolute inset-0 bg-gradient-to-b from-transparent from-10% via-background/70 via-40% to-background to-55%" />
 
-        {/* Hero — titre en bas comme à l'origine */}
-        <section className="relative h-48 md:h-64">
+        {/* Hero — titre en bas comme à l'origine.
+            Hauteur libre (pas de h-48/h-64 fixe) : sur mobile étroit, le nom de la
+            discipline et les badges (âges/niveaux) peuvent passer sur plusieurs lignes.
+            Avec une hauteur figée, ce contenu positionné en absolute dépassait vers le
+            haut et se faisait rogner par l'overflow-hidden du conteneur (titre invisible
+            ou chevauchant le lien "Toutes les disciplines"). Le padding-top réserve la
+            place du breadcrumb ; la hauteur s'ajuste ensuite au contenu réel. */}
+        <section className="relative pt-16 pb-6 md:pt-20">
           {/* Breadcrumb */}
           <div className="absolute left-4 top-4 z-10">
             <Link
@@ -193,7 +199,7 @@ const DisciplineDetail = () => {
           </div>
 
           {/* Titre */}
-          <div className="absolute bottom-0 left-0 right-0 px-4 pb-6">
+          <div className="px-4">
             <div className="container mx-auto flex items-end gap-4">
               <div
                 className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl shadow-lg"
