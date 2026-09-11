@@ -20,12 +20,21 @@ interface Parametres {
   horairesAccueil: string[];
 }
 
+interface Discipline {
+  nom: string;
+}
+
+const SUJET_AUTRE = "Autre";
+const SUJETS_FIXES = ["Infos générales", "Infos tarifs", "Infos planning"];
+
 const Contact = () => {
   const [parametres, setParametres] = useState<Parametres | null>(null);
+  const [disciplines, setDisciplines] = useState<Discipline[]>([]);
   const [form, setForm] = useState({
     from_name: "",
     from_email: "",
-    subject: "",
+    sujet: "",
+    sujetAutre: "",
     message: ""
   });
   const [sending, setSending] = useState(false);
@@ -36,13 +45,22 @@ const Contact = () => {
   const [submitErrorList, setSubmitErrorList] = useState<string[]>([]);
   const submitErrorRef = useRef<HTMLDivElement>(null);
 
+  const sujetOptions = [
+    ...SUJETS_FIXES,
+    ...disciplines.map((d) => `Infos ${d.nom}`),
+    SUJET_AUTRE,
+  ];
+
   useEffect(() => {
     client
       .fetch('*[_type == "parametres"][0]')
       .then((data) => setParametres(data));
+    client
+      .fetch('*[_type == "discipline" && lower(nom) != "stages"] | order(ordre asc) { nom }')
+      .then((data: Discipline[]) => setDisciplines(data || []));
   }, []);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { id, value } = e.target;
     setForm(prev => ({ ...prev, [id]: value }));
     if (id === "from_email") setEmailError("");
@@ -77,7 +95,8 @@ const Contact = () => {
       formErrorList.push("L'adresse email est invalide.");
       newEmailError = "Format invalide — ex : nom@domaine.fr";
     }
-    if (!form.subject.trim()) formErrorList.push("Le sujet est obligatoire.");
+    if (!form.sujet) formErrorList.push("Le sujet est obligatoire.");
+    else if (form.sujet === SUJET_AUTRE && !form.sujetAutre.trim()) formErrorList.push("Merci de préciser votre sujet.");
     if (!form.message.trim()) formErrorList.push("Le message est obligatoire.");
 
     if (formErrorList.length > 0) {
@@ -107,15 +126,17 @@ const Contact = () => {
         message += `\n\n📎 Pièce jointe : ${urlData.publicUrl}`;
       }
 
+      const sujetFinal = form.sujet === SUJET_AUTRE ? `Autre : ${form.sujetAutre.trim()}` : form.sujet;
+
       const adminEmail = parametres?.email || import.meta.env.VITE_BREVO_ADMIN_EMAIL;
       await sendBrevoEmail(TEMPLATES.CONTACT, { email: adminEmail, name: "AMSP" }, {
         from_name: form.from_name,
         from_email: form.from_email,
-        subject: form.subject,
+        subject: sujetFinal,
         message,
       });
 
-      setForm({ from_name: "", from_email: "", subject: "", message: "" });
+      setForm({ from_name: "", from_email: "", sujet: "", sujetAutre: "", message: "" });
       setFile(null);
       setSubmitted(true);
     } catch (error) {
@@ -202,16 +223,33 @@ const Contact = () => {
                 {emailError && <p className="text-xs text-destructive">{emailError}</p>}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="subject">Sujet *</Label>
-                <Input
-                  id="subject"
+                <Label htmlFor="sujet">Sujet *</Label>
+                <select
+                  id="sujet"
                   required
-                  maxLength={200}
-                  placeholder="Objet de votre message"
-                  value={form.subject}
+                  value={form.sujet}
                   onChange={handleChange}
-                />
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <option value="" disabled>Choisissez un sujet</option>
+                  {sujetOptions.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
               </div>
+              {form.sujet === SUJET_AUTRE && (
+                <div className="space-y-2">
+                  <Label htmlFor="sujetAutre">Précisez votre sujet *</Label>
+                  <Input
+                    id="sujetAutre"
+                    required
+                    maxLength={200}
+                    placeholder="Décrivez votre sujet"
+                    value={form.sujetAutre}
+                    onChange={handleChange}
+                  />
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="message">Message *</Label>
                 <Textarea

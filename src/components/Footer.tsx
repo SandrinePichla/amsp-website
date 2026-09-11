@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import logoAmsp from "@/assets/logo_amsp.webp";
 
 const Footer = () => (
   <footer className="border-t border-border/50 bg-background">
@@ -6,6 +7,7 @@ const Footer = () => (
 
       {/* Bloc central */}
       <div className="flex flex-col items-center gap-4 text-center">
+        <img src={logoAmsp} alt="Logo A.M.S.P" className="h-28 w-28 object-contain" />
         <h3 className="font-serif text-xl font-bold text-primary">A.M.S.P</h3>
         <p className="max-w-sm text-sm text-muted-foreground">
           Association d'Arts Martiaux St Pierrois

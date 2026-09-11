@@ -38,7 +38,7 @@ const Connexion = () => {
             Espace <span className="text-primary">Membres</span>
           </h1>
           <p className="mb-8 text-center text-sm text-muted-foreground">
-            Connectez-vous pour accéder aux contenus privés
+            Cet espace est exclusivement réservé aux adhérents de l'A.M.S.P. — connectez-vous pour accéder aux contenus privés.
           </p>
 
           {error && (

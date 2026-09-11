@@ -116,8 +116,12 @@ const Galerie = () => {
           <h1 className="mb-4 text-center font-serif text-4xl font-black md:text-5xl">
             <span className="text-primary">Galerie</span> photos & vidéos
           </h1>
-          <p className="mx-auto mb-10 max-w-xl text-center text-muted-foreground">
+          <p className="mx-auto mb-4 max-w-xl text-center text-muted-foreground">
             Retrouvez les moments forts de l'association en images et vidéos.
+          </p>
+          <p className="mx-auto mb-10 flex max-w-xl items-start justify-center gap-2 text-center text-sm text-muted-foreground">
+            <Lock size={15} className="mt-0.5 shrink-0" />
+            <span>Ces photos et vidéos sont destinées à un usage personnel : merci de ne pas les publier ni les partager en dehors de l'association, dans le respect du droit à l'image de chacun.</span>
           </p>
 
           {loading ? (
@@ -178,7 +182,9 @@ const Galerie = () => {
                               src={urlFor(cover).width(300).height(300).fit('crop').url()}
                               alt={label}
                               loading="lazy"
-                              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              draggable={false}
+                              onContextMenu={(e) => e.preventDefault()}
+                              className="h-full w-full select-none object-cover transition-transform duration-500 group-hover:scale-105"
                             />
                           ) : youtubeCoverId ? (
                             <img
@@ -281,7 +287,9 @@ const Galerie = () => {
                         src={urlFor(photo).width(160).url()}
                         alt={photo.legende || ''}
                         loading="lazy"
-                        className="w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                        draggable={false}
+                        onContextMenu={(e) => e.preventDefault()}
+                        className="w-full select-none object-cover transition-transform duration-200 group-hover:scale-105"
                       />
                     </div>
                   ))}
@@ -314,7 +322,13 @@ const Galerie = () => {
                     if (video._type === 'video_upload' && video.fichier?.asset?.url) {
                       return (
                         <div key={video._key} className="overflow-hidden rounded-xl bg-black">
-                          <video controls className="aspect-video w-full object-contain">
+                          <video
+                            controls
+                            controlsList="nodownload noremoteplayback"
+                            disablePictureInPicture
+                            onContextMenu={(e) => e.preventDefault()}
+                            className="aspect-video w-full object-contain"
+                          >
                             <source src={video.fichier.asset.url} />
                           </video>
                           {video.legende && (
@@ -361,7 +375,9 @@ const Galerie = () => {
             <img
               src={urlFor(lightbox.album.photos[lightbox.index]).width(1200).url()}
               alt={lightbox.album.photos[lightbox.index]?.legende || ""}
-              className="max-h-[85vh] max-w-full rounded-lg object-contain"
+              draggable={false}
+              onContextMenu={(e) => e.preventDefault()}
+              className="max-h-[85vh] max-w-full select-none rounded-lg object-contain"
               onClick={(e) => e.stopPropagation()}
             />
 

@@ -58,6 +58,11 @@ L'INSTRUCTEUR DOIT :
 - Les instructeurs étant bénévoles, ils peuvent être dans l'impossibilité de faire les cours et doivent prévenir les adhérents de leur absence`;
 
 const REGEX_TEL_FR = /^(?:(?:\+|00)33[\s.-]?|0)[1-9](?:[\s.-]?\d{2}){4}$/;
+
+const formatTelephone = (value: string) => {
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+  return digits.replace(/(\d{2})(?=\d)/g, "$1 ");
+};
 const REGEX_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 const formVariants = {
@@ -121,6 +126,13 @@ const Inscription = () => {
   const submitErrorRef = useRef<HTMLDivElement>(null);
   const directionRef = useRef(1);
   const reglementScrollRef = useRef<HTMLDivElement>(null);
+
+  // La lecture du règlement doit être refaite pour chaque type de formulaire (adulte/mineur)
+  useEffect(() => {
+    setReglementAccepte(false);
+    setReglementLu(false);
+    if (reglementScrollRef.current) reglementScrollRef.current.scrollTop = 0;
+  }, [typeInscription]);
 
   useEffect(() => {
     client.fetch(`*[_type == "discipline" && lower(nom) != "stages"] | order(ordre asc) { _id, nom, nomCourt }`).then(setDisciplines);
@@ -318,8 +330,10 @@ const Inscription = () => {
     }
     if (typeInscription === 'mineur') {
       if (!parent1.nom.trim() || !parent1.prenom.trim()) formErrorList.push("Le nom et prénom du parent 1 (contact principal) sont obligatoires.");
-      if (parent1.tel.trim() && !REGEX_TEL_FR.test(parent1.tel.trim())) { formErrorList.push("Le téléphone du parent 1 est invalide."); newFieldErrors.p1tel = 'Format invalide — ex : 06 00 00 00 00'; }
-      if (parent1.email.trim() && !REGEX_EMAIL.test(parent1.email.trim())) { formErrorList.push("L'email du parent 1 est invalide."); newFieldErrors.p1email = 'Format invalide — ex : nom@domaine.fr'; }
+      if (!parent1.tel.trim()) { formErrorList.push("Le téléphone du parent 1 est obligatoire."); newFieldErrors.p1tel = 'Champ obligatoire'; }
+      else if (!REGEX_TEL_FR.test(parent1.tel.trim())) { formErrorList.push("Le téléphone du parent 1 est invalide."); newFieldErrors.p1tel = 'Format invalide — ex : 06 00 00 00 00'; }
+      if (!parent1.email.trim()) { formErrorList.push("L'email du parent 1 est obligatoire."); newFieldErrors.p1email = 'Champ obligatoire'; }
+      else if (!REGEX_EMAIL.test(parent1.email.trim())) { formErrorList.push("L'email du parent 1 est invalide."); newFieldErrors.p1email = 'Format invalide — ex : nom@domaine.fr'; }
       if (parent2.tel.trim() && !REGEX_TEL_FR.test(parent2.tel.trim())) { formErrorList.push("Le téléphone du parent 2 est invalide."); newFieldErrors.p2tel = 'Format invalide — ex : 06 00 00 00 00'; }
       if (parent2.email.trim() && !REGEX_EMAIL.test(parent2.email.trim())) { formErrorList.push("L'email du parent 2 est invalide."); newFieldErrors.p2email = 'Format invalide — ex : nom@domaine.fr'; }
       if (!autorisationParentale) formErrorList.push("L'autorisation parentale est obligatoire pour un mineur.");
@@ -521,9 +535,16 @@ const Inscription = () => {
             <p className="mx-auto mb-4 max-w-xl text-center text-muted-foreground">
               Remplissez le formulaire ci-dessous pour vous inscrire à l'A.M.S.P.
             </p>
-            <p className="mb-10 text-center text-sm font-semibold text-primary">
+            <p className="mb-6 text-center text-sm font-semibold text-primary">
               {saison}
             </p>
+
+            <div className="mx-auto mb-10 max-w-xl rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30 p-4 flex items-start gap-3">
+              <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-800 dark:text-amber-300" />
+              <p className="text-sm text-amber-800 dark:text-amber-300">
+                Cette inscription en ligne n'est pas définitive. Elle est soumise à validation selon le nombre de places disponibles et après les 2 cours d'essai gratuits.
+              </p>
+            </div>
 
             {/* Écran de confirmation après envoi */}
             <AnimatePresence mode="wait">
@@ -730,8 +751,8 @@ const Inscription = () => {
                       <h2 className="mb-4 font-serif text-lg font-bold border-b border-border/50 pb-2">Coordonnées</h2>
                       <div className="space-y-4">
                         <div className="space-y-2">
-                          <Label htmlFor="telMobile">Téléphone mobile *</Label>
-                          <Input id="telMobile" type="tel" required maxLength={20} placeholder="06 00 00 00 00" value={form.telMobile} onChange={handleChange} onBlur={() => validateTel('telMobile', form.telMobile, true)} className={errors.telMobile ? 'border-destructive' : ''} />
+                          <Label htmlFor="telMobile">Téléphone mobile et fixe *</Label>
+                          <Input id="telMobile" type="tel" required maxLength={14} placeholder="06 00 00 00 00" value={form.telMobile} onChange={(e) => { setForm(prev => ({ ...prev, telMobile: formatTelephone(e.target.value) })); clearFieldError('telMobile'); }} onBlur={() => validateTel('telMobile', form.telMobile, true)} className={errors.telMobile ? 'border-destructive' : ''} />
                           {errors.telMobile && <p className="text-xs text-destructive">{errors.telMobile}</p>}
                         </div>
                         <div className="space-y-2">
@@ -764,13 +785,13 @@ const Inscription = () => {
                           </div>
                           <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-2">
-                              <Label htmlFor="p1email">Email</Label>
-                              <Input id="p1email" type="email" maxLength={255} placeholder="email@exemple.com" value={parent1.email} onChange={e => { setParent1(p => ({ ...p, email: e.target.value })); clearFieldError('p1email'); }} onBlur={() => validateEmail('p1email', parent1.email)} className={errors.p1email ? 'border-destructive' : ''} />
+                              <Label htmlFor="p1email">Email *</Label>
+                              <Input id="p1email" type="email" required maxLength={255} placeholder="email@exemple.com" value={parent1.email} onChange={e => { setParent1(p => ({ ...p, email: e.target.value })); clearFieldError('p1email'); }} onBlur={() => validateEmail('p1email', parent1.email, true)} className={errors.p1email ? 'border-destructive' : ''} />
                               {errors.p1email && <p className="text-xs text-destructive">{errors.p1email}</p>}
                             </div>
                             <div className="space-y-2">
-                              <Label htmlFor="p1tel">Téléphone</Label>
-                              <Input id="p1tel" type="tel" maxLength={20} placeholder="06 00 00 00 00" value={parent1.tel} onChange={e => { setParent1(p => ({ ...p, tel: e.target.value })); clearFieldError('p1tel'); }} onBlur={() => validateTel('p1tel', parent1.tel)} className={errors.p1tel ? 'border-destructive' : ''} />
+                              <Label htmlFor="p1tel">Téléphone mobile et fixe *</Label>
+                              <Input id="p1tel" type="tel" required maxLength={14} placeholder="06 00 00 00 00" value={parent1.tel} onChange={e => { setParent1(p => ({ ...p, tel: formatTelephone(e.target.value) })); clearFieldError('p1tel'); }} onBlur={() => validateTel('p1tel', parent1.tel, true)} className={errors.p1tel ? 'border-destructive' : ''} />
                               {errors.p1tel && <p className="text-xs text-destructive">{errors.p1tel}</p>}
                             </div>
                           </div>
@@ -794,8 +815,8 @@ const Inscription = () => {
                               {errors.p2email && <p className="text-xs text-destructive">{errors.p2email}</p>}
                             </div>
                             <div className="space-y-2">
-                              <Label htmlFor="p2tel">Téléphone</Label>
-                              <Input id="p2tel" type="tel" maxLength={20} placeholder="06 00 00 00 00" value={parent2.tel} onChange={e => { setParent2(p => ({ ...p, tel: e.target.value })); clearFieldError('p2tel'); }} onBlur={() => validateTel('p2tel', parent2.tel)} className={errors.p2tel ? 'border-destructive' : ''} />
+                              <Label htmlFor="p2tel">Téléphone mobile et fixe</Label>
+                              <Input id="p2tel" type="tel" maxLength={14} placeholder="06 00 00 00 00" value={parent2.tel} onChange={e => { setParent2(p => ({ ...p, tel: formatTelephone(e.target.value) })); clearFieldError('p2tel'); }} onBlur={() => validateTel('p2tel', parent2.tel)} className={errors.p2tel ? 'border-destructive' : ''} />
                               {errors.p2tel && <p className="text-xs text-destructive">{errors.p2tel}</p>}
                             </div>
                           </div>
@@ -821,8 +842,8 @@ const Inscription = () => {
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="urgenceTel">Téléphone</Label>
-                        <Input id="urgenceTel" type="tel" required maxLength={20} placeholder="06 00 00 00 00" value={form.urgenceTel} onChange={handleChange} onBlur={() => validateTel('urgenceTel', form.urgenceTel, true)} className={errors.urgenceTel ? 'border-destructive' : ''} />
+                        <Label htmlFor="urgenceTel">Téléphone mobile et fixe</Label>
+                        <Input id="urgenceTel" type="tel" required maxLength={14} placeholder="06 00 00 00 00" value={form.urgenceTel} onChange={(e) => { setForm(prev => ({ ...prev, urgenceTel: formatTelephone(e.target.value) })); clearFieldError('urgenceTel'); }} onBlur={() => validateTel('urgenceTel', form.urgenceTel, true)} className={errors.urgenceTel ? 'border-destructive' : ''} />
                         {errors.urgenceTel && <p className="text-xs text-destructive">{errors.urgenceTel}</p>}
                       </div>
                     </div>

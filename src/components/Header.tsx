@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { client } from "@/sanityClient";
 import { slugify } from "@/lib/utils";
+import logoAmsp from "@/assets/logo_amsp.webp";
 
 interface NavChild {
   label: string;
@@ -226,6 +227,7 @@ const Header = () => {
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <Link to="/" className="flex items-center gap-2">
+          <img src={logoAmsp} alt="Logo A.M.S.P" className="h-14 w-14 object-contain" />
           <span className="font-serif text-xl font-bold tracking-wide text-primary">
             A.M.S.P
           </span>
