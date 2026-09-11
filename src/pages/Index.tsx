@@ -157,7 +157,7 @@ const Index = () => {
     <Layout>
       <Helmet>
         <title>Club d'Arts Martiaux à Saint-Pierre-la-Palud (69) — A.M.S.P.</title>
-        <meta name="description" content="Club d'arts martiaux à Saint-Pierre-la-Palud (69210) — Karaté Shotokan, Viet Vo Dao, Tai Chi Chuan, Aïkido, Wutao, Qi Gong, Épée. Cours pour adultes et enfants, débutants bienvenus." />
+        <meta name="description" content="Club d'arts martiaux à Saint-Pierre-la-Palud (69210) — Karaté Shotokan, Tai Chi Chuan main nue, Wutao, Qi Gong, Tai Chi Chuan Épée. Cours pour adultes et enfants, débutants bienvenus." />
       </Helmet>
       {/* Hero */}
       <section className="relative flex h-[160px] sm:h-[200px] items-center justify-center overflow-hidden">

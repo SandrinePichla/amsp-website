@@ -14,6 +14,38 @@ export type TypeInscription = 'adulte' | 'mineur'
 
 export type MoyenPaiement = 'cheque_1x' | 'cheque_4x' | 'cheque_3x_pass_sport' | 'especes' | 'virement'
 
+/** Un chèque reçu pour une échéance d'une inscription (1 pour cheque_1x, jusqu'à 4 pour cheque_4x…). */
+export interface ChequeNumero {
+  echeance: number
+  label: string
+  numero: string
+}
+
+// ----------------------------------------------------------------
+// Table cheques — un chèque physique, éventuellement partagé entre
+// plusieurs inscriptions (voir cheque_echeances).
+// ----------------------------------------------------------------
+export interface Cheque {
+  id: string
+  numero: string
+  montant: number | null
+  saison: string | null
+  created_at: string
+}
+
+// ----------------------------------------------------------------
+// Table cheque_echeances — rattache un chèque à l'échéance d'une
+// inscription. Plusieurs lignes peuvent pointer vers le même chèque.
+// ----------------------------------------------------------------
+export interface ChequeEcheance {
+  id: string
+  cheque_id: string
+  inscription_id: string
+  echeance: number
+  label: string | null
+  created_at: string
+}
+
 // ----------------------------------------------------------------
 // Table profils
 // ----------------------------------------------------------------
@@ -95,7 +127,9 @@ export interface Inscription {
   source: SourceInscription | null
   type_inscription: TypeInscription | null
   pass_sport: boolean
+  pass_sport_code: string | null
   moyen_paiement: MoyenPaiement | null
+  numeros_cheques: ChequeNumero[] | null
   droit_image: boolean
   autorisation_parentale: boolean
   parent1_nom: string | null
