@@ -9,7 +9,6 @@ import {
   Sparkles, GraduationCap, Users, Clock, Phone, Mail, User, Award,
   CalendarDays, ArrowRight, ChevronLeft, ExternalLink, X,
 } from "lucide-react";
-import { iconesDisciplines } from "@/iconesDisciplines";
 import { PALETTE, buildColorMap, timeToMinutes, DAYS } from "@/components/PrintablePlanning";
 import type { Cours, Tarif, TarifSpecial } from "@/components/PrintablePlanning";
 import { slugify } from "@/lib/utils";
@@ -35,7 +34,6 @@ interface Discipline {
   _id: string;
   nom: string;
   nomCourt: string;
-  icone: string;
   description: string;
   horaires: string;
   professeurs: string[];
@@ -122,7 +120,6 @@ const DisciplineDetail = () => {
     );
   }
 
-  const IconeComposant = iconesDisciplines[discipline.icone] || Sparkles;
   const colorMap = buildColorMap(cours);
   const color = colorMap[discipline.nom] || PALETTE[0];
   const activeDays = DAYS.filter((day) => cours.some((c) => c.jour?.toLowerCase() === day.toLowerCase()));
@@ -202,7 +199,7 @@ const DisciplineDetail = () => {
                 className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl shadow-lg"
                 style={{ backgroundColor: `${color.bg}20`, border: `2px solid ${color.bg}40` }}
               >
-                <IconeComposant size={26} style={{ color: color.bg }} />
+                <Sparkles size={26} style={{ color: color.bg }} />
               </div>
               <div>
                 <h1 className="font-serif text-3xl font-black md:text-4xl">{discipline.nom}</h1>

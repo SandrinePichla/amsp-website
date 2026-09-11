@@ -7,7 +7,6 @@ import { useEffect, useState, memo } from "react";
 import { client } from "@/sanityClient";
 import { urlFor } from "@/sanityImage";
 import { Sparkles } from "lucide-react";
-import { iconesDisciplines } from "@/iconesDisciplines";
 import heroImage from "@/assets/hero-martial-banner-modif4.webp";
 import { PdfPage } from "@/components/PdfPage";
 import { slugify } from "@/lib/utils";
@@ -16,7 +15,6 @@ interface Discipline {
   _id: string;
   nom: string;
   nomCourt: string;
-  icone: string;
   description: string;
   horaires: string;
   ordre: number;
@@ -265,7 +263,6 @@ const Index = () => {
           </div>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {disciplines.map((d, i) => {
-              const IconeComposant = iconesDisciplines[d.icone] || Sparkles;
               return (
                 <motion.div
                   key={d._id}
@@ -294,7 +291,7 @@ const Index = () => {
                       <div className="relative flex h-28 items-center gap-4 overflow-hidden bg-gradient-to-br from-primary/15 via-primary/8 to-transparent px-5">
                         <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-primary/8 transition-all duration-500 group-hover:scale-125 group-hover:bg-primary/12" />
                         <div className="relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/12 ring-1 ring-primary/20 transition-all duration-300 group-hover:bg-primary/22 group-hover:ring-primary/40">
-                          <IconeComposant size={22} className="text-primary" />
+                          <Sparkles size={22} className="text-primary" />
                         </div>
                         <h3 className="relative z-10 font-serif text-xl font-black leading-tight transition-colors group-hover:text-primary">
                           {d.nom}

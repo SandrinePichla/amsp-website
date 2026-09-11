@@ -5,7 +5,6 @@ import Layout from "@/components/Layout";
 import { useEffect, useState } from "react";
 import { client } from "@/sanityClient";
 import { Sparkles, GraduationCap, Users, Clock } from "lucide-react";
-import { iconesDisciplines } from "@/iconesDisciplines";
 import { urlFor } from "@/sanityImage";
 import { slugify } from "@/lib/utils";
 
@@ -13,7 +12,6 @@ interface Discipline {
   _id: string;
   nom: string;
   nomCourt: string;
-  icone: string;
   description: string;
   horaires: string;
   professeurs: string[];
@@ -73,7 +71,6 @@ const Disciplines = () => {
           ) : (
             <div className="space-y-4">
               {disciplines.map((d, i) => {
-                const IconeComposant = iconesDisciplines[d.icone] || Sparkles;
                 const imageLeft = i % 2 !== 0;
 
                 return (
@@ -103,7 +100,7 @@ const Disciplines = () => {
                           />
                         ) : (
                           <div className="h-40 md:h-full w-full flex items-center justify-center bg-gradient-to-br from-primary/15 via-primary/8 to-transparent">
-                            <IconeComposant size={52} className="text-primary/20" />
+                            <Sparkles size={52} className="text-primary/20" />
                           </div>
                         )}
                         <div className={`absolute inset-0 hidden md:block ${
@@ -118,7 +115,7 @@ const Disciplines = () => {
                         {/* Icone + Nom */}
                         <div className="mb-3 flex items-center gap-3">
                           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/12 ring-1 ring-primary/20">
-                            <IconeComposant size={20} className="text-primary" />
+                            <Sparkles size={20} className="text-primary" />
                           </div>
                           <h2 className="font-serif text-xl font-black leading-tight md:text-2xl">
                             {d.nom}
