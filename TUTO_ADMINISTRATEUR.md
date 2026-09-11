@@ -19,7 +19,7 @@
 ## 1. Se connecter à l'espace admin du site
 
 Le site est accessible à l'adresse :
-**https://sandrinepichla.github.io/amsp-website**
+**https://clubamsp.fr**
 
 **Étapes :**
 
@@ -116,6 +116,18 @@ Le tableau de la page "Gestion des membres" présente chaque inscrit sur une lig
 Le bouton **"Exporter"** en haut de page génère un fichier Excel avec les colonnes dans cet ordre :
 Numéro · Nom · Prénom · Date naissance · Type · Adresse · Téléphone · Email · Discipline(s) · Niveau · Groupe sanguin · Allergie(s) · Urgence · Paiement · Pass Sport · Droit image · Autorisation parentale · Parent 1 · Parent 1 email · Parent 1 tél · Parent 2 · Saison · Statut · Source · Reçue le
 
+### Enregistrer un chèque ou un code Pass Sport (onglet Règlements)
+
+L'onglet **"Règlements"** liste les paiements par mode (Chèque 1 fois, Espèces, Virement, Chèque 4 fois, Chèque 3 fois + Pass Sport), avec des sous-onglets par échéance pour les paiements en plusieurs fois.
+
+| Pour… | Faire… |
+|-------|--------|
+| Noter le numéro et le montant d'un chèque reçu | Bouton **"Lier un chèque"** sur la ligne de la personne. |
+| Un même chèque couvre plusieurs personnes (ex : une famille qui règle en un seul chèque) | Dans la fenêtre du chèque, **"Ajouter quelqu'un à ce chèque"** → rechercher le nom, même si la personne n'apparaît pas dans la liste affichée à l'écran. |
+| Saisir le code Pass Sport | Mode **"Chèque 3 fois + Pass Sport"** → 4ᵉ sous-onglet **"Code Pass Sport"**, une ligne par personne. |
+
+> 💡 Le numéro de chèque et le code Pass Sport s'enregistrent automatiquement dès que vous quittez le champ.
+
 ---
 
 ## 5. Saisir une inscription papier et créer un espace membre
@@ -154,10 +166,8 @@ Sanity est l'outil qui permet de modifier le contenu du site (textes, photos, ac
 
 ### Se connecter à Sanity
 
-1. Aller sur **https://www.sanity.io**
-2. Cliquer sur **"Log in"** en haut à droite
-3. Se connecter avec le compte Google ou email associé au projet AMSP
-4. Une fois connecté, aller sur **https://amsp-admin.sanity.studio** (ou lancer Sanity en local — voir le guide technique)
+1. Aller directement sur **https://amsp-admin.netlify.app**
+2. Se connecter avec le compte Google ou email associé au projet AMSP
 
 ### Ce que vous pouvez modifier
 
@@ -204,7 +214,7 @@ Sanity est l'outil qui permet de modifier le contenu du site (textes, photos, ac
 
 Après avoir cliqué sur **"Publish"** dans Sanity, attendre **30 secondes à 1 minute**, puis :
 
-1. Aller sur le site : **https://sandrinepichla.github.io/amsp-website**
+1. Aller sur le site : **https://clubamsp.fr**
 2. Appuyer sur **Ctrl + Maj + R** (Windows) pour vider le cache et forcer le rechargement
 3. Naviguer vers la page modifiée pour vérifier
 

@@ -43,7 +43,7 @@ Pour l'arrêter : `Ctrl + C` dans le terminal.
 ## 4. Déployer sur le site en ligne (GitHub Pages)
 
 > Le site est hébergé sur GitHub Pages à l'adresse :
-> **https://sandrinepichla.github.io/amsp-website**
+> **https://clubamsp.fr**
 
 ### Étape 1 — Enregistrer les modifications dans Git
 
