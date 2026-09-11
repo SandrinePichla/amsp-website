@@ -36,7 +36,7 @@ const App = () => (
       <Toaster />
       <Sonner />
 
-      <BrowserRouter basename="/amsp-website"
+      <BrowserRouter basename="/"
        future={{
           v7_startTransition: true,
           v7_relativeSplatPath: true

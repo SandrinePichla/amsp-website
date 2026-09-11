@@ -27,8 +27,7 @@ const MentionsLegales = () => {
                   <li><strong className="text-foreground">Forme juridique :</strong> Association loi 1901</li>
                   <li><strong className="text-foreground">Siège social :</strong> Saint-Pierre-la-Palud, 69210</li>
                   <li><strong className="text-foreground">Numéro RNA :</strong> W691080354</li>
-                  <li><strong className="text-foreground">Email :</strong> artsmartiauxstpierrois@gmail.com</li>
-                  <li><strong className="text-foreground">Téléphone :</strong> 06.82.16.22.66</li>
+                  <li><strong className="text-foreground">Email :</strong> contact@clubamsp.fr</li>
                 </ul>
               </div>
 
@@ -83,7 +82,7 @@ const MentionsLegales = () => {
                   <li>Droit à la portabilité de vos données</li>
                   <li>Droit d'opposition au traitement de vos données</li>
                 </ul>
-                <p className="mt-3">Pour exercer vos droits, contactez-nous à : <a href="mailto:artsmartiauxstpierrois@gmail.com" className="hover:text-primary transition-colors">artsmartiauxstpierrois@gmail.com</a></p>
+                <p className="mt-3">Pour exercer vos droits, contactez-nous à : <a href="mailto:contact@clubamsp.fr" className="hover:text-primary transition-colors">contact@clubamsp.fr</a></p>
               </div>
 
               {/* Cookies */}

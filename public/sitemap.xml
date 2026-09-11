@@ -1,63 +1,62 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- TODO: remplacer l'URL de base par le nom de domaine définitif quand disponible -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 
   <url>
-    <loc>https://sandrinepichla.github.io/amsp-website/</loc>
+    <loc>https://clubamsp.fr/</loc>
     <changefreq>monthly</changefreq>
     <priority>1.0</priority>
   </url>
 
   <url>
-    <loc>https://sandrinepichla.github.io/amsp-website/disciplines</loc>
+    <loc>https://clubamsp.fr/disciplines</loc>
     <changefreq>monthly</changefreq>
     <priority>0.9</priority>
   </url>
 
   <url>
-    <loc>https://sandrinepichla.github.io/amsp-website/planning</loc>
+    <loc>https://clubamsp.fr/planning</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
 
   <url>
-    <loc>https://sandrinepichla.github.io/amsp-website/inscription</loc>
+    <loc>https://clubamsp.fr/inscription</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
 
   <url>
-    <loc>https://sandrinepichla.github.io/amsp-website/rejoindre</loc>
+    <loc>https://clubamsp.fr/rejoindre</loc>
     <changefreq>yearly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://sandrinepichla.github.io/amsp-website/instructeurs</loc>
+    <loc>https://clubamsp.fr/instructeurs</loc>
     <changefreq>yearly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://sandrinepichla.github.io/amsp-website/galerie</loc>
+    <loc>https://clubamsp.fr/galerie</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
 
   <url>
-    <loc>https://sandrinepichla.github.io/amsp-website/contact</loc>
+    <loc>https://clubamsp.fr/contact</loc>
     <changefreq>yearly</changefreq>
     <priority>0.7</priority>
   </url>
 
   <url>
-    <loc>https://sandrinepichla.github.io/amsp-website/lasso</loc>
+    <loc>https://clubamsp.fr/lasso</loc>
     <changefreq>yearly</changefreq>
     <priority>0.5</priority>
   </url>
 
   <url>
-    <loc>https://sandrinepichla.github.io/amsp-website/mentions-legales</loc>
+    <loc>https://clubamsp.fr/mentions-legales</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>

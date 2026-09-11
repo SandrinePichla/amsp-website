@@ -14,13 +14,11 @@ const Footer = () => (
         {/* Coordonnées en ligne */}
         <div className="flex flex-wrap justify-center gap-x-6 gap-y-1 text-sm text-muted-foreground">
           <a
-            href="mailto:artsmartiauxstpierrois@gmail.com"
+            href="mailto:contact@clubamsp.fr"
             className="transition-colors hover:text-primary"
           >
-            artsmartiauxstpierrois@gmail.com
+            contact@clubamsp.fr
           </a>
-          <span className="hidden sm:inline text-border">|</span>
-          <span>06.82.16.22.66</span>
           <span className="hidden sm:inline text-border">|</span>
           <a
             href="https://www.facebook.com/artsmartiauxstpierrois"

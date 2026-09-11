@@ -769,7 +769,7 @@ const AdminMembres = () => {
       setInscriptions(prev => prev.map(i => i.id === insc.id ? { ...i, user_id: newUserId } : i));
     }
     await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/amsp-website/reinitialisation-mot-de-passe`,
+      redirectTo: `${window.location.origin}/reinitialisation-mot-de-passe`,
     });
 
     const newMembre: Membre = {
@@ -784,7 +784,7 @@ const AdminMembres = () => {
   const handleRenvoyerInvitation = async (email: string) => {
     setProcessing(`invitation-${email}`);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/amsp-website/reinitialisation-mot-de-passe`,
+      redirectTo: `${window.location.origin}/reinitialisation-mot-de-passe`,
     });
     if (error) {
       toast.error("Erreur : " + error.message);
@@ -824,7 +824,7 @@ const AdminMembres = () => {
     preventRedirectRef.current = false;
 
     await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/amsp-website/reinitialisation-mot-de-passe`,
+      redirectTo: `${window.location.origin}/reinitialisation-mot-de-passe`,
     });
 
     const newMembre: Membre = {

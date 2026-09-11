@@ -38,7 +38,7 @@ npm run deploy     # Build + deploy to GitHub Pages
 
 ### Config Notes
 
-- Vite base path is `/amsp-website/` for GitHub Pages deployment
+- Vite base path is `/` for GitHub Pages deployment with custom domain `clubamsp.fr` (see `public/CNAME`)
 - TypeScript is configured with loose checking (`noImplicitAny: false`, `strictNullChecks: false`)
 - Path alias `@` maps to `src/`
 - Tests use jsdom environment, files match `src/**/*.{test,spec}.{ts,tsx}`

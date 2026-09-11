@@ -468,7 +468,7 @@ const Index = () => {
                 <div className="rounded-lg bg-secondary/50 p-4 text-sm">
                   <p className="font-medium mb-1">📝 Inscription obligatoire</p>
                   <p className="text-muted-foreground">
-                    {selectedActu.inscription || '06.82.16.22.66 ou artsmartiauxstpierrois@gmail.com'}
+                    {selectedActu.inscription || 'Inscrivez-vous par email à contact@clubamsp.fr'}
                   </p>                  
                 </div>
               </div>

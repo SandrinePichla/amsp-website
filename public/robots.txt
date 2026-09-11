@@ -7,5 +7,4 @@ Disallow: /admin/
 Disallow: /mot-de-passe-oublie
 Disallow: /reinitialisation-mot-de-passe
 
-# TODO: remplacer l'URL par le nom de domaine définitif
-Sitemap: https://sandrinepichla.github.io/amsp-website/sitemap.xml
+Sitemap: https://clubamsp.fr/sitemap.xml

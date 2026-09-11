@@ -705,14 +705,14 @@ const Inscription = () => {
                         <p className="font-medium text-foreground">Certificat médical et questionnaire de santé</p>
                         <p className="text-muted-foreground">
                           Le certificat médical n'est pas obligatoire. Le responsable légal doit compléter le{' '}
-                          <a href="/amsp-website/questionnaire-sante.pdf" target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline underline-offset-2 hover:text-primary/80">
+                          <a href="/questionnaire-sante.pdf" target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline underline-offset-2 hover:text-primary/80">
                             questionnaire de santé
                           </a>{' '}
                           avec son enfant.
                         </p>
                         <p className="text-muted-foreground">
                           Si toutes les réponses sont <span className="font-medium">négatives</span>, remettre au club l'{' '}
-                          <a href="/amsp-website/attestation-honneur.pdf" target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline underline-offset-2 hover:text-primary/80">
+                          <a href="/attestation-honneur.pdf" target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline underline-offset-2 hover:text-primary/80">
                             attestation sur l'honneur
                           </a>{' '}
                           lors des premiers cours.

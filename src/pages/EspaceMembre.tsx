@@ -417,7 +417,7 @@ const TabInscriptions = ({
   const mention = (
     <p className="text-sm text-muted-foreground italic">
       Pour tout changement de situation, merci de nous{" "}
-      <a href="/amsp-website/contact" className="text-primary underline underline-offset-2 hover:text-primary/80">nous contacter</a>.
+      <a href="/contact" className="text-primary underline underline-offset-2 hover:text-primary/80">nous contacter</a>.
     </p>
   );
 
