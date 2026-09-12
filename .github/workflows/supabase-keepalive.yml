@@ -1,0 +1,27 @@
+name: Supabase keepalive
+
+# Le plan gratuit Supabase met le projet en pause après ~7 jours sans requête API.
+# On envoie une requête légère 2 fois par semaine pour éviter la mise en pause,
+# sans passer au plan payant (25 $/mois).
+#
+# On interroge une vraie table via l'API REST (PostgREST) plutôt que le
+# endpoint /auth/v1/health : c'est une vraie requête à la base de données,
+# donc on est sûr qu'elle compte comme "activité" au sens de Supabase.
+# RLS bloque la lecture pour un visiteur anonyme (clé publique) — la requête
+# renvoie 0 ligne, ce qui est normal et attendu, sans exposer aucune donnée.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1,4" # tous les lundis et jeudis à 6h UTC
+  workflow_dispatch: # permet de le lancer manuellement depuis l'onglet Actions
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase (lecture d'une table)
+        run: |
+          curl -sf "https://nlztcbltrxatqxjgjuvq.supabase.co/rest/v1/profils?select=id&limit=1" \
+            -H "apikey: sb_publishable_DSxSsHtsPKTriTRFBcIdWQ_ZBPEqldh" \
+            -H "Authorization: Bearer sb_publishable_DSxSsHtsPKTriTRFBcIdWQ_ZBPEqldh" \
+            -o /dev/null -w "Réponse Supabase : HTTP %{http_code}\n"
