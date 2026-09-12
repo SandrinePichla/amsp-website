@@ -164,6 +164,7 @@ const Index = () => {
           alt="Arts martiaux AMSP"
           className="absolute inset-0 h-full w-full object-cover object-[center_80%]"
           loading="eager"
+          fetchPriority="high"
         />
 
         <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/40 to-background" />
