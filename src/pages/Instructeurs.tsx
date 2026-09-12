@@ -22,6 +22,7 @@ interface Instructeur {
   bio?: string;
   liens?: Lien[];
   photo?: { asset: { _ref: string } };
+  photoDimensions?: { width: number; height: number };
 }
 
 const Instructeurs = () => {
@@ -29,12 +30,13 @@ const Instructeurs = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [selected, setSelected] = useState<Instructeur | null>(null);
-  const [lightbox, setLightbox] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<{ url: string; width?: number; height?: number } | null>(null);
 
   useEffect(() => {
     client
       .fetch(`*[_type == "instructeur"] | order(ordre asc) {
         _id, nom, grade, telephone, email, bio, liens, photo,
+        "photoDimensions": photo.asset->metadata.dimensions,
         disciplines[]-> { nom, nomCourt }
       }`)
       .then((data) => {
@@ -211,7 +213,9 @@ const Instructeurs = () => {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
               transition={{ duration: 0.2 }}
-              src={lightbox}
+              src={lightbox.url}
+              width={lightbox.width}
+              height={lightbox.height}
               className="max-w-full max-h-[90vh] rounded-xl object-contain shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             />
@@ -249,7 +253,7 @@ const Instructeurs = () => {
               {selected.photo ? (
                 <button
                   className="relative w-full h-48 overflow-hidden rounded-t-2xl focus:outline-none group bg-secondary/30"
-                  onClick={(e) => { e.stopPropagation(); setLightbox(urlFor(selected.photo!).width(1200).url()); }}
+                  onClick={(e) => { e.stopPropagation(); setLightbox({ url: urlFor(selected.photo!).width(1200).url(), width: selected.photoDimensions?.width, height: selected.photoDimensions?.height }); }}
                 >
                   <img
                     src={urlFor(selected.photo).width(600).url()}

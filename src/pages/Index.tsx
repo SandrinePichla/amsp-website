@@ -39,6 +39,7 @@ interface Actualite {
   inscription: string;
   minimumPersonnes: number;
   image?: { asset: { _ref: string } };
+  imageDimensions?: { width: number; height: number };
   flyer?: { asset: { url: string } };
   publie: boolean;
   statut?: string;
@@ -156,7 +157,7 @@ const Index = () => {
       .then((data) => setDisciplines(data));
 
     client
-      .fetch('*[_type == "actualite" && publie == true] | order(date asc) { ..., flyer { asset-> { url } } }')
+      .fetch('*[_type == "actualite" && publie == true] | order(date asc) { ..., "imageDimensions": image.asset->metadata.dimensions, flyer { asset-> { url } } }')
       .then((data) => setActualites(data as Actualite[]));
   }, []);
 
@@ -386,6 +387,8 @@ const Index = () => {
                 <img
                   src={urlFor(selectedActu.image).width(800).url()}
                   alt={selectedActu.titre}
+                  width={selectedActu.imageDimensions?.width}
+                  height={selectedActu.imageDimensions?.height}
                   className="w-full object-contain max-h-80 cursor-zoom-in"
                   onClick={(e) => { e.stopPropagation(); setFlyerZoom(true); }}
                 />
@@ -513,6 +516,8 @@ const Index = () => {
               transition={{ duration: 0.2 }}
               src={urlFor(selectedActu.image).width(1200).url()}
               alt={selectedActu.titre}
+              width={selectedActu.imageDimensions?.width}
+              height={selectedActu.imageDimensions?.height}
               className="max-h-[90vh] max-w-full object-contain rounded-lg shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             />
