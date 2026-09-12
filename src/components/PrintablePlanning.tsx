@@ -1,6 +1,8 @@
 // Composants partagés entre Planning.tsx et Inscription.tsx
 // Capturés par html2canvas pour générer les images téléchargeables
 
+import { REMISE_KARATE_COMBO, type GrilleTarifs } from "@/lib/tarifs";
+
 export const DAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 
 export const PALETTE = [
@@ -38,7 +40,6 @@ export interface Tarif {
   _id: string;
   discipline: { nom: string };
   categorie: string;
-  jours: string[];
   prixAnnuel: number;
   echeancier: string;
   ordre: number;
@@ -194,15 +195,41 @@ export const PrintableCalendar = ({
 // ─── PrintableTarifs ──────────────────────────────────────────────────────────
 
 export const PrintableTarifs = ({
-  tarifs,
+  grille,
   tarifsSpeciaux,
-  colorMap,
 }: {
-  tarifs: Tarif[];
+  grille: GrilleTarifs | null;
   tarifsSpeciaux: TarifSpecial[];
-  colorMap: Record<string, (typeof PALETTE)[number]>;
 }) => {
-  const disciplines = Array.from(new Set(tarifs.map((t) => t.discipline?.nom).filter(Boolean)));
+  const disciplinesAuChoixNoms = grille?.disciplinesAuChoix?.map((d) => d.nom) || [];
+  const tarifsAuChoixTries = [...(grille?.tarifsAuChoix || [])].sort((a, b) => a.nombreActivites - b.nombreActivites);
+  const remise2 = grille?.remiseFamille2 || 0;
+  const remise3 = grille?.remiseFamille3 || 0;
+
+  const renderTarifCard = (
+    key: string | number,
+    titre: string,
+    total: number,
+    cheque1: number | null,
+    cheque3x: number | null
+  ) => (
+    <div key={key} style={{ flex: "1 1 220px", display: "flex", overflow: "hidden", borderRadius: 8, border: "1px solid #ede8e5", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
+      <div style={{ width: 4, flexShrink: 0, backgroundColor: "#4a1515" }} />
+      <div style={{ flex: 1, padding: "10px 14px", backgroundColor: "#ffffff", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div style={{ flex: 1 }}>
+          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#1a1a1a" }}>{titre}</p>
+          {(cheque1 != null || cheque3x != null) && (
+            <p style={{ margin: "4px 0 0", fontSize: 9, color: "#9ca3af" }}>Chèques : 1×{cheque1}€ + 3×{cheque3x}€</p>
+          )}
+        </div>
+        <div style={{ textAlign: "right", marginLeft: 12, flexShrink: 0 }}>
+          <span style={{ fontSize: 24, fontWeight: 900, color: "#4a1515", lineHeight: 1 }}>{total}</span>
+          <span style={{ fontSize: 12, color: "#6b7280", marginLeft: 2 }}>€</span>
+          <p style={{ margin: "2px 0 0", fontSize: 9, color: "#9ca3af" }}>/an</p>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div style={{ width: 900, backgroundColor: "#ffffff", fontFamily: "Arial, 'Helvetica Neue', sans-serif", boxSizing: "border-box" }}>
@@ -240,68 +267,86 @@ export const PrintableTarifs = ({
         </span>
       </div>
 
-      <div style={{ padding: "18px 40px 0" }}>
-        {disciplines.map((disc) => {
-          const tarifsDisc = tarifs.filter((t) => t.discipline?.nom === disc);
-          const color = colorMap[disc] || PALETTE[0];
-          return (
-            <div key={disc} style={{ marginBottom: 20 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                <div style={{ width: 24, height: 2, borderRadius: 2, backgroundColor: color.bg }} />
-                <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: color.bg, letterSpacing: 0.5 }}>{disc}</p>
-                <div style={{ flex: 1, height: 1, backgroundColor: "#ede5e3" }} />
-              </div>
+      {grille ? (
+        <div style={{ padding: "18px 40px 0" }}>
+          {tarifsAuChoixTries.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              {disciplinesAuChoixNoms.length > 0 && (
+                <p style={{ margin: "0 0 8px", fontSize: 11.5, fontWeight: 700, color: "#1a1a1a" }}>
+                  {disciplinesAuChoixNoms.join(", ")}{" "}
+                  <span style={{ fontWeight: 400, color: "#6b7280" }}>— même tarif quelle que soit la discipline choisie</span>
+                </p>
+              )}
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-                {tarifsDisc.map((t) => (
-                  <div key={t._id} style={{ flex: "1 1 220px", display: "flex", overflow: "hidden", borderRadius: 8, border: "1px solid #ede8e5", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
-                    <div style={{ width: 4, flexShrink: 0, backgroundColor: color.bg }} />
-                    <div style={{ flex: 1, padding: "10px 14px", backgroundColor: "#ffffff", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                      <div style={{ flex: 1 }}>
-                        {t.categorie && <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#1a1a1a" }}>{t.categorie}</p>}
-                        {t.jours?.length > 0 && <p style={{ margin: "3px 0 0", fontSize: 9.5, color: "#7a7068" }}>📅 {t.jours.join(", ")}</p>}
-                        {t.echeancier && <p style={{ margin: "4px 0 0", fontSize: 9, color: "#9ca3af" }}>Chèques : {t.echeancier}</p>}
-                      </div>
-                      <div style={{ textAlign: "right", marginLeft: 12, flexShrink: 0 }}>
-                        <span style={{ fontSize: 24, fontWeight: 900, color: color.bg, lineHeight: 1 }}>{t.prixAnnuel ?? "—"}</span>
-                        {t.prixAnnuel && <span style={{ fontSize: 12, color: "#6b7280", marginLeft: 2 }}>€</span>}
-                        <p style={{ margin: "2px 0 0", fontSize: 9, color: "#9ca3af" }}>/an</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                {tarifsAuChoixTries.map((t) =>
+                  renderTarifCard(t.nombreActivites, `${t.nombreActivites} activité${t.nombreActivites > 1 ? "s" : ""} au choix`, t.total, t.cheque1, t.cheque3x)
+                )}
               </div>
+              <p style={{ margin: "8px 0 0", fontSize: 9.5, color: "#9ca3af" }}>
+                Disciplines « au choix » : {disciplinesAuChoixNoms.join(" · ")}. Règlement en 1 ou 4 fois par chèque.
+              </p>
             </div>
-          );
-        })}
-      </div>
+          )}
 
-      <div style={{ margin: "4px 40px 0", borderRadius: 10, border: "1px solid #ede5e3", overflow: "hidden" }}>
-        <div style={{ backgroundColor: "#f7f4f3", borderBottom: "1px solid #ede5e3", padding: "10px 18px" }}>
-          <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: "#1a1a1a" }}>Réductions</p>
+          {(grille.tarifsKarate?.length || 0) > 0 && (
+            <div>
+              <p style={{ margin: "0 0 8px", fontSize: 11.5, fontWeight: 700, color: "#1a1a1a" }}>
+                {grille.disciplineKarate?.nom || "Karaté"}
+              </p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                {grille.tarifsKarate.map((t) =>
+                  renderTarifCard(t.label, `${grille.disciplineKarate?.nom || "Karaté"} — ${t.label}`, t.total, t.cheque1, t.cheque3x)
+                )}
+              </div>
+              <p style={{ margin: "8px 0 0", fontSize: 9.5, color: "#9ca3af" }}>
+                Licence fédérale incluse. Règlement en 1 ou 4 fois par chèque.
+              </p>
+            </div>
+          )}
         </div>
-        <div style={{ display: "flex" }}>
-          <div style={{ flex: 1, padding: "12px 18px", borderRight: "1px solid #ede5e3" }}>
-            <p style={{ margin: "0 0 6px", fontSize: 9, fontWeight: 700, color: "#7a7068", textTransform: "uppercase", letterSpacing: 1.5 }}>Multi-cours</p>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-              <p style={{ margin: 0, fontSize: 11, color: "#374151" }}>Pour 2 cours au choix</p>
-              <p style={{ margin: 0, fontSize: 16, fontWeight: 900, color: "#4a1515" }}>−10%</p>
-            </div>
-            <p style={{ margin: "2px 0 0", fontSize: 9, color: "#9ca3af" }}>du tarif total</p>
+      ) : (
+        <p style={{ margin: "18px 40px 0", fontSize: 11, color: "#9ca3af", textAlign: "center" }}>
+          Grille tarifaire en cours de mise à jour — contactez le club.
+        </p>
+      )}
+
+      {grille && (remise2 > 0 || remise3 > 0 || (grille.disciplineKarate && tarifsAuChoixTries.length > 0)) && (
+        <div style={{ margin: "14px 40px 0", borderRadius: 10, border: "1px solid #ede5e3", overflow: "hidden" }}>
+          <div style={{ backgroundColor: "#f7f4f3", borderBottom: "1px solid #ede5e3", padding: "10px 18px" }}>
+            <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: "#1a1a1a" }}>Réductions</p>
           </div>
-          <div style={{ flex: 1, padding: "12px 18px" }}>
-            <p style={{ margin: "0 0 6px", fontSize: 9, fontWeight: 700, color: "#7a7068", textTransform: "uppercase", letterSpacing: 1.5 }}>Tarifs famille</p>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
-              <p style={{ margin: 0, fontSize: 11, color: "#374151" }}>Pour 2 personnes</p>
-              <p style={{ margin: 0, fontSize: 16, fontWeight: 900, color: "#4a1515" }}>−10%</p>
+          {(remise2 > 0 || remise3 > 0) && (
+            <>
+              <div style={{ display: "flex" }}>
+                <div style={{ flex: 1, padding: "12px 18px", borderRight: "1px solid #ede5e3" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                    <p style={{ margin: 0, fontSize: 11, color: "#374151" }}>Pour 2 personnes de la famille</p>
+                    <p style={{ margin: 0, fontSize: 16, fontWeight: 900, color: "#4a1515" }}>−{remise2}%</p>
+                  </div>
+                </div>
+                <div style={{ flex: 1, padding: "12px 18px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                    <p style={{ margin: 0, fontSize: 11, color: "#374151" }}>Pour 3 personnes et plus</p>
+                    <p style={{ margin: 0, fontSize: 16, fontWeight: 900, color: "#4a1515" }}>−{remise3}%</p>
+                  </div>
+                </div>
+              </div>
+              <p style={{ margin: 0, padding: "0 18px 10px", fontSize: 9, color: "#9ca3af" }}>Remise sur la somme des tarifs individuels de la famille, pas sur le nombre d'activités.</p>
+            </>
+          )}
+          {grille.disciplineKarate && tarifsAuChoixTries.length > 0 && (
+            <div style={{ padding: "12px 18px", borderTop: (remise2 > 0 || remise3 > 0) ? "1px solid #ede5e3" : undefined }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                <p style={{ margin: 0, fontSize: 11, color: "#374151" }}>
+                  {grille.disciplineKarate.nom} + une ou plusieurs activités au choix (même personne)
+                </p>
+                <p style={{ margin: 0, fontSize: 16, fontWeight: 900, color: "#4a1515" }}>−{Math.round(REMISE_KARATE_COMBO * 100)}%</p>
+              </div>
+              <p style={{ margin: "4px 0 0", fontSize: 9, color: "#9ca3af" }}>Remise sur la somme des deux tarifs pour cette même personne.</p>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-              <p style={{ margin: 0, fontSize: 11, color: "#374151" }}>Pour 3 personnes</p>
-              <p style={{ margin: 0, fontSize: 16, fontWeight: 900, color: "#4a1515" }}>−20€</p>
-            </div>
-            <p style={{ margin: "2px 0 0", fontSize: 9, color: "#9ca3af" }}>du tarif total</p>
-          </div>
+          )}
         </div>
-      </div>
+      )}
 
       {tarifsSpeciaux.length > 0 && (
         <div style={{ margin: "14px 40px 0", borderRadius: 10, border: "1px solid #e8d5b7", backgroundColor: "#fffbf0", padding: "14px 18px" }}>

@@ -199,8 +199,8 @@ const Inscription = () => {
 
   const saison = inscriptionData.saison || "2025-2026";
   const reglement = inscriptionData.reglementInterieur || REGLEMENT_DEFAULT;
-  const titreInfosPaiement = inscriptionData.titreInfosPaiement || "Règlement des cotisations";
-  const infosPaiement = inscriptionData.infosPaiement || "1 chèque de 60€ encaissé à l'inscription (non remboursable) + le solde en 3 chèques encaissables en décembre 2025, mars 2026 et juin 2026. Chèques à l'ordre des Arts Martiaux St Pierrois.";
+  const titreInfosPaiement = inscriptionData.titreInfosPaiement || "Règlement des cotisations (par discipline)";
+  const infosPaiement = inscriptionData.infosPaiement || "Le tarif dépend du nombre d'activités choisies et du nombre de personnes inscrites de la même famille — reportez-vous à la grille tarifaire ou contactez-nous. Le règlement peut s'effectuer en 1 ou 4 fois par chèque, à l'ordre des Arts Martiaux St Pierrois.";
   const texteAutorisationImage = inscriptionData.texteAutorisationImage || "J'autorise l'association Arts Martiaux St Pierrois à utiliser mon image ou celle de mes enfants pour les besoins du club (articles, internet...)";
   const texteAutorisationParentale = inscriptionData.texteAutorisationParentale || "Je soussigné(e) autorise mon enfant à pratiquer les arts martiaux dans le cadre de l'Association Les Arts Martiaux St Pierrois (entraînements, compétitions, démonstrations).\n\nJ'autorise le professeur et les dirigeants à prendre, en cas de nécessité, les mesures qui s'imposent concernant le transport à l'hôpital.\n\nJe dégage de toute responsabilité les personnes qui prendront mon enfant en charge dans leur véhicule lors des déplacements.\n\nJ'autorise mon enfant à suivre les entraînements destinés à manipuler les armes en bois et les armes articulées (l'autorisation parentale est obligatoire suite à un texte de loi sur « l'incitation des mineurs à la violence »).";
   const texteInfosCertificatMedical = inscriptionData.texteInfosCertificatMedical || "Le certificat médical n'est plus obligatoire — une attestation sur l'honneur sera à remplir.";

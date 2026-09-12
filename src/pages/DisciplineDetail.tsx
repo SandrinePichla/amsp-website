@@ -7,11 +7,12 @@ import { client } from "@/sanityClient";
 import { urlFor } from "@/sanityImage";
 import {
   Sparkles, GraduationCap, Users, Clock, Phone, Mail, User, Award,
-  CalendarDays, ArrowRight, ChevronLeft, ExternalLink, X,
+  ArrowRight, ChevronLeft, ExternalLink, X,
 } from "lucide-react";
 import { PALETTE, buildColorMap, timeToMinutes, DAYS } from "@/components/PrintablePlanning";
-import type { Cours, Tarif, TarifSpecial } from "@/components/PrintablePlanning";
+import type { Cours, TarifSpecial } from "@/components/PrintablePlanning";
 import { slugify } from "@/lib/utils";
+import { fetchGrilleTarifs, estDisciplineKarate, estDisciplineAuChoix, tarifPourActivites, type GrilleTarifs } from "@/lib/tarifs";
 
 const LIENS_UTILES: Record<string, { label: string; url: string; description?: string }[]> = {
   "karate-shotokan": [
@@ -64,7 +65,7 @@ const DisciplineDetail = () => {
   const [discipline, setDiscipline] = useState<Discipline | null>(null);
   const [instructeurs, setInstructeurs] = useState<Instructeur[]>([]);
   const [cours, setCours] = useState<Cours[]>([]);
-  const [tarifs, setTarifs] = useState<Tarif[]>([]);
+  const [grille, setGrille] = useState<GrilleTarifs | null>(null);
   const [tarifsSpeciaux, setTarifsSpeciaux] = useState<TarifSpecial[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Instructeur | null>(null);
@@ -90,21 +91,16 @@ const DisciplineDetail = () => {
               discipline-> { nom, nomCourt }
             }`
           ),
-          client.fetch(
-            `*[_type == "tarif" && discipline->_id == "${found._id}"] | order(ordre asc) {
-              _id, categorie, jours, prixAnnuel, echeancier, ordre,
-              discipline-> { nom }
-            }`
-          ),
+          fetchGrilleTarifs(),
           client.fetch(`*[_type == "tarifSpecial"] | order(ordre asc)`),
         ]);
       })
       .then((results) => {
         if (!results) return;
-        const [inst, crs, trfs, trfsSpec] = results;
+        const [inst, crs, grl, trfsSpec] = results;
         setInstructeurs(inst || []);
         setCours(crs || []);
-        setTarifs(trfs || []);
+        setGrille(grl || null);
         setTarifsSpeciaux(trfsSpec || []);
         setLoading(false);
       });
@@ -123,6 +119,10 @@ const DisciplineDetail = () => {
   const colorMap = buildColorMap(cours);
   const color = colorMap[discipline.nom] || PALETTE[0];
   const activeDays = DAYS.filter((day) => cours.some((c) => c.jour?.toLowerCase() === day.toLowerCase()));
+
+  const estKarate = estDisciplineKarate(grille, discipline._id);
+  const estAuChoix = estDisciplineAuChoix(grille, discipline._id);
+  const uneActivite = grille ? tarifPourActivites(grille, 1) : null;
 
   return (
     <Layout>
@@ -346,16 +346,27 @@ const DisciplineDetail = () => {
         )}
 
         {/* Tarifs */}
-        {tarifs.length > 0 && (
+        {(estKarate || estAuChoix) && (
           <motion.section
             initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.4 }}
           >
-            <h2 className="mb-2 font-serif text-2xl font-bold">
-              <span style={{ color: color.bg }}>Tarifs</span>
-            </h2>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <h2 className="font-serif text-2xl font-bold">
+                <span style={{ color: color.bg }}>Tarifs</span>
+              </h2>
+              <Link
+                to="/planning#tarifs"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+              >
+                Grille complète &amp; simulateur
+                <ExternalLink size={13} />
+              </Link>
+            </div>
             <p className="mb-1 text-sm text-muted-foreground">Cotisations annuelles — adhésion à la Fédération incluse</p>
             <p className="mb-6">
               <span className="inline-block rounded-lg border border-primary/30 bg-primary/8 px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-primary">
@@ -364,68 +375,59 @@ const DisciplineDetail = () => {
             </p>
 
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {tarifs.map((t) => (
-                <div key={t._id} className="flex overflow-hidden rounded-lg border border-border/30 bg-card">
+              {estKarate &&
+                grille!.tarifsKarate.map((t) => (
+                  <div key={t.label} className="flex overflow-hidden rounded-lg border border-border/30 bg-card">
+                    <div className="w-1 shrink-0" style={{ backgroundColor: color.bg }} />
+                    <div className="flex flex-1 items-start justify-between gap-3 px-3 py-2.5">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold leading-tight text-foreground">{t.label}</p>
+                        {(t.cheque1 != null || t.cheque3x != null) && (
+                          <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground/70">
+                            <span className="font-medium">Règlement par chèques :</span> 1×{t.cheque1}€ + 3×{t.cheque3x}€
+                          </p>
+                        )}
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <div className="flex items-end justify-end gap-0.5">
+                          <span className="font-serif text-2xl font-black leading-none" style={{ color: color.bg }}>{t.total}</span>
+                          <span className="mb-0.5 text-sm font-semibold text-muted-foreground">€</span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground/50">/an</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+              {estAuChoix && uneActivite && (
+                <div className="flex overflow-hidden rounded-lg border border-border/30 bg-card">
                   <div className="w-1 shrink-0" style={{ backgroundColor: color.bg }} />
                   <div className="flex flex-1 items-start justify-between gap-3 px-3 py-2.5">
                     <div className="min-w-0 flex-1">
-                      {t.categorie && <p className="text-sm font-bold leading-tight text-foreground">{t.categorie}</p>}
-                      {t.jours?.length > 0 && (
-                        <span className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
-                          <CalendarDays className="h-3 w-3 shrink-0" />
-                          {t.jours.join(", ")}
-                        </span>
-                      )}
-                      {t.echeancier && (
+                      <p className="text-sm font-bold leading-tight text-foreground">1 activité</p>
+                      {(uneActivite.cheque1 != null || uneActivite.cheque3x != null) && (
                         <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground/70">
-                          <span className="font-medium">Règlement par chèques :</span> {t.echeancier}
+                          <span className="font-medium">Règlement par chèques :</span> 1×{uneActivite.cheque1}€ + 3×{uneActivite.cheque3x}€
                         </p>
                       )}
                     </div>
                     <div className="shrink-0 text-right">
                       <div className="flex items-end justify-end gap-0.5">
-                        <span className="font-serif text-2xl font-black leading-none" style={{ color: color.bg }}>
-                          {t.prixAnnuel ?? "—"}
-                        </span>
-                        {t.prixAnnuel && <span className="mb-0.5 text-sm font-semibold text-muted-foreground">€</span>}
+                        <span className="font-serif text-2xl font-black leading-none" style={{ color: color.bg }}>{uneActivite.total}</span>
+                        <span className="mb-0.5 text-sm font-semibold text-muted-foreground">€</span>
                       </div>
                       <p className="text-[10px] text-muted-foreground/50">/an</p>
                     </div>
                   </div>
                 </div>
-              ))}
+              )}
             </div>
 
-            {/* Réductions */}
-            <div className="mt-4 overflow-hidden rounded-xl border border-border/30 bg-card">
-              <div className="border-b border-border/20 bg-secondary/20 px-5 py-3">
-                <h3 className="font-serif text-sm font-bold">Réductions</h3>
-              </div>
-              <div className="grid gap-0 divide-y sm:grid-cols-2 sm:divide-x sm:divide-y-0 divide-border/20">
-                <div className="px-5 py-4">
-                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Multi-cours</p>
-                  <div className="flex items-baseline justify-between gap-4">
-                    <p className="text-sm text-foreground/80">Pour 2 cours au choix</p>
-                    <p className="shrink-0 font-serif text-lg font-black text-primary">−10%</p>
-                  </div>
-                  <p className="mt-0.5 text-xs text-muted-foreground/60">du tarif total</p>
-                </div>
-                <div className="px-5 py-4">
-                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Tarifs famille</p>
-                  <div className="space-y-1.5">
-                    <div className="flex items-baseline justify-between gap-4">
-                      <p className="text-sm text-foreground/80">Pour 2 personnes</p>
-                      <p className="shrink-0 font-serif text-lg font-black text-primary">−10%</p>
-                    </div>
-                    <div className="flex items-baseline justify-between gap-4">
-                      <p className="text-sm text-foreground/80">Pour 3 personnes</p>
-                      <p className="shrink-0 font-serif text-lg font-black text-primary">−20€</p>
-                    </div>
-                  </div>
-                  <p className="mt-0.5 text-xs text-muted-foreground/60">du tarif total</p>
-                </div>
-              </div>
-            </div>
+            {estAuChoix && (
+              <p className="mt-3 text-xs text-muted-foreground/70">
+                Combinée à d'autres disciplines « au choix » (Qi Gong, Tai Chi, Wutao) ou à d'autres membres de la même famille, cette activité peut bénéficier d'un tarif réduit — voir le simulateur sur la grille complète.
+              </p>
+            )}
 
             {/* Tarifs spéciaux */}
             {tarifsSpeciaux.length > 0 && (

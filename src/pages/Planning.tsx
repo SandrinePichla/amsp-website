@@ -8,7 +8,10 @@ import {
   DAYS, PALETTE, timeToMinutes, buildColorMap,
   PrintableCalendar, PrintableTarifs,
 } from "@/components/PrintablePlanning";
-import type { Cours, Tarif, TarifSpecial } from "@/components/PrintablePlanning";
+import type { Cours, TarifSpecial } from "@/components/PrintablePlanning";
+import TarifSimulator from "@/components/TarifSimulator";
+import TarifsUneActivite from "@/components/TarifsUneActivite";
+import { fetchGrilleTarifs, type GrilleTarifs } from "@/lib/tarifs";
 
 // ─── Calendrier hebdomadaire ──────────────────────────────────────────────────
 
@@ -112,7 +115,7 @@ const WeeklyCalendar = ({ cours, filtered, colorMap }: CalendarProps) => {
 
 const Planning = () => {
   const [cours, setCours] = useState<Cours[]>([]);
-  const [tarifs, setTarifs] = useState<Tarif[]>([]);
+  const [grille, setGrille] = useState<GrilleTarifs | null | undefined>(undefined);
   const [tarifsSpeciaux, setTarifsSpeciaux] = useState<TarifSpecial[]>([]);
   const [filter, setFilter] = useState("Toutes");
   const [loading, setLoading] = useState(true);
@@ -187,12 +190,9 @@ const [downloading, setDownloading] = useState(false);
         }
       });
 
-    client
-      .fetch(`*[_type == "tarif"] | order(ordre asc) {
-        _id, categorie, jours, prixAnnuel, echeancier, ordre,
-        discipline-> { nom }
-      }`)
-      .then((data) => setTarifs(data));
+    fetchGrilleTarifs()
+      .then((data) => setGrille(data))
+      .catch(() => setGrille(null));
 
     client
       .fetch(`*[_type == "tarifSpecial"] | order(ordre asc)`)
@@ -306,7 +306,7 @@ const [downloading, setDownloading] = useState(false);
 
 
               {/* Tarifs */}
-              {tarifs.length > 0 && (
+              {grille !== undefined && (
                 <motion.div
                   id="tarifs"
                   className="mt-8 scroll-mt-20"
@@ -317,7 +317,7 @@ const [downloading, setDownloading] = useState(false);
                   <div className="mb-4 flex justify-end">
                     <button
                       onClick={handleDownloadTarifs}
-                      disabled={downloadingTarifs}
+                      disabled={downloadingTarifs || !grille}
                       className="flex items-center gap-2 rounded-lg border border-border/50 bg-secondary/50 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground disabled:opacity-50"
                     >
                       {downloadingTarifs
@@ -339,129 +339,7 @@ const [downloading, setDownloading] = useState(false);
                     </span>
                   </p>
 
-                  {/* Cartes tarifs groupées par discipline */}
-                  {(() => {
-                    const disciplines = Array.from(
-                      new Set(tarifs.map((t) => t.discipline?.nom).filter(Boolean))
-                    );
-                    return disciplines.map((disc) => {
-                      const tarifsDisc = tarifs.filter((t) => t.discipline?.nom === disc);
-                      const color = colorMap[disc] || PALETTE[0];
-                      return (
-                        <div key={disc} className="mb-8">
-                          {/* En-tête discipline */}
-                          <div className="mb-4 flex items-center gap-3">
-                            <div
-                              className="h-0.5 w-8 rounded-full"
-                              style={{ backgroundColor: color.bg }}
-                            />
-                            <h3 className="font-serif text-lg font-bold" style={{ color: color.bg }}>
-                              {disc}
-                            </h3>
-                            <div className="h-0.5 flex-1 rounded-full bg-border/30" />
-                          </div>
-
-                          {/* Lignes tarifs compactes */}
-                          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                            {tarifsDisc.map((t, i) => (
-                              <motion.div
-                                key={t._id}
-                                initial={{ opacity: 0, y: 8 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.25, delay: i * 0.05 }}
-                                className="flex overflow-hidden rounded-lg border border-border/30 bg-card"
-                              >
-                                {/* Barre colorée gauche */}
-                                <div className="w-1 shrink-0" style={{ backgroundColor: color.bg }} />
-
-                                {/* Contenu */}
-                                <div className="flex flex-1 items-start justify-between gap-3 px-3 py-2.5">
-                                  <div className="min-w-0 flex-1">
-                                    {t.categorie && (
-                                      <p className="text-sm font-bold leading-tight text-foreground">
-                                        {t.categorie}
-                                      </p>
-                                    )}
-                                    {t.jours?.length > 0 && (
-                                      <span className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
-                                        <CalendarDays className="h-3 w-3 shrink-0" />
-                                        {t.jours.join(", ")}
-                                      </span>
-                                    )}
-                                    {t.echeancier && (
-                                      <p className="mt-1.5 text-[11px] text-muted-foreground/70 leading-snug">
-                                        <span className="font-medium">Règlement par chèques :</span>{" "}
-                                        {t.echeancier}
-                                      </p>
-                                    )}
-                                  </div>
-
-                                  {/* Prix */}
-                                  <div className="shrink-0 text-right">
-                                    <div className="flex items-end gap-0.5 justify-end">
-                                      <span
-                                        className="font-serif text-2xl font-black leading-none"
-                                        style={{ color: color.bg }}
-                                      >
-                                        {t.prixAnnuel ?? "—"}
-                                      </span>
-                                      {t.prixAnnuel && (
-                                        <span className="mb-0.5 text-sm font-semibold text-muted-foreground">€</span>
-                                      )}
-                                    </div>
-                                    <p className="text-[10px] text-muted-foreground/50">/an</p>
-                                  </div>
-                                </div>
-                              </motion.div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    });
-                  })()}
-
-                  {/* Réductions */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: 0.15 }}
-                    className="mt-6 rounded-xl border border-border/30 bg-card overflow-hidden"
-                  >
-                    <div className="border-b border-border/20 bg-secondary/20 px-5 py-3">
-                      <h3 className="font-serif text-base font-bold">Réductions</h3>
-                    </div>
-                    <div className="grid gap-0 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border/20">
-                      {/* Multi-cours */}
-                      <div className="px-5 py-4">
-                        <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                          Multi-cours
-                        </p>
-                        <div className="flex items-baseline justify-between gap-4">
-                          <p className="text-sm text-foreground/80">Pour 2 cours au choix</p>
-                          <p className="shrink-0 font-serif text-lg font-black text-primary">−10%</p>
-                        </div>
-                        <p className="mt-0.5 text-xs text-muted-foreground/60">du tarif total</p>
-                      </div>
-
-                      {/* Famille */}
-                      <div className="px-5 py-4">
-                        <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                          Tarifs famille
-                        </p>
-                        <div className="space-y-2">
-                          <div className="flex items-baseline justify-between gap-4">
-                            <p className="text-sm text-foreground/80">Pour 2 personnes</p>
-                            <p className="shrink-0 font-serif text-lg font-black text-primary">−10%</p>
-                          </div>
-                          <div className="flex items-baseline justify-between gap-4">
-                            <p className="text-sm text-foreground/80">Pour 3 personnes</p>
-                            <p className="shrink-0 font-serif text-lg font-black text-primary">−20€</p>
-                          </div>
-                        </div>
-                        <p className="mt-0.5 text-xs text-muted-foreground/60">du tarif total</p>
-                      </div>
-                    </div>
-                  </motion.div>
+                  <TarifsUneActivite grille={grille} />
 
                   {/* Tarifs spéciaux */}
                   {tarifsSpeciaux.length > 0 && (
@@ -469,7 +347,7 @@ const [downloading, setDownloading] = useState(false);
                       initial={{ opacity: 0, y: 12 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.3, delay: 0.2 }}
-                      className="mt-6 overflow-hidden rounded-2xl border border-accent/30 bg-gradient-to-br from-accent/10 via-card to-card p-6"
+                      className="mb-10 overflow-hidden rounded-2xl border border-accent/30 bg-gradient-to-br from-accent/10 via-card to-card p-6"
                     >
                       <div className="mb-4 flex items-center gap-2">
                         <Sparkles className="h-4 w-4 text-accent" />
@@ -495,6 +373,134 @@ const [downloading, setDownloading] = useState(false);
                       </div>
                     </motion.div>
                   )}
+
+                  <div className="mb-10">
+                    <TarifSimulator grille={grille} />
+                  </div>
+
+                  {/*
+                    Cartes tarifs par discipline + bloc Réductions — masqués le 12/09/2026 :
+                    remplacés par le TarifSimulator ci-dessus, qui reflète la nouvelle grille
+                    (remise par nombre de personnes de la famille, pas par discipline/cours).
+                    Ces prix (Sanity `tarif`, ex. 220€/an par discipline, -10%/-20€) sont
+                    obsolètes depuis la nouvelle grille et contrediraient le simulateur.
+
+                  {(() => {
+                    const disciplines = Array.from(
+                      new Set(tarifs.map((t) => t.discipline?.nom).filter(Boolean))
+                    );
+                    return disciplines.map((disc) => {
+                      const tarifsDisc = tarifs.filter((t) => t.discipline?.nom === disc);
+                      const color = colorMap[disc] || PALETTE[0];
+                      return (
+                        <div key={disc} className="mb-8">
+                          <div className="mb-4 flex items-center gap-3">
+                            <div
+                              className="h-0.5 w-8 rounded-full"
+                              style={{ backgroundColor: color.bg }}
+                            />
+                            <h3 className="font-serif text-lg font-bold" style={{ color: color.bg }}>
+                              {disc}
+                            </h3>
+                            <div className="h-0.5 flex-1 rounded-full bg-border/30" />
+                          </div>
+
+                          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                            {tarifsDisc.map((t, i) => (
+                              <motion.div
+                                key={t._id}
+                                initial={{ opacity: 0, y: 8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.25, delay: i * 0.05 }}
+                                className="flex overflow-hidden rounded-lg border border-border/30 bg-card"
+                              >
+                                <div className="w-1 shrink-0" style={{ backgroundColor: color.bg }} />
+
+                                <div className="flex flex-1 items-start justify-between gap-3 px-3 py-2.5">
+                                  <div className="min-w-0 flex-1">
+                                    {t.categorie && (
+                                      <p className="text-sm font-bold leading-tight text-foreground">
+                                        {t.categorie}
+                                      </p>
+                                    )}
+                                    {t.jours?.length > 0 && (
+                                      <span className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+                                        <CalendarDays className="h-3 w-3 shrink-0" />
+                                        {t.jours.join(", ")}
+                                      </span>
+                                    )}
+                                    {t.echeancier && (
+                                      <p className="mt-1.5 text-[11px] text-muted-foreground/70 leading-snug">
+                                        <span className="font-medium">Règlement par chèques :</span>{" "}
+                                        {t.echeancier}
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  <div className="shrink-0 text-right">
+                                    <div className="flex items-end gap-0.5 justify-end">
+                                      <span
+                                        className="font-serif text-2xl font-black leading-none"
+                                        style={{ color: color.bg }}
+                                      >
+                                        {t.prixAnnuel ?? "—"}
+                                      </span>
+                                      {t.prixAnnuel && (
+                                        <span className="mb-0.5 text-sm font-semibold text-muted-foreground">€</span>
+                                      )}
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground/50">/an</p>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: 0.15 }}
+                    className="mt-6 rounded-xl border border-border/30 bg-card overflow-hidden"
+                  >
+                    <div className="border-b border-border/20 bg-secondary/20 px-5 py-3">
+                      <h3 className="font-serif text-base font-bold">Réductions</h3>
+                    </div>
+                    <div className="grid gap-0 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-border/20">
+                      <div className="px-5 py-4">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                          Multi-cours
+                        </p>
+                        <div className="flex items-baseline justify-between gap-4">
+                          <p className="text-sm text-foreground/80">Pour 2 cours au choix</p>
+                          <p className="shrink-0 font-serif text-lg font-black text-primary">−10%</p>
+                        </div>
+                        <p className="mt-0.5 text-xs text-muted-foreground/60">du tarif total</p>
+                      </div>
+
+                      <div className="px-5 py-4">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                          Tarifs famille
+                        </p>
+                        <div className="space-y-2">
+                          <div className="flex items-baseline justify-between gap-4">
+                            <p className="text-sm text-foreground/80">Pour 2 personnes</p>
+                            <p className="shrink-0 font-serif text-lg font-black text-primary">−10%</p>
+                          </div>
+                          <div className="flex items-baseline justify-between gap-4">
+                            <p className="text-sm text-foreground/80">Pour 3 personnes</p>
+                            <p className="shrink-0 font-serif text-lg font-black text-primary">−20€</p>
+                          </div>
+                        </div>
+                        <p className="mt-0.5 text-xs text-muted-foreground/60">du tarif total</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                  */}
+
                 </motion.div>
               )}
             </>
@@ -508,7 +514,7 @@ const [downloading, setDownloading] = useState(false);
           <PrintableCalendar cours={cours} colorMap={colorMap} />
         </div>
         <div ref={tarifsRef}>
-          <PrintableTarifs tarifs={tarifs} tarifsSpeciaux={tarifsSpeciaux} colorMap={colorMap} />
+          <PrintableTarifs grille={grille ?? null} tarifsSpeciaux={tarifsSpeciaux} />
         </div>
       </div>
     </Layout>
