@@ -237,7 +237,7 @@ const TarifSimulator = ({ grille }: { grille: GrilleTarifs | null }) => {
       <div className="border-b border-border/20 bg-primary/5 px-5 py-4">
         <h3 className="font-serif text-lg font-bold">Simulateur de tarif</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          La remise dépend surtout du <strong className="text-foreground">nombre de personnes de la famille</strong> inscrites, pas du nombre d'activités de chacune. Ajoutez chaque membre pour estimer le tarif total.
+          La remise dépend du <strong className="text-foreground">nombre de personnes de la même famille</strong> inscrites, ainsi que du nombre d'activités de chacune. Ajoutez chaque membre pour estimer le tarif total.
         </p>
       </div>
 
