@@ -22,12 +22,14 @@ export interface ChequeNumero {
 }
 
 // ----------------------------------------------------------------
-// Table cheques — un chèque physique, éventuellement partagé entre
-// plusieurs inscriptions (voir cheque_echeances).
+// Table cheques — un règlement (chèque, espèces ou virement), éventuellement
+// partagé entre plusieurs inscriptions (voir cheque_echeances). Le numéro
+// n'existe que pour les chèques.
 // ----------------------------------------------------------------
 export interface Cheque {
   id: string
-  numero: string
+  type: 'cheque' | 'especes' | 'virement'
+  numero: string | null
   montant: number | null
   saison: string | null
   created_at: string

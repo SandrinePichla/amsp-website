@@ -84,13 +84,15 @@ interface ChequeNumero {
 }
 
 /**
- * Un chèque physique. Il peut couvrir plusieurs inscriptions à la fois
- * (ex : un couple + un enfant qui règlent leurs 3 adhésions avec un seul
- * chèque par trimestre) — voir ChequeEcheance pour le lien.
+ * Un règlement (chèque, espèces ou virement). Il peut couvrir plusieurs
+ * inscriptions à la fois (ex : un couple + un enfant qui règlent leurs 3
+ * adhésions en une fois) — voir ChequeEcheance pour le lien. Le numéro
+ * n'existe que pour les chèques.
  */
 interface Cheque {
   id: string;
-  numero: string;
+  type: 'cheque' | 'especes' | 'virement';
+  numero: string | null;
   montant: number | null;
   saison: string | null;
   created_at: string;
@@ -289,6 +291,7 @@ const AdminMembres = () => {
   const [cheques, setCheques] = useState<Cheque[]>([]);
   const [chequeEcheances, setChequeEcheances] = useState<ChequeEcheance[]>([]);
   const [chequeModal, setChequeModal] = useState<{ groupKey: string; chequeId: string | null; representative: PaymentEvent } | null>(null);
+  const [chequeModalType, setChequeModalType] = useState<'cheque' | 'especes' | 'virement'>('cheque');
   const [chequeModalNumero, setChequeModalNumero] = useState("");
   const [chequeModalMontant, setChequeModalMontant] = useState("");
   const [chequeModalSearch, setChequeModalSearch] = useState("");
@@ -357,7 +360,7 @@ const AdminMembres = () => {
       supabase.from("enfants").select("id, nom, prenom, date_naissance, groupe_sanguin, allergie"),
       supabase.from("liens_compte_enfant").select("id, compte_id, enfant_id, type_acces, enfant:enfants(id, nom, prenom, date_naissance)"),
       supabase.from("connexions_log").select("id, user_id, email, prenom, created_at").order("created_at", { ascending: false }).limit(1000),
-      supabase.from("cheques").select("id, numero, montant, saison, created_at"),
+      supabase.from("cheques").select("id, type, numero, montant, saison, created_at"),
       supabase.from("cheque_echeances").select("id, cheque_id, inscription_id, echeance, label"),
     ]);
     if (profilsData) setMembres(profilsData);
@@ -682,6 +685,8 @@ const AdminMembres = () => {
   const openChequeModal = (groupKey: string, chequeId: string | null, representative: PaymentEvent) => {
     setChequeModal({ groupKey, chequeId, representative });
     const cheque = chequeId ? chequeById.get(chequeId) : null;
+    const typeParDefaut = representative.insc.moyen_paiement === 'especes' ? 'especes' : representative.insc.moyen_paiement === 'virement' ? 'virement' : 'cheque';
+    setChequeModalType(cheque?.type || typeParDefaut);
     setChequeModalNumero(cheque?.numero || "");
     setChequeModalMontant(cheque?.montant != null ? String(cheque.montant) : "");
     setChequeModalSearch("");
@@ -708,17 +713,17 @@ const AdminMembres = () => {
 
   const handleEnregistrerCheque = async () => {
     if (!chequeModal) return;
-    const numero = chequeModalNumero.trim();
-    if (!numero) { toast.error("Le numéro de chèque est obligatoire."); return; }
+    const numero = chequeModalType === 'cheque' ? chequeModalNumero.trim() : null;
+    if (chequeModalType === 'cheque' && !numero) { toast.error("Le numéro de chèque est obligatoire."); return; }
     const montant = chequeModalMontant.trim() ? Number(chequeModalMontant.replace(",", ".")) : null;
     if (chequeModal.chequeId) {
-      const { error } = await supabase.from("cheques").update({ numero, montant }).eq("id", chequeModal.chequeId);
+      const { error } = await supabase.from("cheques").update({ type: chequeModalType, numero, montant }).eq("id", chequeModal.chequeId);
       if (error) { toast.error("Erreur : " + error.message); return; }
-      setCheques((prev) => prev.map((c) => (c.id === chequeModal.chequeId ? { ...c, numero, montant } : c)));
-      toast.success("Chèque mis à jour.");
+      setCheques((prev) => prev.map((c) => (c.id === chequeModal.chequeId ? { ...c, type: chequeModalType, numero, montant } : c)));
+      toast.success("Règlement mis à jour.");
     } else {
       const evt = chequeModal.representative;
-      const { data, error } = await supabase.from("cheques").insert({ numero, montant, saison: evt.insc.saison }).select().single();
+      const { data, error } = await supabase.from("cheques").insert({ type: chequeModalType, numero, montant, saison: evt.insc.saison }).select().single();
       if (error || !data) { toast.error("Erreur : " + (error?.message || "inconnue")); return; }
       const { data: link, error: linkErr } = await supabase.from("cheque_echeances")
         .insert({ cheque_id: data.id, inscription_id: evt.insc.id, echeance: evt.installment, label: evt.dueDateLabel })
@@ -727,11 +732,13 @@ const AdminMembres = () => {
       setCheques((prev) => [...prev, data]);
       setChequeEcheances((prev) => [...prev, link]);
       setChequeModal({ ...chequeModal, chequeId: data.id });
-      toast.success("Chèque enregistré.");
+      toast.success("Règlement enregistré.");
     }
   };
 
-  /** Récap des chèques déjà liés à une inscription, tous échéances confondues (pour la fiche membre). */
+  const TYPE_REGLEMENT_LABELS: Record<string, string> = { cheque: "Chèque", especes: "Espèces", virement: "Virement" };
+
+  /** Récap des règlements déjà liés à une inscription, tous échéances confondues (pour la fiche membre). */
   const chequesPourInscription = (inscId: string) =>
     chequeEcheances
       .filter((l) => l.inscription_id === inscId)
@@ -741,7 +748,8 @@ const AdminMembres = () => {
         if (!cheque) return null;
         const partage = (chequeLinksByChequeId.get(l.cheque_id) || []).length > 1;
         const suffix = l.label && l.label !== "À l'inscription" ? ` (${l.label}${partage ? ", partagé" : ""})` : partage ? " (partagé)" : "";
-        return `${cheque.numero}${suffix}`;
+        const identifiant = cheque.type === 'cheque' ? `N° ${cheque.numero}` : TYPE_REGLEMENT_LABELS[cheque.type] || cheque.type;
+        return `${identifiant}${suffix}`;
       })
       .filter((s): s is string => !!s);
 
@@ -1167,6 +1175,17 @@ const AdminMembres = () => {
     let data = isSuperAdmin ? rawData : rawData.filter(i => disciplineMatch(i.disciplines, currentUserDisciplines));
     if (saisonFilter) data = data.filter(i => i.saison === saisonFilter);
 
+    // Cellule "Règlement N" : numéro de chèque puis montant, pour le tri par numéro.
+    const getReglementCell = (inscriptionId: string, echeance: number): string => {
+      const link = chequeEcheances.find((ce) => ce.inscription_id === inscriptionId && ce.echeance === echeance);
+      if (!link) return '';
+      const cheque = cheques.find((c) => c.id === link.cheque_id);
+      if (!cheque) return '';
+      const numero = cheque.numero || '';
+      const montant = cheque.montant != null ? `${cheque.montant} €` : '';
+      return [numero, montant].filter(Boolean).join(' — ');
+    };
+
     const ExcelJS = (await import('exceljs')).default;
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'AMSP';
@@ -1186,7 +1205,7 @@ const AdminMembres = () => {
     const VIOLET_FG = 'FF5b21b6';
     const GRIS_BG = 'FFf3f4f6';
     const GRIS_FG = 'FF6b7280';
-    const NB_COLS = 26;
+    const NB_COLS = 30;
 
     sheet.mergeCells(1, 1, 1, NB_COLS);
     const titreCell = sheet.getCell(1, 1);
@@ -1209,8 +1228,9 @@ const AdminMembres = () => {
     const headers = [
       'Numéro', 'Nom', 'Prénom', 'Date naissance', 'Âge', 'Type',
       'Adresse', 'Téléphone', 'Email', 'Discipline(s)', 'Niveau',
-      'Groupe sanguin', 'Allergie(s)', 'Urgence', 'Paiement', 'Pass Sport',
-      'Droit image', 'Autorisation parentale', 'Parent 1', 'Parent 1 email', 'Parent 1 tél',
+      'Groupe sanguin', 'Allergie(s)', 'Urgence', 'Paiement',
+      'Règlement 1', 'Règlement 2', 'Règlement 3', 'Règlement 4',
+      'Pass Sport', 'Droit image', 'Autorisation parentale', 'Parent 1', 'Parent 1 email', 'Parent 1 tél',
       'Parent 2', 'Saison', 'Statut', 'Source', 'Reçue le',
     ];
     const headerRow = sheet.addRow(headers);
@@ -1251,6 +1271,10 @@ const AdminMembres = () => {
         i.allergie || '',
         i.urgence_contact || '',
         PAIEMENT_LABELS[i.moyen_paiement || ''] ?? (i.moyen_paiement || ''),
+        getReglementCell(i.id, 1),
+        getReglementCell(i.id, 2),
+        getReglementCell(i.id, 3),
+        getReglementCell(i.id, 4),
         i.pass_sport ? 'Oui' : '',
         i.droit_image ? 'Oui' : 'Non',
         i.autorisation_parentale ? 'Oui' : 'Non / NC',
@@ -1266,7 +1290,7 @@ const AdminMembres = () => {
       row.height = 18;
       const sc = statutColors[statut] || { bg: rowBg, fg: '00000000' };
       row.eachCell((cell, colNum) => {
-        if (colNum === 24) {
+        if (colNum === 28) {
           cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: sc.fg } };
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: sc.bg } };
         } else {
@@ -1277,9 +1301,175 @@ const AdminMembres = () => {
       });
     });
 
-    //               N°   Nom  Prén  DdN  Âge  Type  Adr  Tel  Email  Disc  Niv  GS   Allerg  Urg  Paiem  PS   DI   AP   P1   P1mail P1tel P2   Sais  Stat  Src  Reçu
-    const colWidths = [7,  16,  14,   13,  7,   10,   30,  14,  28,   20,   12,  12,  18,     24,  14,    9,   9,   14,  22,  24,    13,   22,  12,   12,   9,   12];
+    //               N°   Nom  Prén  DdN  Âge  Type  Adr  Tel  Email  Disc  Niv  GS   Allerg  Urg  Paiem  Règ1 Règ2 Règ3 Règ4  PS   DI   AP   P1   P1mail P1tel P2   Sais  Stat  Src  Reçu
+    const colWidths = [7,  16,  14,   13,  7,   10,   30,  14,  28,   20,   12,  12,  18,     24,  14,    16,  16,  16,  16,   9,   9,   14,  22,  24,    13,   22,  12,   12,   9,   12];
     colWidths.forEach((w, i) => { sheet.getColumn(i + 1).width = w; });
+
+    // ─── Feuille "Règlements" : une ligne par foyer (personnes qui partagent au
+    // moins un règlement ensemble), pas par personne — pour que "Montant total"
+    // et les sommes par échéance (rapprochement bancaire) ne comptent jamais
+    // deux fois un chèque partagé par plusieurs membres d'une même famille.
+    const inscriptionIds = new Set(data.map((i) => i.id));
+    const nomParInscription = new Map(data.map((i) => [i.id, `${i.prenom || ''} ${i.nom || ''}`.trim()]));
+
+    const idsAvecReglement = new Set(
+      chequeEcheances.filter((ce) => inscriptionIds.has(ce.inscription_id)).map((ce) => ce.inscription_id)
+    );
+
+    // Union-find : deux inscriptions rejoignent le même foyer dès qu'elles partagent un règlement.
+    const parent = new Map<string, string>();
+    const find = (x: string): string => {
+      if (!parent.has(x)) parent.set(x, x);
+      const p = parent.get(x)!;
+      if (p !== x) { const root = find(p); parent.set(x, root); return root; }
+      return x;
+    };
+    const union = (a: string, b: string) => {
+      const ra = find(a), rb = find(b);
+      if (ra !== rb) parent.set(ra, rb);
+    };
+    const inscriptionsParCheque = new Map<string, Set<string>>();
+    chequeEcheances
+      .filter((ce) => idsAvecReglement.has(ce.inscription_id))
+      .forEach((ce) => {
+        find(ce.inscription_id);
+        const set = inscriptionsParCheque.get(ce.cheque_id) || new Set<string>();
+        set.add(ce.inscription_id);
+        inscriptionsParCheque.set(ce.cheque_id, set);
+      });
+    inscriptionsParCheque.forEach((idsSet) => {
+      const ids = Array.from(idsSet);
+      for (let k = 1; k < ids.length; k++) union(ids[0], ids[k]);
+    });
+
+    const foyers = new Map<string, Set<string>>(); // racine -> inscription_ids du foyer
+    idsAvecReglement.forEach((id) => {
+      const root = find(id);
+      const set = foyers.get(root) || new Set<string>();
+      set.add(id);
+      foyers.set(root, set);
+    });
+
+    const LABELS_ECHEANCE = ['à l\'inscription', 'décembre', 'mars', 'juin'];
+
+    const lignesFoyers = Array.from(foyers.values()).map((membreIds) => {
+      const membres = Array.from(membreIds);
+      const noms = membres.map((id) => nomParInscription.get(id) || '').filter(Boolean).sort();
+      const chequeIdsDuFoyer = new Set(
+        chequeEcheances.filter((ce) => membreIds.has(ce.inscription_id)).map((ce) => ce.cheque_id)
+      );
+      const montantTotal = Array.from(chequeIdsDuFoyer)
+        .map((cid) => cheques.find((c) => c.id === cid)?.montant || 0)
+        .reduce((s, m) => s + m, 0);
+
+      // Règlement 1-4 : uniquement les chèques (les échéances n'ont de sens que pour eux).
+      const parEcheance = [1, 2, 3, 4].map((echeance) => {
+        const chequeIds = new Set(
+          chequeEcheances
+            .filter((ce) => membreIds.has(ce.inscription_id) && ce.echeance === echeance)
+            .map((ce) => ce.cheque_id)
+        );
+        const chequesEcheance = Array.from(chequeIds)
+          .map((cid) => cheques.find((c) => c.id === cid))
+          .filter((c): c is Cheque => !!c && c.type === 'cheque');
+        return {
+          numero: chequesEcheance.map((c) => c.numero).filter(Boolean).join(', '),
+          montant: chequesEcheance.length > 0 ? chequesEcheance.reduce((s, c) => s + (c.montant || 0), 0) : ('' as number | ''),
+        };
+      });
+
+      // Espèces et virement : montant total du foyer pour ce type, toutes échéances confondues
+      // (ces règlements sont toujours "en une fois", pas de notion d'échéance 1-4 pour eux).
+      const montantParType = (type: 'especes' | 'virement'): number | '' => {
+        const idsDuType = new Set(
+          chequeEcheances.filter((ce) => membreIds.has(ce.inscription_id)).map((ce) => ce.cheque_id)
+        );
+        const total = Array.from(idsDuType)
+          .map((cid) => cheques.find((c) => c.id === cid))
+          .filter((c): c is Cheque => !!c && c.type === type)
+          .reduce((s, c) => s + (c.montant || 0), 0);
+        return total > 0 ? total : '';
+      };
+      const montantEspeces = montantParType('especes');
+      const montantVirement = montantParType('virement');
+
+      const saisons = Array.from(new Set(membres.map((id) => data.find((i) => i.id === id)?.saison).filter(Boolean)));
+
+      return { noms, parEcheance, montantEspeces, montantVirement, montantTotal, saison: saisons.join(', ') };
+    }).sort((a, b) => a.noms.join(', ').localeCompare(b.noms.join(', ')));
+
+    const sheetCheques = workbook.addWorksheet('Règlements', { views: [{ state: 'frozen', ySplit: 4 }] });
+    const NB_COLS_CHEQUES = 13;
+
+    sheetCheques.mergeCells(1, 1, 1, NB_COLS_CHEQUES);
+    const titreCheques = sheetCheques.getCell(1, 1);
+    titreCheques.value = 'AMSP — Règlements reçus';
+    titreCheques.font = { name: 'Calibri', size: 16, bold: true, color: { argb: BLANC } };
+    titreCheques.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLEU } };
+    titreCheques.alignment = { vertical: 'middle', horizontal: 'center' };
+    sheetCheques.getRow(1).height = 30;
+
+    sheetCheques.mergeCells(2, 1, 2, NB_COLS_CHEQUES);
+    const sousTitreCheques = sheetCheques.getCell(2, 1);
+    sousTitreCheques.value = `Exporté le ${new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} — ${lignesFoyers.length} foyer(s)`;
+    sousTitreCheques.font = { name: 'Calibri', size: 10, italic: true, color: { argb: BLANC } };
+    sousTitreCheques.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLEU } };
+    sousTitreCheques.alignment = { vertical: 'middle', horizontal: 'center' };
+    sheetCheques.getRow(2).height = 18;
+
+    // Ligne 3 : en-tête groupé "Règlement N (échéance)" fusionné sur les 2 colonnes (Numéro + Montant)
+    sheetCheques.addRow([]);
+    for (let r = 0; r < 4; r++) {
+      const startCol = 2 + r * 2;
+      sheetCheques.mergeCells(3, startCol, 3, startCol + 1);
+      const cell = sheetCheques.getCell(3, startCol);
+      cell.value = `Règlement ${r + 1} (${LABELS_ECHEANCE[r]})`;
+      cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: BLANC } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ROUGE } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    }
+    sheetCheques.getRow(3).height = 20;
+    [1, 10, 11, 12, 13].forEach((col) => {
+      sheetCheques.getCell(3, col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ROUGE } };
+    });
+
+    // Ligne 4 : en-têtes de colonnes
+    const headerRowCheques = sheetCheques.addRow([
+      'Personnes concernées', 'Numéro', 'Montant', 'Numéro', 'Montant',
+      'Numéro', 'Montant', 'Numéro', 'Montant', 'Espèces', 'Virement', 'Montant total', 'Saison',
+    ]);
+    headerRowCheques.height = 22;
+    headerRowCheques.eachCell((cell) => {
+      cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: BLANC } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ROUGE } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      cell.border = { bottom: { style: 'thin', color: { argb: BLANC } } };
+    });
+
+    lignesFoyers.forEach((ligne, idx) => {
+      const isEven = idx % 2 === 0;
+      const rowBg = isEven ? GRIS_CLAIR : BLANC;
+      const row = sheetCheques.addRow([
+        ligne.noms.join(', '),
+        ligne.parEcheance[0].numero, ligne.parEcheance[0].montant,
+        ligne.parEcheance[1].numero, ligne.parEcheance[1].montant,
+        ligne.parEcheance[2].numero, ligne.parEcheance[2].montant,
+        ligne.parEcheance[3].numero, ligne.parEcheance[3].montant,
+        ligne.montantEspeces, ligne.montantVirement,
+        ligne.montantTotal,
+        ligne.saison,
+      ]);
+      row.height = 18;
+      row.eachCell((cell, colNum) => {
+        cell.font = { name: 'Calibri', size: 9 };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBg } };
+        cell.alignment = { vertical: 'middle', wrapText: false };
+        if ([3, 5, 7, 9, 10, 11, 12].includes(colNum)) cell.numFmt = '#,##0 "€"';
+      });
+    });
+
+    const colWidthsCheques = [28, 14, 10, 14, 10, 14, 10, 14, 10, 12, 12, 13, 14];
+    colWidthsCheques.forEach((w, i) => { sheetCheques.getColumn(i + 1).width = w; });
 
     const buf = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -1608,7 +1798,9 @@ const AdminMembres = () => {
     });
   })();
 
-  const isChequeReglementMode = reglementMode === "cheque_1x" || reglementMode === "cheque_4x" || reglementMode === "cheque_3x_pass_sport";
+  // Vrai pour les 5 modes (chèque comme espèces/virement) : tous ont désormais un montant
+  // à renseigner et peuvent être partagés entre plusieurs inscriptions (table cheques/cheque_echeances).
+  const isMontantReglementMode = reglementMode === "cheque_1x" || reglementMode === "cheque_4x" || reglementMode === "cheque_3x_pass_sport" || reglementMode === "especes" || reglementMode === "virement";
   // Chèque 4x et Chèque 3x + Pass Sport ont tous deux plusieurs échéances : on affiche le n° et la date
   // pour les deux, pour que le champ "N° de chèque" (par ligne = par échéance) reste lisible.
   const isMultiEcheanceMode = reglementMode === "cheque_4x" || reglementMode === "cheque_3x_pass_sport";
@@ -1623,7 +1815,7 @@ const AdminMembres = () => {
    */
   type ReglementRow = { key: string; chequeId: string | null; events: PaymentEvent[]; representative: PaymentEvent };
   const reglementRows: ReglementRow[] = (() => {
-    if (!isChequeReglementMode) {
+    if (!isMontantReglementMode) {
       return reglementEvents.map((evt) => ({ key: `solo-${evt.insc.id}-${evt.installment}`, chequeId: null, events: [evt], representative: evt }));
     }
     const seen = new Set<string>();
@@ -2043,8 +2235,8 @@ const AdminMembres = () => {
                                 {isMultiEcheanceMode && (
                                   <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Échéance</th>
                                 )}
-                                {isChequeReglementMode && (
-                                  <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Chèque à encaisser</th>
+                                {isMontantReglementMode && (
+                                  <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Règlement à encaisser</th>
                                 )}
                                 <th className="text-left pb-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Saison</th>
                               </tr>
@@ -2091,12 +2283,12 @@ const AdminMembres = () => {
                                         {isCurrentMonth && <span className="ml-1.5 inline-block rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">Ce mois</span>}
                                       </td>
                                     )}
-                                    {isChequeReglementMode && (
+                                    {isMontantReglementMode && (
                                       <td className="py-3 pr-4">
                                         {cheque ? (
                                           <button onClick={() => openChequeModal(row.key, row.chequeId, evt)}
                                             className="inline-flex flex-col items-start gap-0.5 rounded-md border border-border/50 bg-secondary/30 px-2 py-1 text-left hover:border-primary/40 hover:bg-secondary/50 transition-colors">
-                                            <span className="text-xs font-semibold">N° {cheque.numero}</span>
+                                            <span className="text-xs font-semibold">{cheque.type === 'cheque' ? `N° ${cheque.numero}` : TYPE_REGLEMENT_LABELS[cheque.type]}</span>
                                             <span className="text-[10px] text-muted-foreground">
                                               {cheque.montant != null ? `${cheque.montant.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} €` : "Montant non renseigné"}
                                               {row.events.length > 1 ? ` · ${row.events.length} pers.` : ""}
@@ -2104,7 +2296,7 @@ const AdminMembres = () => {
                                           </button>
                                         ) : (
                                           <Button size="sm" variant="outline" onClick={() => openChequeModal(row.key, null, evt)} className="h-7 px-2 text-xs gap-1 text-muted-foreground">
-                                            <Plus size={11} /> Lier un chèque
+                                            <Plus size={11} /> Renseigner
                                           </Button>
                                         )}
                                       </td>
@@ -3306,7 +3498,7 @@ const AdminMembres = () => {
           <DialogHeader>
             <DialogTitle className="font-serif flex items-center gap-2">
               <ClipboardList size={16} className="text-muted-foreground" />
-              {chequeModal?.chequeId ? "Modifier le chèque" : "Lier un chèque"}
+              {chequeModal?.chequeId ? "Modifier le règlement" : "Renseigner le règlement"}
             </DialogTitle>
           </DialogHeader>
           {chequeModal && (() => {
@@ -3323,11 +3515,25 @@ const AdminMembres = () => {
                   {evt.insc.saison && <> — {evt.insc.saison}</>}
                 </p>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">N° de chèque</Label>
-                    <Input value={chequeModalNumero} onChange={(e) => setChequeModalNumero(e.target.value)} placeholder="Ex : 1234567" className="h-9 text-sm" />
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Type de règlement</Label>
+                  <div className="flex gap-1.5">
+                    {(['cheque', 'especes', 'virement'] as const).map((t) => (
+                      <button key={t} type="button" onClick={() => setChequeModalType(t)}
+                        className={`flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition-colors ${chequeModalType === t ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40"}`}>
+                        {TYPE_REGLEMENT_LABELS[t]}
+                      </button>
+                    ))}
                   </div>
+                </div>
+
+                <div className={chequeModalType === 'cheque' ? "grid grid-cols-2 gap-3" : ""}>
+                  {chequeModalType === 'cheque' && (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">N° de chèque</Label>
+                      <Input value={chequeModalNumero} onChange={(e) => setChequeModalNumero(e.target.value)} placeholder="Ex : 1234567" className="h-9 text-sm" />
+                    </div>
+                  )}
                   <div className="space-y-1.5">
                     <Label className="text-xs">Montant (€)</Label>
                     <Input value={chequeModalMontant} onChange={(e) => setChequeModalMontant(e.target.value)} placeholder="Ex : 145,00" inputMode="decimal" className="h-9 text-sm" />
@@ -3335,7 +3541,7 @@ const AdminMembres = () => {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Personnes couvertes par ce chèque</Label>
+                  <Label className="text-xs">Personnes couvertes par ce règlement</Label>
                   <div className="rounded-md border border-border/50 divide-y divide-border/30">
                     <div className="flex items-center justify-between px-3 py-2 text-sm bg-secondary/20">
                       <span className="font-medium">{[evt.insc.nom, evt.insc.prenom].filter(Boolean).join(" ") || "Sans nom"}</span>
@@ -3354,7 +3560,7 @@ const AdminMembres = () => {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Ajouter quelqu'un à ce chèque</Label>
+                  <Label className="text-xs">Ajouter quelqu'un à ce règlement</Label>
                   <Input value={chequeModalSearch} onChange={(e) => setChequeModalSearch(e.target.value)} placeholder="Rechercher un nom…" className="h-9 text-sm" />
                   <div className="rounded-md border border-border/50 divide-y divide-border/30 max-h-40 overflow-y-auto">
                     {candidates.length === 0 ? (
@@ -3368,12 +3574,12 @@ const AdminMembres = () => {
                         <div key={c.insc.id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
                           <div className="min-w-0">
                             <span className="block truncate">{[c.insc.nom, c.insc.prenom].filter(Boolean).join(" ") || "Sans nom"}</span>
-                            {autreCheque && <span className="block text-[10px] text-amber-700">Déjà sur le chèque n°{autreCheque.numero} — sera déplacée ici</span>}
+                            {autreCheque && <span className="block text-[10px] text-amber-700">Déjà sur {autreCheque.type === 'cheque' ? `le chèque n°${autreCheque.numero}` : `un règlement ${TYPE_REGLEMENT_LABELS[autreCheque.type].toLowerCase()}`} — sera déplacée ici</span>}
                           </div>
                           {chequeModal.chequeId ? (
                             <button onClick={() => handleAjouterAuCheque(chequeModal.chequeId!, c)} className="text-xs text-primary hover:underline shrink-0">Ajouter</button>
                           ) : (
-                            <span className="text-[10px] text-muted-foreground italic shrink-0">Enregistrer le chèque d'abord</span>
+                            <span className="text-[10px] text-muted-foreground italic shrink-0">Enregistrer le règlement d'abord</span>
                           )}
                         </div>
                       );
