@@ -71,6 +71,7 @@ const DisciplineDetail = () => {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Instructeur | null>(null);
   const [lightbox, setLightbox] = useState<{ url: string; width?: number; height?: number } | null>(null);
+  const [heroLoaded, setHeroLoaded] = useState(false);
 
   useEffect(() => {
     client
@@ -79,6 +80,7 @@ const DisciplineDetail = () => {
         const found = disciplines.find((d) => slugify(d.nom) === slug);
         if (!found) { navigate("/disciplines"); return; }
         setDiscipline(found);
+        setHeroLoaded(false);
 
         return Promise.all([
           client.fetch(
@@ -166,16 +168,19 @@ const DisciplineDetail = () => {
       */}
       {/* Zone image : couvre toute la page, gradient efface l'image vers le bas */}
       <div className="relative overflow-hidden">
+        {/* Fond de repli visible immédiatement, le temps que la photo charge */}
+        <div className="absolute top-0 left-0 right-0 h-1/2" style={{ background: `linear-gradient(135deg, ${color.bg}30, ${color.bg}10)` }} />
         {/* Image en fond sur toute la zone */}
-        {discipline.image ? (
+        {discipline.image && (
           <img
             src={urlFor(discipline.image).width(1200).url()}
             alt=""
             aria-hidden="true"
-            className="absolute top-0 left-0 right-0 w-full h-1/2 object-cover opacity-[0.15] grayscale"
+            loading="eager"
+            fetchPriority="high"
+            onLoad={() => setHeroLoaded(true)}
+            className={`absolute top-0 left-0 right-0 w-full h-1/2 object-cover grayscale transition-opacity duration-500 ${heroLoaded ? 'opacity-[0.15]' : 'opacity-0'}`}
           />
-        ) : (
-          <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${color.bg}30, ${color.bg}10)` }} />
         )}
 
         {/* Gradient : image visible en haut, disparaît vers 40% */}

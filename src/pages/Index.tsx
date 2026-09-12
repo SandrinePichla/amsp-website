@@ -397,10 +397,14 @@ const Index = () => {
               {/* Flyer PDF */}
               {selectedActu.flyer?.asset?.url && (
                 <div className="border-b border-border bg-secondary/20 px-6 py-4 flex flex-col items-center gap-3">
-                  {pdfReady && (
-                    <Suspense fallback={null}>
+                  {pdfReady ? (
+                    <Suspense fallback={<div className="flex w-full items-center justify-center" style={{ minHeight: 400 }}><div className="h-7 w-7 animate-spin rounded-full border-2 border-primary/30 border-t-primary" /></div>}>
                       <PdfPage url={selectedActu.flyer.asset.url} maxHeight={400} className="w-full" />
                     </Suspense>
+                  ) : (
+                    <div className="flex w-full items-center justify-center" style={{ minHeight: 400 }}>
+                      <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
+                    </div>
                   )}
                   <a
                     href={selectedActu.flyer.asset.url}

@@ -18,13 +18,21 @@ interface PdfPageProps {
   maxHeight?: number;
 }
 
+const Spinner = () => (
+  <div className="absolute inset-0 flex items-center justify-center">
+    <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
+  </div>
+);
+
 export const PdfPage = ({ url, className, pageNumber = 1, cover = false, zoom = 1, maxHeight }: PdfPageProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    setLoaded(false);
     const load = async () => {
       try {
         const pdf = await pdfjsLib.getDocument(url).promise;
@@ -55,6 +63,7 @@ export const PdfPage = ({ url, className, pageNumber = 1, cover = false, zoom = 
         canvas.height = scaled.height;
 
         await page.render({ canvasContext: ctx, viewport: scaled }).promise;
+        if (!cancelled) setLoaded(true);
       } catch {
         if (!cancelled) setError(true);
       }
@@ -70,13 +79,19 @@ export const PdfPage = ({ url, className, pageNumber = 1, cover = false, zoom = 
     return (
       <div ref={containerRef} className={`relative overflow-hidden ${className ?? ''}`}>
         <canvas ref={canvasRef} className="absolute left-1/2 top-0 -translate-x-1/2" />
+        {!loaded && <Spinner />}
       </div>
     );
   }
 
   return (
-    <div ref={containerRef} className={`flex justify-center ${className ?? ''}`}>
+    <div
+      ref={containerRef}
+      className={`relative flex justify-center ${className ?? ''}`}
+      style={!loaded && maxHeight ? { minHeight: maxHeight } : undefined}
+    >
       <canvas ref={canvasRef} style={{ display: 'block', maxWidth: '100%' }} />
+      {!loaded && <Spinner />}
     </div>
   );
 };
