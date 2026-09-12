@@ -90,7 +90,7 @@ const Instructeurs = () => {
             transition={{ duration: 0.5 }}
             className="mb-16 text-center"
           >
-            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary/60">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary">
               Notre équipe
             </p>
             <h1 className="mb-4 font-serif text-4xl font-black md:text-5xl">
