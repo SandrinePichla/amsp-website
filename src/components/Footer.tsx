@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import logoAmsp from "@/assets/logo_amsp-320.webp";
+import logoAmsp from "@/assets/logo_amsp.webp";
 
 const Footer = () => (
   <footer className="border-t border-border/50 bg-background">

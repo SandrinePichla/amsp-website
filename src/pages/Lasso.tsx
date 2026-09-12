@@ -95,7 +95,7 @@ const Lasso = () => {
             transition={{ duration: 0.5 }}
             className="mb-16 text-center"
           >
-            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary/60">
               Qui sommes-nous
             </p>
             <h1 className="mb-4 font-serif text-4xl font-black md:text-5xl">
@@ -153,7 +153,7 @@ const Lasso = () => {
           {/* Valeurs */}
           <div className="mb-16">
             <div className="mb-8 text-center">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary">Ce qui nous anime</p>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary/60">Ce qui nous anime</p>
               <h2 className="font-serif text-2xl font-bold md:text-3xl">
                 Nos <span className="text-primary">valeurs</span>
               </h2>
@@ -188,7 +188,7 @@ const Lasso = () => {
             viewport={{ once: true }}
             className="mx-auto max-w-2xl rounded-2xl border border-border/40 bg-card p-8 text-center"
           >
-            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary">Ouvert à</p>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary/60">Ouvert à</p>
             <h2 className="mb-6 font-serif text-2xl font-bold">
               Le club est fait pour <span className="text-primary">vous</span>
             </h2>
@@ -211,7 +211,7 @@ const Lasso = () => {
             viewport={{ once: true }}
             className="mx-auto mt-6 max-w-2xl rounded-2xl border border-border/40 bg-card p-6 text-center"
           >
-            <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-primary">Référent club</p>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-primary/60">Référent club</p>
             <p className="font-serif text-lg font-bold">
               Karaté · Steve Piazza — 5<sup>e</sup> Dan
             </p>

@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { client } from "@/sanityClient";
 import { slugify } from "@/lib/utils";
-import logoAmsp from "@/assets/logo_amsp-320.webp";
+import logoAmsp from "@/assets/logo_amsp.webp";
 
 interface NavChild {
   label: string;

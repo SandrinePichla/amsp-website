@@ -57,7 +57,6 @@ interface Instructeur {
   bio?: string;
   liens?: Lien[];
   photo?: { asset: { _ref: string } };
-  photoDimensions?: { width: number; height: number };
 }
 
 const DisciplineDetail = () => {
@@ -70,8 +69,7 @@ const DisciplineDetail = () => {
   const [tarifsSpeciaux, setTarifsSpeciaux] = useState<TarifSpecial[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Instructeur | null>(null);
-  const [lightbox, setLightbox] = useState<{ url: string; width?: number; height?: number } | null>(null);
-  const [heroLoaded, setHeroLoaded] = useState(false);
+  const [lightbox, setLightbox] = useState<string | null>(null);
 
   useEffect(() => {
     client
@@ -80,13 +78,11 @@ const DisciplineDetail = () => {
         const found = disciplines.find((d) => slugify(d.nom) === slug);
         if (!found) { navigate("/disciplines"); return; }
         setDiscipline(found);
-        setHeroLoaded(false);
 
         return Promise.all([
           client.fetch(
             `*[_type == "instructeur" && "${found._id}" in disciplines[]->_id] | order(ordre asc) {
-              _id, nom, grade, telephone, email, bio, liens, photo,
-              "photoDimensions": photo.asset->metadata.dimensions
+              _id, nom, grade, telephone, email, bio, liens, photo
             }`
           ),
           client.fetch(
@@ -168,19 +164,16 @@ const DisciplineDetail = () => {
       */}
       {/* Zone image : couvre toute la page, gradient efface l'image vers le bas */}
       <div className="relative overflow-hidden">
-        {/* Fond de repli visible immédiatement, le temps que la photo charge */}
-        <div className="absolute top-0 left-0 right-0 h-1/2" style={{ background: `linear-gradient(135deg, ${color.bg}30, ${color.bg}10)` }} />
         {/* Image en fond sur toute la zone */}
-        {discipline.image && (
+        {discipline.image ? (
           <img
             src={urlFor(discipline.image).width(1200).url()}
             alt=""
             aria-hidden="true"
-            loading="eager"
-            fetchPriority="high"
-            onLoad={() => setHeroLoaded(true)}
-            className={`absolute top-0 left-0 right-0 w-full h-1/2 object-cover grayscale transition-opacity duration-500 ${heroLoaded ? 'opacity-[0.15]' : 'opacity-0'}`}
+            className="absolute top-0 left-0 right-0 w-full h-1/2 object-cover opacity-[0.15] grayscale"
           />
+        ) : (
+          <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${color.bg}30, ${color.bg}10)` }} />
         )}
 
         {/* Gradient : image visible en haut, disparaît vers 40% */}
@@ -548,9 +541,7 @@ const DisciplineDetail = () => {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
               transition={{ duration: 0.2 }}
-              src={lightbox.url}
-              width={lightbox.width}
-              height={lightbox.height}
+              src={lightbox}
               className="max-w-full max-h-[90vh] rounded-xl object-contain shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             />
@@ -586,7 +577,7 @@ const DisciplineDetail = () => {
               {selected.photo ? (
                 <button
                   className="relative w-full h-48 overflow-hidden rounded-t-2xl focus:outline-none group bg-secondary/30"
-                  onClick={(e) => { e.stopPropagation(); setLightbox({ url: urlFor(selected.photo!).width(1200).url(), width: selected.photoDimensions?.width, height: selected.photoDimensions?.height }); }}
+                  onClick={(e) => { e.stopPropagation(); setLightbox(urlFor(selected.photo!).width(1200).url()); }}
                 >
                   <img
                     src={urlFor(selected.photo).width(600).url()}

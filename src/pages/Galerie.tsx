@@ -11,7 +11,6 @@ interface Photo {
   _key: string;
   legende?: string;
   asset: { _ref: string };
-  dimensions?: { width: number; height: number };
 }
 
 interface VideoUpload {
@@ -58,7 +57,7 @@ const Galerie = () => {
       .fetch(`*[_type == "galerie" && publie == true] | order(date desc) {
         _id, titre, date, prive,
         discipline-> { _id, nom, nomCourt },
-        photos[] { _key, legende, asset, "dimensions": asset->metadata.dimensions },
+        photos[] { _key, legende, asset },
         videos[] { _key, _type, legende, youtubeUrl, fichier { asset-> { url } } }
       }`)
       .then((data) => {
@@ -281,8 +280,7 @@ const Galerie = () => {
                   {openAlbum.photos.map((photo, index) => (
                     <div
                       key={photo._key}
-                      className="group cursor-pointer overflow-hidden rounded-md break-inside-avoid mb-1.5 bg-secondary/30"
-                      style={photo.dimensions ? { aspectRatio: `${photo.dimensions.width} / ${photo.dimensions.height}` } : undefined}
+                      className="group cursor-pointer overflow-hidden rounded-md break-inside-avoid mb-1.5"
                       onClick={() => setLightbox({ album: openAlbum, index })}
                     >
                       <img
@@ -291,7 +289,7 @@ const Galerie = () => {
                         loading="lazy"
                         draggable={false}
                         onContextMenu={(e) => e.preventDefault()}
-                        className="h-full w-full select-none object-cover transition-transform duration-200 group-hover:scale-105"
+                        className="w-full select-none object-cover transition-transform duration-200 group-hover:scale-105"
                       />
                     </div>
                   ))}
@@ -377,8 +375,6 @@ const Galerie = () => {
             <img
               src={urlFor(lightbox.album.photos[lightbox.index]).width(1200).url()}
               alt={lightbox.album.photos[lightbox.index]?.legende || ""}
-              width={lightbox.album.photos[lightbox.index]?.dimensions?.width}
-              height={lightbox.album.photos[lightbox.index]?.dimensions?.height}
               draggable={false}
               onContextMenu={(e) => e.preventDefault()}
               className="max-h-[85vh] max-w-full select-none rounded-lg object-contain"

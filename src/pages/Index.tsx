@@ -3,18 +3,13 @@ import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, X, MapPin, Euro, Clock, Users, User } from "lucide-react";
 import Layout from "@/components/Layout";
-import { useEffect, useState, memo, lazy, Suspense } from "react";
+import { useEffect, useState, memo } from "react";
 import { client } from "@/sanityClient";
 import { urlFor } from "@/sanityImage";
 import { Sparkles } from "lucide-react";
-import heroImage480 from "@/assets/hero-martial-banner-480.webp";
-import heroImage800 from "@/assets/hero-martial-banner-800.webp";
-import heroImage1200 from "@/assets/hero-martial-banner-1200.webp";
-import heroImage1920 from "@/assets/hero-martial-banner-1920.webp";
+import heroImage from "@/assets/hero-martial-banner-modif4.webp";
+import { PdfPage } from "@/components/PdfPage";
 import { slugify } from "@/lib/utils";
-
-// Chargé à la demande : pdfjs-dist est lourd et ne sert que si une actualité a un flyer PDF
-const PdfPage = lazy(() => import("@/components/PdfPage").then((m) => ({ default: m.PdfPage })));
 
 interface Discipline {
   _id: string;
@@ -39,7 +34,6 @@ interface Actualite {
   inscription: string;
   minimumPersonnes: number;
   image?: { asset: { _ref: string } };
-  imageDimensions?: { width: number; height: number };
   flyer?: { asset: { url: string } };
   publie: boolean;
   statut?: string;
@@ -91,14 +85,10 @@ const ActuCard = memo(({ a, i, onSelect }: { a: Actualite; i: number; onSelect: 
           <img
             src={urlFor(a.image).width(600).height(400).fit('crop').url()}
             alt={a.titre}
-            loading="lazy"
-            decoding="async"
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : a.flyer?.asset?.url ? (
-          <Suspense fallback={null}>
-            <PdfPage cover zoom={0.90} url={a.flyer.asset.url} className="h-full w-full transition-transform duration-500 group-hover:scale-105" />
-          </Suspense>
+          <PdfPage cover zoom={0.90} url={a.flyer.asset.url} className="h-full w-full transition-transform duration-500 group-hover:scale-105" />
         ) : (
           <div className={`h-full w-full ${
             a.type === 'stage'
@@ -157,7 +147,7 @@ const Index = () => {
       .then((data) => setDisciplines(data));
 
     client
-      .fetch('*[_type == "actualite" && publie == true] | order(date asc) { ..., "imageDimensions": image.asset->metadata.dimensions, flyer { asset-> { url } } }')
+      .fetch('*[_type == "actualite" && publie == true] | order(date asc) { ..., flyer { asset-> { url } } }')
       .then((data) => setActualites(data as Actualite[]));
   }, []);
 
@@ -170,9 +160,7 @@ const Index = () => {
       {/* Hero */}
       <section className="relative flex h-[160px] sm:h-[200px] items-center justify-center overflow-hidden">
         <img
-          src={heroImage800}
-          srcSet={`${heroImage480} 480w, ${heroImage800} 800w, ${heroImage1200} 1200w, ${heroImage1920} 1920w`}
-          sizes="100vw"
+          src={heroImage}
           alt="Arts martiaux AMSP"
           className="absolute inset-0 h-full w-full object-cover object-[center_80%]"
           loading="eager"
@@ -219,7 +207,7 @@ const Index = () => {
           <section className="pt-4 sm:pt-10 pb-2 bg-secondary/10">
             <div className="container mx-auto px-4">
               <div className="mb-12 text-center">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary">Agenda</p>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary/60">Agenda</p>
                 <h2 className="font-serif text-3xl font-bold md:text-4xl">
                   Infos & <span className="text-primary">Stages</span>
                 </h2>
@@ -269,7 +257,7 @@ const Index = () => {
       <section className="pt-1 pb-20">
         <div className="container mx-auto px-4">
           <div className="mb-16 text-center">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary">Arts pratiqués</p>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary/60">Arts pratiqués</p>
             <h2 className="font-serif text-3xl font-bold md:text-4xl">
               Nos <span className="text-primary">Disciplines</span>
             </h2>
@@ -387,8 +375,6 @@ const Index = () => {
                 <img
                   src={urlFor(selectedActu.image).width(800).url()}
                   alt={selectedActu.titre}
-                  width={selectedActu.imageDimensions?.width}
-                  height={selectedActu.imageDimensions?.height}
                   className="w-full object-contain max-h-80 cursor-zoom-in"
                   onClick={(e) => { e.stopPropagation(); setFlyerZoom(true); }}
                 />
@@ -397,15 +383,7 @@ const Index = () => {
               {/* Flyer PDF */}
               {selectedActu.flyer?.asset?.url && (
                 <div className="border-b border-border bg-secondary/20 px-6 py-4 flex flex-col items-center gap-3">
-                  {pdfReady ? (
-                    <Suspense fallback={<div className="flex w-full items-center justify-center" style={{ minHeight: 400 }}><div className="h-7 w-7 animate-spin rounded-full border-2 border-primary/30 border-t-primary" /></div>}>
-                      <PdfPage url={selectedActu.flyer.asset.url} maxHeight={400} className="w-full" />
-                    </Suspense>
-                  ) : (
-                    <div className="flex w-full items-center justify-center" style={{ minHeight: 400 }}>
-                      <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
-                    </div>
-                  )}
+                  {pdfReady && <PdfPage url={selectedActu.flyer.asset.url} maxHeight={400} className="w-full" />}
                   <a
                     href={selectedActu.flyer.asset.url}
                     target="_blank"
@@ -520,8 +498,6 @@ const Index = () => {
               transition={{ duration: 0.2 }}
               src={urlFor(selectedActu.image).width(1200).url()}
               alt={selectedActu.titre}
-              width={selectedActu.imageDimensions?.width}
-              height={selectedActu.imageDimensions?.height}
               className="max-h-[90vh] max-w-full object-contain rounded-lg shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             />
