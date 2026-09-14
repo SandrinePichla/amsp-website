@@ -261,7 +261,7 @@ const TarifSimulator = ({ grille }: { grille: GrilleTarifs | null }) => {
         <button
           type="button"
           onClick={addMembre}
-          className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-border/60 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+          className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary py-2.5 text-sm font-bold text-primary-foreground shadow-md shadow-primary/25 transition-colors hover:bg-primary/90"
         >
           <Plus size={15} /> Ajouter un membre de la famille
         </button>
@@ -279,7 +279,7 @@ const TarifSimulator = ({ grille }: { grille: GrilleTarifs | null }) => {
           {aUnCasIncomplet && (
             <p className="mt-2 text-xs text-muted-foreground/70">Complétez le choix de chaque personne pour affiner l'estimation.</p>
           )}
-          <p className="mt-2 text-xs text-muted-foreground/60">
+          <p className="mt-2 text-xs font-medium text-primary">
             Estimation indicative, à confirmer avec le club au moment de l'inscription. Règlement possible en 1 ou 4 fois par chèque.
           </p>
         </div>

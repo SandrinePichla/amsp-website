@@ -249,7 +249,7 @@
     <tr>
       <td><strong>Règlements</strong></td>
       <td>Calendrier des paiements, organisé par mode de paiement (Chèque 1 fois, Espèces, Virement, Chèque 4 fois, Chèque 3 fois + Pass Sport). Pour les chèques en plusieurs fois, des sous-onglets par échéance : <em>À l'inscription, Décembre, Mars, Juin</em> (ou <em>Code Pass Sport</em> pour le mode Pass Sport — détails ci-dessous).</td>
-      <td>Enregistrer un numéro/montant de chèque, rattacher plusieurs personnes à un même chèque, saisir un code Pass Sport</td>
+      <td>Renseigner un règlement (chèque, espèces ou virement) avec son montant, rattacher plusieurs personnes à un même règlement, saisir un code Pass Sport</td>
     </tr>
     <tr>
       <td><strong>Refusées</strong></td>
@@ -262,19 +262,24 @@
     💡 Dans chaque onglet, vous pouvez cliquer sur n'importe quelle ligne pour ouvrir la fiche complète de l'inscrit (coordonnées, disciplies, informations de santé, rôle…).
   </div>
 
-  <h3>Enregistrer un chèque ou un code Pass Sport (onglet Règlements)</h3>
+  <h3>Enregistrer un règlement ou un code Pass Sport (onglet Règlements)</h3>
+  <p>Depuis la refonte de septembre 2026, <strong>chèque, espèces et virement</strong> se saisissent tous les trois de la même façon, avec un montant à renseigner et la possibilité de partager un même règlement entre plusieurs personnes — plus seulement les chèques.</p>
   <table>
     <tr>
       <th>Pour…</th>
       <th>Faire…</th>
     </tr>
     <tr>
-      <td>Noter le numéro et le montant d'un chèque reçu</td>
-      <td>Bouton <strong>"Lier un chèque"</strong> sur la ligne de la personne concernée.</td>
+      <td>Noter un règlement reçu (chèque, espèces ou virement)</td>
+      <td>Bouton <strong>"Renseigner"</strong> sur la ligne de la personne concernée → choisir le <strong>type de règlement</strong> (Chèque / Espèces / Virement) en haut de la fenêtre. Le champ numéro n'apparaît que pour le type "Chèque" ; pour Espèces et Virement, seul le montant est demandé.</td>
     </tr>
     <tr>
-      <td>Un même chèque couvre plusieurs personnes (ex : une famille qui règle en un seul chèque)</td>
-      <td>Dans la fenêtre du chèque, <strong>"Ajouter quelqu'un à ce chèque"</strong> → rechercher le nom de l'autre personne, même si elle n'apparaît pas dans la liste affichée à l'écran (discipline différente, filtre en cours…).</td>
+      <td>Un même règlement couvre plusieurs personnes (ex : une famille qui règle en une fois)</td>
+      <td>Dans la fenêtre du règlement, <strong>"Ajouter quelqu'un à ce règlement"</strong> → rechercher le nom de l'autre personne, même si elle n'apparaît pas dans la liste affichée à l'écran (discipline différente, filtre en cours…).</td>
+    </tr>
+    <tr>
+      <td>Modifier un règlement déjà saisi</td>
+      <td>Cliquer sur le règlement affiché (ex : <em>"N° 1234567"</em> ou <em>"Espèces"</em>) → la fenêtre <strong>"Modifier le règlement"</strong> s'ouvre avec les valeurs actuelles.</td>
     </tr>
     <tr>
       <td>Saisir le code Pass Sport d'un adhérent</td>
@@ -282,7 +287,7 @@
     </tr>
   </table>
   <div class="conseil">
-    💡 Le numéro de chèque et le code Pass Sport se sauvegardent automatiquement dès que vous quittez le champ — pas de bouton "Enregistrer" à chercher.
+    💡 Le code Pass Sport se sauvegarde automatiquement dès que vous quittez le champ. Pour un règlement (chèque, espèces, virement), pensez à cliquer sur le bouton d'enregistrement dans la fenêtre "Renseigner le règlement".
   </div>
 
 
@@ -521,6 +526,22 @@
     </ol>
   </div>
 
+  <p>Le fichier contient <strong>deux feuilles</strong> :</p>
+  <table>
+    <tr>
+      <th>Feuille</th>
+      <th>Contenu</th>
+    </tr>
+    <tr>
+      <td><strong>Inscriptions</strong> (première feuille)</td>
+      <td>Une ligne par inscrit, avec quatre colonnes <strong>"Règlement 1" à "Règlement 4"</strong> (numéro de chèque + montant reçus à chaque échéance).</td>
+    </tr>
+    <tr>
+      <td><strong>Règlements</strong></td>
+      <td>Une ligne par <strong>foyer</strong> (personnes qui partagent au moins un règlement) — jamais par personne, pour ne pas compter deux fois un chèque partagé par une famille. Colonnes : Règlement 1 à 4 (numéro + montant), Espèces, Virement, Montant total, Saison. Pratique pour le rapprochement bancaire.</td>
+    </tr>
+  </table>
+
   <h3>Imprimer ou télécharger une fiche d'inscription</h3>
   <div class="etapes">
     <ol>
@@ -577,7 +598,7 @@
     </tr>
     <tr>
       <td><strong>Tarifs</strong></td>
-      <td>Modifier les tarifs affichés sur le site</td>
+      <td>Modifier la grille tarifaire. Alimente à la fois le tableau de tarifs et le <strong>simulateur interactif</strong> de la page Planning &amp; Tarifs — toute modification y est répercutée automatiquement.</td>
     </tr>
   </table>
 

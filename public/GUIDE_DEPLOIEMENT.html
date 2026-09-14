@@ -257,6 +257,22 @@
   <p>Supabase gère les comptes membres, les inscriptions et les profils.<br>
   Adresse : <span class="url">https://supabase.com</span> → se connecter → projet AMSP</p>
 
+  <h3>Maintien en activité automatique (plan gratuit)</h3>
+
+  <p>Le plan gratuit Supabase met le projet en pause après <strong>~7 jours sans requête API</strong>, ce qui casserait le site (connexion, galerie privée, gestion des membres…). Un workflow <strong>GitHub Actions</strong> (<code>.github/workflows/supabase-keepalive.yml</code>) ping automatiquement l'API tous les <strong>lundis et jeudis à 6h UTC</strong> — largement dans la fenêtre de 7 jours même si l'un des deux passages échoue.</p>
+
+  <div class="etapes">
+    <ol>
+      <li>Aller sur <span class="url">https://github.com/sandrinepichla/amsp-website</span> → onglet <strong>Actions</strong></li>
+      <li>Le workflow <strong>"Supabase keepalive"</strong> s'exécute automatiquement selon le planning — aucune action requise</li>
+      <li>Pour le déclencher manuellement (ex : vérifier que tout fonctionne) : ouvrir le workflow → <strong>"Run workflow"</strong></li>
+    </ol>
+  </div>
+
+  <div class="conseil">
+    💡 La requête lit une table via l'API REST (PostgREST) plutôt que d'appeler un simple endpoint de santé, pour être sûre de compter comme une vraie activité base de données. Les politiques RLS bloquent la lecture pour la clé publique utilisée (0 ligne renvoyée) — aucune donnée n'est exposée.
+  </div>
+
   <h3>Modifier des données (Table Editor)</h3>
 
   <div class="etapes">
@@ -315,6 +331,16 @@
     <tr><td><code>parent1_nom</code>, <code>parent1_prenom</code>, <code>parent1_email</code>, <code>parent1_tel</code></td><td>text</td><td>Coordonnées parent/tuteur 1 (mineurs)</td></tr>
     <tr><td><code>parent2_nom</code>, <code>parent2_prenom</code>, <code>parent2_email</code>, <code>parent2_tel</code></td><td>text</td><td>Coordonnées parent/tuteur 2 (optionnel, mineurs)</td></tr>
   </table>
+
+  <p><strong>Table <code>cheques</code></strong> — un règlement, pas forcément un chèque (depuis la migration <code>20260912_cheques_type_paiement.sql</code>) :</p>
+  <table>
+    <tr><th>Colonne</th><th>Type</th><th>Rôle</th></tr>
+    <tr><td><code>type</code></td><td>text</td><td><code>cheque</code>, <code>especes</code> ou <code>virement</code></td></tr>
+    <tr><td><code>numero</code></td><td>text (nullable)</td><td>Numéro de chèque — vide pour espèces/virement</td></tr>
+    <tr><td><code>montant</code></td><td>numeric (nullable)</td><td>Montant du règlement</td></tr>
+    <tr><td><code>saison</code></td><td>text</td><td>Saison concernée</td></tr>
+  </table>
+  <p>Un règlement peut être lié à plusieurs inscriptions via la table <code>cheque_echeances</code> (colonnes <code>cheque_id</code>, <code>inscription_id</code>, <code>echeance</code>, <code>label</code>) — c'est ce qui permet à une famille de régler plusieurs adhésions en une fois.</p>
 
   <div class="attention">
     ⚠️ Si vous reconstruisez la base de données depuis zéro, pensez à créer toutes ces colonnes. Le script SQL complet est disponible dans l'historique git.

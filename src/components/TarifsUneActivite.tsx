@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { CalendarClock } from "lucide-react";
 import { REMISE_KARATE_COMBO, type GrilleTarifs } from "@/lib/tarifs";
 
@@ -27,7 +28,7 @@ const TarifsUneActivite = ({ grille }: { grille: GrilleTarifs | null }) => {
     <div className="mb-8">
       <h3 className="mb-1 text-center font-serif text-xl font-bold">Une personne, ses activités</h3>
       <p className="mb-5 text-center text-sm text-muted-foreground">
-        Le tarif dépend du nombre d'activités choisies. Plusieurs personnes de la même famille&nbsp;? Le simulateur ci-dessous applique aussi la remise famille.
+        Le tarif dépend du nombre d'activités choisies par cette personne.
       </p>
 
       {tarifsAuChoixTries.length > 0 && (
@@ -65,7 +66,7 @@ const TarifsUneActivite = ({ grille }: { grille: GrilleTarifs | null }) => {
 
       {(grille.tarifsKarate?.length || 0) > 0 && (
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <p className="mb-2 text-sm font-bold leading-tight">
             {grille.disciplineKarate?.nom || "Karaté"}
           </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -93,40 +94,51 @@ const TarifsUneActivite = ({ grille }: { grille: GrilleTarifs | null }) => {
       )}
 
       {(remise2 > 0 || remise3 > 0 || aReductionKarateChoix) && (
-        <div className="mt-6 overflow-hidden rounded-xl border border-border/30 bg-card">
-          <div className="border-b border-border/20 bg-secondary/20 px-5 py-3">
-            <h3 className="font-serif text-base font-bold">Réductions</h3>
+        <div className="mt-10">
+          <h3 className="mb-1 text-center font-serif text-xl font-bold">Plusieurs personnes de la même famille</h3>
+          <p className="mb-5 text-center text-sm text-muted-foreground">
+            Le simulateur ci-dessous applique automatiquement la remise famille. Pour plus d'explications sur les réductions, n'hésitez pas à{" "}
+            <Link to="/contact" className="font-medium text-primary underline-offset-2 hover:underline">
+              nous contacter
+            </Link>
+            .
+          </p>
+
+          <div className="overflow-hidden rounded-xl border border-border/30 bg-card">
+            <div className="border-b border-border/20 bg-secondary/20 px-5 py-3">
+              <h3 className="font-serif text-base font-bold">Réductions</h3>
+            </div>
+
+            {(remise2 > 0 || remise3 > 0) && (
+              <div className="grid divide-y divide-border/20 sm:grid-cols-2 sm:divide-y-0 sm:divide-x">
+                <div className="flex items-baseline justify-between gap-4 px-5 py-4">
+                  <p className="text-sm text-foreground/80">Pour 2 personnes de la famille</p>
+                  <p className="shrink-0 font-serif text-lg font-black text-primary">−{remise2}%</p>
+                </div>
+                <div className="flex items-baseline justify-between gap-4 px-5 py-4">
+                  <p className="text-sm text-foreground/80">Pour 3 personnes et plus</p>
+                  <p className="shrink-0 font-serif text-lg font-black text-primary">−{remise3}%</p>
+                </div>
+              </div>
+            )}
+            {(remise2 > 0 || remise3 > 0) && (
+              <p className="px-5 pb-3 text-xs text-muted-foreground/60">
+                Remise sur la somme des tarifs individuels de la famille, pas sur le nombre d'activités.
+              </p>
+            )}
+
+            {aReductionKarateChoix && (
+              <div className={`px-5 py-4 ${(remise2 > 0 || remise3 > 0) ? "border-t border-border/20" : ""}`}>
+                <div className="flex items-baseline justify-between gap-4">
+                  <p className="text-sm text-foreground/80">
+                    {grille!.disciplineKarate!.nom} + une ou plusieurs activités au choix (même personne)
+                  </p>
+                  <p className="shrink-0 font-serif text-lg font-black text-primary">−{Math.round(REMISE_KARATE_COMBO * 100)}%</p>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground/60">Remise sur la somme des deux tarifs pour cette même personne.</p>
+              </div>
+            )}
           </div>
-
-          {(remise2 > 0 || remise3 > 0) && (
-            <div className="grid divide-y divide-border/20 sm:grid-cols-2 sm:divide-y-0 sm:divide-x">
-              <div className="flex items-baseline justify-between gap-4 px-5 py-4">
-                <p className="text-sm text-foreground/80">Pour 2 personnes de la famille</p>
-                <p className="shrink-0 font-serif text-lg font-black text-primary">−{remise2}%</p>
-              </div>
-              <div className="flex items-baseline justify-between gap-4 px-5 py-4">
-                <p className="text-sm text-foreground/80">Pour 3 personnes et plus</p>
-                <p className="shrink-0 font-serif text-lg font-black text-primary">−{remise3}%</p>
-              </div>
-            </div>
-          )}
-          {(remise2 > 0 || remise3 > 0) && (
-            <p className="px-5 pb-3 text-xs text-muted-foreground/60">
-              Remise sur la somme des tarifs individuels de la famille, pas sur le nombre d'activités.
-            </p>
-          )}
-
-          {aReductionKarateChoix && (
-            <div className={`px-5 py-4 ${(remise2 > 0 || remise3 > 0) ? "border-t border-border/20" : ""}`}>
-              <div className="flex items-baseline justify-between gap-4">
-                <p className="text-sm text-foreground/80">
-                  {grille!.disciplineKarate!.nom} + une ou plusieurs activités au choix (même personne)
-                </p>
-                <p className="shrink-0 font-serif text-lg font-black text-primary">−{Math.round(REMISE_KARATE_COMBO * 100)}%</p>
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground/60">Remise sur la somme des deux tarifs pour cette même personne.</p>
-            </div>
-          )}
         </div>
       )}
     </div>
