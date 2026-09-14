@@ -23,6 +23,7 @@ dist-ssr
 *.tar.gz
 
 # Identifiants et acces (contient des mots de passe) - ne jamais commiter
+IDENTIFIANTS_ACCES.html
 public/IDENTIFIANTS_ACCES.html
 
 # Editor directories and files
