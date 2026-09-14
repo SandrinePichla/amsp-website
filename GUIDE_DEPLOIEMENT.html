@@ -203,8 +203,8 @@
     </tr>
     <tr>
       <td><strong>Sauvegardes</strong></td>
-      <td>Copie de sécurité quotidienne et automatique du contenu Sanity (documents + images), avant que plusieurs personnes n'y touchent.</td>
-      <td>Script local sur le PC de Sandrine, dossier <code>C:\Dev\AMSP\sauvegardes-sanity\</code>. Détails en section 8.</td>
+      <td>Copie de sécurité quotidienne et automatique du contenu Sanity (documents + images) et de la base Supabase (membres, inscriptions…).</td>
+      <td>Scripts lancés depuis le PC de Sandrine, fichiers stockés dans <code>G:\Mon Drive\amsp\</code> (Google Drive, synchronisé dans le cloud). Détails en section 8.</td>
     </tr>
     <tr>
       <td><strong>Identifiants</strong></td>
@@ -582,20 +582,24 @@ npm run dev</div>
     <tr><td>Déclenchement</td><td>Lanceur silencieux dans le dossier Démarrage de Windows du PC de Sandrine (<code>...\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\backup-sanity-launcher.vbs</code>) — s'exécute à chaque ouverture de session</td></tr>
     <tr><td>Fréquence réelle</td><td>Une fois par jour maximum : le script vérifie si une sauvegarde du jour existe déjà avant d'en refaire une, même si la session est ouverte plusieurs fois</td></tr>
     <tr><td>Contenu</td><td>Export complet du dataset (documents + images), via <code>sanity dataset export</code></td></tr>
-    <tr><td>Emplacement</td><td><code>C:\Dev\AMSP\sauvegardes-sanity\production-AAAA-MM-JJ[_HH-mm].tar.gz</code></td></tr>
+    <tr><td>Emplacement</td><td><code>G:\Mon Drive\amsp\sauvegardes-sanity\production-AAAA-MM-JJ[_HH-mm].tar.gz</code> — dans Google Drive, donc synchronisé automatiquement dans le cloud, pas seulement sur ce PC</td></tr>
     <tr><td>Rétention</td><td>30 jours — les fichiers plus anciens sont supprimés automatiquement</td></tr>
-    <tr><td>Journal</td><td><code>C:\Dev\AMSP\sauvegardes-sanity\backup-log.txt</code></td></tr>
+    <tr><td>Journal</td><td><code>...\sauvegardes-sanity\backup-log.txt</code>, dans le même dossier Google Drive</td></tr>
   </table>
 
+  <div class="conseil">
+    💡 Depuis le 15 septembre 2026, le dossier de sauvegarde est dans Google Drive (au lieu de <code>C:\Dev\AMSP\</code>) : les fichiers sont donc automatiquement dupliqués dans le cloud, pas seulement sur le disque de ce PC.
+  </div>
+
   <div class="attention">
-    ⚠️ Ce mécanisme ne tourne que sur le PC où il a été installé, et seulement si ce PC est allumé et la session ouverte (pas besoin que VSCode ou <code>npm run dev</code> soit lancé). Ce n'est qu'une copie <strong>locale</strong> — pensez à dupliquer le dossier <code>sauvegardes-sanity</code> de temps en temps ailleurs (cloud, disque externe) pour une vraie résilience en cas de panne disque.
+    ⚠️ Le script lui-même ne tourne que sur le PC où il a été installé, et seulement si ce PC est allumé et la session ouverte (pas besoin que VSCode ou <code>npm run dev</code> soit lancé). Si ce PC est définitivement hors service, plus personne ne relance la sauvegarde — mais les fichiers déjà synchronisés restent accessibles depuis Google Drive.
   </div>
 
   <h3>Forcer une sauvegarde immédiate</h3>
 
   <p>Pour une sauvegarde ponctuelle (ex. juste avant une manipulation risquée), depuis le dossier <code>amsp-admin</code> :</p>
   <div class="commande">cd C:\Dev\AMSP\amsp-project\amsp-admin
-npx sanity dataset export production "C:\Dev\AMSP\sauvegardes-sanity\backup-manuel.tar.gz"</div>
+npx sanity dataset export production "G:\Mon Drive\amsp\sauvegardes-sanity\backup-manuel.tar.gz"</div>
   <div class="conseil">
     💡 Le <code>projectId</code> et le <code>dataset</code> sont déjà configurés dans <code>sanity.cli.js</code> du dépôt <code>amsp-admin</code> — pas besoin de les repréciser en argument.
   </div>
@@ -603,10 +607,28 @@ npx sanity dataset export production "C:\Dev\AMSP\sauvegardes-sanity\backup-manu
   <h3>Restaurer un backup Sanity</h3>
 
   <p>En cas de problème, restaurer le contenu depuis un fichier de sauvegarde (depuis le dossier <code>amsp-admin</code>) :</p>
-  <div class="commande">npx sanity dataset import "C:\Dev\AMSP\sauvegardes-sanity\production-AAAA-MM-JJ.tar.gz" production --replace</div>
+  <div class="commande">npx sanity dataset import "G:\Mon Drive\amsp\sauvegardes-sanity\production-AAAA-MM-JJ.tar.gz" production --replace</div>
 
   <div class="attention">
     ⚠️ <code>--replace</code> écrase entièrement le contenu actuel du dataset. À n'utiliser qu'en dernier recours, après avoir vérifié qu'aucune modification récente ne serait perdue.
+  </div>
+
+  <h3>Sauvegardes automatiques de la base Supabase</h3>
+
+  <p>Depuis le 15 septembre 2026, les tables de la base Supabase (membres, inscriptions, règlements…) sont sauvegardées automatiquement, sur le même principe que Sanity.</p>
+
+  <table>
+    <tr><th>Élément</th><th>Détail</th></tr>
+    <tr><td>Script</td><td><code>C:\Dev\AMSP\sauvegardes-supabase\backup-supabase.ps1</code></td></tr>
+    <tr><td>Déclenchement</td><td>Même lanceur Démarrage Windows que Sanity, une fois par jour maximum</td></tr>
+    <tr><td>Contenu</td><td>Schéma + données des schémas <code>public</code>, <code>auth</code> et <code>storage</code> (tout ce qui n'est pas géré en interne par l'infrastructure Supabase), via <code>pg_dump</code></td></tr>
+    <tr><td>Connexion</td><td>Mot de passe lu depuis <code>%APPDATA%\postgresql\pgpass.conf</code> sur le PC de Sandrine — jamais stocké dans le dépôt</td></tr>
+    <tr><td>Emplacement</td><td><code>G:\Mon Drive\amsp\sauvegardes-supabase\AAAA-MM-JJ\schema.sql</code> et <code>data.sql</code></td></tr>
+    <tr><td>Rétention</td><td>30 jours</td></tr>
+  </table>
+
+  <div class="attention">
+    ⚠️ Contient des données personnelles des adhérents, y compris des informations de santé de mineurs (table <code>enfants</code>). Le dossier Google Drive où atterrissent ces sauvegardes ne doit jamais être partagé publiquement.
   </div>
 
   <h3>Changer de saison</h3>
