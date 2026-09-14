@@ -22,6 +22,9 @@ dist-ssr
 # Sanity backups
 *.tar.gz
 
+# Identifiants et acces (contient des mots de passe) - ne jamais commiter
+public/IDENTIFIANTS_ACCES.html
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
