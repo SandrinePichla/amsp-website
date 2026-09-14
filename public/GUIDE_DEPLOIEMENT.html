@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Guide de déploiement — Site AMSP</title>
+  <title>Guide développeur — Site AMSP</title>
   <style>
     body {
       font-family: Calibri, Arial, sans-serif;
@@ -150,12 +150,13 @@
 </head>
 <body>
 
-  <h1>Guide de déploiement — Site AMSP</h1>
-  <p class="subtitle">À destination du développeur — procédure complète du développement à la mise en ligne</p>
+  <h1>Guide développeur — Site AMSP</h1>
+  <p class="subtitle">À destination du développeur — tous les outils du projet, comment ils s'imbriquent, et la procédure complète du développement à la mise en ligne</p>
 
   <div class="sommaire">
     <p>Sommaire</p>
     <ol>
+      <li value="0">Vue d'ensemble — comment tout s'imbrique</li>
       <li>Prérequis (à installer une seule fois)</li>
       <li>Ouvrir le projet dans VSCode</li>
       <li>Lancer le serveur de développement</li>
@@ -167,6 +168,53 @@
       <li>Résumé rapide — Workflow type</li>
       <li>En cas de problème</li>
     </ol>
+  </div>
+
+  <!-- SECTION 0 -->
+  <h2>0. Vue d'ensemble — comment tout s'imbrique</h2>
+
+  <p>Le site AMSP repose sur plusieurs services séparés, chacun avec un rôle précis :</p>
+
+  <table>
+    <tr>
+      <th>Service</th>
+      <th>Rôle</th>
+      <th>Où c'est géré</th>
+    </tr>
+    <tr>
+      <td><strong>Site (React/Vite/TS)</strong></td>
+      <td>Le site public — vitrine, inscription, espace membre, gestion des membres. Code source dans ce dépôt (<code>amsp-website</code>).</td>
+      <td>Hébergé sur <strong>GitHub Pages</strong> — <span class="url">https://clubamsp.fr</span>. Déployé avec <code>npm run deploy</code> (section 5).</td>
+    </tr>
+    <tr>
+      <td><strong>Sanity</strong></td>
+      <td>Contenu éditorial : disciplines, actualités, galerie, textes du formulaire, tarifs, planning des cours. Le site les lit en lecture seule via <code>sanityClient.ts</code> (<code>projectId t7u49x1d</code>, dataset <code>production</code>).</td>
+      <td>Studio (interface d'édition) dans un dépôt séparé (<code>amsp-admin</code>), déployé sur Netlify — <span class="url">https://amsp-admin.netlify.app</span>. Les données elles-mêmes vivent sur l'infrastructure Sanity, indépendamment du studio.</td>
+    </tr>
+    <tr>
+      <td><strong>Supabase</strong></td>
+      <td>Comptes membres, authentification, inscriptions, règlements, accès galeries privées (tables <code>profils</code>, <code>inscriptions</code>, <code>cheques</code>, <code>enfants</code>, <code>liens_compte_enfant</code>, <code>acces_galerie</code>…).</td>
+      <td><span class="url">https://supabase.com</span> → projet AMSP. Détails en section 6.</td>
+    </tr>
+    <tr>
+      <td><strong>Brevo</strong></td>
+      <td>Envoi des emails automatiques (confirmations, validations, notifications admin) et relais SMTP pour les emails d'authentification Supabase (mot de passe oublié, invitations).</td>
+      <td><span class="url">https://www.brevo.com</span>. Détails en section 7.</td>
+    </tr>
+    <tr>
+      <td><strong>Sauvegardes</strong></td>
+      <td>Copie de sécurité quotidienne et automatique du contenu Sanity (documents + images), avant que plusieurs personnes n'y touchent.</td>
+      <td>Script local sur le PC de Sandrine, dossier <code>C:\Dev\AMSP\sauvegardes-sanity\</code>. Détails en section 8.</td>
+    </tr>
+    <tr>
+      <td><strong>Identifiants</strong></td>
+      <td>Comptes et mots de passe des différents services ci-dessus.</td>
+      <td>Fichier séparé <code>IDENTIFIANTS_ACCES.html</code> — ne jamais y accéder ou le modifier via Sanity/Supabase/Brevo, c'est un document à part.</td>
+    </tr>
+  </table>
+
+  <div class="conseil">
+    💡 En résumé : on modifie le <strong>code</strong> dans VSCode (ce dépôt) et on déploie sur GitHub Pages ; on modifie le <strong>contenu</strong> (textes, photos) dans Sanity, publié instantanément sans déploiement ; les <strong>comptes et inscriptions</strong> vivent dans Supabase ; les <strong>emails</strong> partent via Brevo.
   </div>
 
   <!-- SECTION 1 -->
@@ -524,35 +572,41 @@ npm run dev</div>
     💡 Les modifications Sanity sont publiées immédiatement sur le site — pas besoin de redéployer.
   </div>
 
-  <h3>Sauvegarder le contenu Sanity avant toute modification importante</h3>
+  <h3>Sauvegardes automatiques du contenu Sanity</h3>
 
-  <p>Avant de modifier la saison ou tout autre paramètre critique, exporter l'intégralité du contenu Sanity :</p>
+  <p>Depuis le 14 septembre 2026, le dataset <code>production</code> est sauvegardé <strong>automatiquement chaque jour</strong> — plus besoin d'y penser avant une modification importante.</p>
 
-  <div class="etapes">
-    <ol>
-      <li>Créer un dossier de sauvegarde si besoin : <code>C:\Dev\AMSP\sauvegarde\</code></li>
-      <li>Ouvrir un terminal dans ce dossier et exécuter :</li>
-    </ol>
-    <div class="commande">npx sanity@latest dataset export production backup-sanity.tar.gz --project-id t7u49x1d</div>
-    <ol start="3">
-      <li>Se connecter avec le compte Sanity si demandé</li>
-      <li>Le fichier <code>backup-sanity.tar.gz</code> est créé — le conserver précieusement</li>
-    </ol>
-  </div>
+  <table>
+    <tr><th>Élément</th><th>Détail</th></tr>
+    <tr><td>Script</td><td><code>C:\Dev\AMSP\sauvegardes-sanity\backup-sanity.ps1</code></td></tr>
+    <tr><td>Déclenchement</td><td>Lanceur silencieux dans le dossier Démarrage de Windows du PC de Sandrine (<code>...\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\backup-sanity-launcher.vbs</code>) — s'exécute à chaque ouverture de session</td></tr>
+    <tr><td>Fréquence réelle</td><td>Une fois par jour maximum : le script vérifie si une sauvegarde du jour existe déjà avant d'en refaire une, même si la session est ouverte plusieurs fois</td></tr>
+    <tr><td>Contenu</td><td>Export complet du dataset (documents + images), via <code>sanity dataset export</code></td></tr>
+    <tr><td>Emplacement</td><td><code>C:\Dev\AMSP\sauvegardes-sanity\production-AAAA-MM-JJ[_HH-mm].tar.gz</code></td></tr>
+    <tr><td>Rétention</td><td>30 jours — les fichiers plus anciens sont supprimés automatiquement</td></tr>
+    <tr><td>Journal</td><td><code>C:\Dev\AMSP\sauvegardes-sanity\backup-log.txt</code></td></tr>
+  </table>
 
   <div class="attention">
-    ⚠️ La CLI Sanity nécessite Node.js 22 ou supérieur pour la version 6. Si votre version est plus ancienne, utilisez à la place l'URL d'export directe dans votre navigateur (connecté à sanity.io) :<br><br>
-    <code>https://t7u49x1d.api.sanity.io/v2021-06-07/data/export/production</code><br><br>
-    Puis <strong>Ctrl+S</strong> pour sauvegarder le fichier téléchargé.
+    ⚠️ Ce mécanisme ne tourne que sur le PC où il a été installé, et seulement si ce PC est allumé et la session ouverte (pas besoin que VSCode ou <code>npm run dev</code> soit lancé). Ce n'est qu'une copie <strong>locale</strong> — pensez à dupliquer le dossier <code>sauvegardes-sanity</code> de temps en temps ailleurs (cloud, disque externe) pour une vraie résilience en cas de panne disque.
+  </div>
+
+  <h3>Forcer une sauvegarde immédiate</h3>
+
+  <p>Pour une sauvegarde ponctuelle (ex. juste avant une manipulation risquée), depuis le dossier <code>amsp-admin</code> :</p>
+  <div class="commande">cd C:\Dev\AMSP\amsp-project\amsp-admin
+npx sanity dataset export production "C:\Dev\AMSP\sauvegardes-sanity\backup-manuel.tar.gz"</div>
+  <div class="conseil">
+    💡 Le <code>projectId</code> et le <code>dataset</code> sont déjà configurés dans <code>sanity.cli.js</code> du dépôt <code>amsp-admin</code> — pas besoin de les repréciser en argument.
   </div>
 
   <h3>Restaurer un backup Sanity</h3>
 
-  <p>En cas de problème, restaurer le contenu depuis le fichier de sauvegarde :</p>
-  <div class="commande">npx sanity@latest dataset import backup-sanity.tar.gz --dataset production --project-id t7u49x1d</div>
+  <p>En cas de problème, restaurer le contenu depuis un fichier de sauvegarde (depuis le dossier <code>amsp-admin</code>) :</p>
+  <div class="commande">npx sanity dataset import "C:\Dev\AMSP\sauvegardes-sanity\production-AAAA-MM-JJ.tar.gz" production --replace</div>
 
   <div class="attention">
-    ⚠️ La restauration écrase le contenu actuel du dataset. À n'utiliser qu'en dernier recours.
+    ⚠️ <code>--replace</code> écrase entièrement le contenu actuel du dataset. À n'utiliser qu'en dernier recours, après avoir vérifié qu'aucune modification récente ne serait perdue.
   </div>
 
   <h3>Changer de saison</h3>
@@ -629,7 +683,7 @@ npm run dev</div>
   </table>
 
   <div class="footer">
-    Guide de déploiement — Site AMSP &nbsp;|&nbsp; Document confidentiel &nbsp;|&nbsp; À conserver précieusement
+    Guide développeur — Site AMSP &nbsp;|&nbsp; Document confidentiel &nbsp;|&nbsp; À conserver précieusement
   </div>
 
 </body>
