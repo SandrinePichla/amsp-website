@@ -10,9 +10,10 @@
 3. [Promouvoir un membre (admin ou admin de discipline)](#3-promouvoir-un-membre-admin-ou-admin-de-discipline)
 4. [Lire le tableau des inscrits](#4-lire-le-tableau-des-inscrits)
 5. [Saisir une inscription papier et créer un espace membre](#5-saisir-une-inscription-papier-et-créer-un-espace-membre)
-6. [Modifier le contenu du site avec Sanity](#6-modifier-le-contenu-du-site-avec-sanity)
-7. [Vérifier que les modifications sont bien en ligne](#7-vérifier-que-les-modifications-sont-bien-en-ligne)
-8. [Modifier les emails automatiques avec EmailJS](#8-modifier-les-emails-automatiques-avec-emailjs)
+6. [Modifier une inscription (papier ou en ligne)](#6-modifier-une-inscription-papier-ou-en-ligne)
+7. [Modifier le contenu du site avec Sanity](#7-modifier-le-contenu-du-site-avec-sanity)
+8. [Vérifier que les modifications sont bien en ligne](#8-vérifier-que-les-modifications-sont-bien-en-ligne)
+9. [Modifier les emails automatiques avec EmailJS](#9-modifier-les-emails-automatiques-avec-emailjs)
 
 ---
 
