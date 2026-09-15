@@ -678,6 +678,13 @@ const AdminMembres = () => {
   // règlent leurs 3 adhésions avec un seul chèque par trimestre).
   // ------------------------------------------------------------------
 
+  // Une inscription déjà validée a déclenché la création d'un compte, d'accès galerie et
+  // d'un barème de règlement — modifier l'identité, les disciplines, la saison, le type
+  // ou le mode de paiement désynchroniserait ces éléments. Seuls les champs sans effet de
+  // bord restent modifiables une fois validée.
+  const editingInsc = editingInscId ? inscriptions.find(i => i.id === editingInscId) ?? null : null;
+  const isLockedPapierEdit = editingInsc?.statut === "validee";
+
   const chequeById = new Map(cheques.map((c) => [c.id, c]));
   const chequeLinkByInscEch = new Map(chequeEcheances.map((l) => [`${l.inscription_id}:${l.echeance}`, l]));
   const chequeLinksByChequeId = new Map<string, ChequeEcheance[]>();
@@ -2990,7 +2997,7 @@ const AdminMembres = () => {
                                                 )}
                                                 <Button size="sm" variant="outline" onClick={() => setAdminRecapInsc(insc)} className="h-7 px-2 text-xs gap-1 text-muted-foreground"><Download size={11} /></Button>
                                                 {insc.source === "papier" ? (
-                                                  <Button size="sm" variant="outline" onClick={() => openPapierEdit(insc)} className="h-7 px-2 text-xs gap-1 text-muted-foreground"><Pencil size={11} /></Button>
+                                                  <Button size="sm" variant="outline" onClick={() => openPapierEdit(insc)} className="h-7 px-2 text-xs gap-1 text-muted-foreground"><Pencil size={11} /> Modifier</Button>
                                                 ) : (
                                                   <Button size="sm" variant="outline" onClick={() => setViewInscReadOnly(insc)} className="h-7 px-2 text-xs gap-1 text-muted-foreground"><ClipboardList size={11} /></Button>
                                                 )}
@@ -3312,7 +3319,7 @@ const AdminMembres = () => {
                                         )}
                                         <Button size="sm" variant="outline" onClick={() => setAdminRecapInsc(insc)} className="h-7 px-2 text-xs gap-1 text-muted-foreground"><Download size={11} /></Button>
                                         {insc.source === "papier" ? (
-                                          <Button size="sm" variant="outline" onClick={() => openPapierEdit(insc)} className="h-7 px-2 text-xs gap-1 text-muted-foreground"><Pencil size={11} /></Button>
+                                          <Button size="sm" variant="outline" onClick={() => openPapierEdit(insc)} className="h-7 px-2 text-xs gap-1 text-muted-foreground"><Pencil size={11} /> Modifier</Button>
                                         ) : (
                                           <Button size="sm" variant="outline" onClick={() => setViewInscReadOnly(insc)} className="h-7 px-2 text-xs gap-1 text-muted-foreground"><ClipboardList size={11} /></Button>
                                         )}
@@ -3798,6 +3805,11 @@ const AdminMembres = () => {
           <DialogHeader>
             <DialogTitle className="font-serif">{editingInscId ? "Modifier l'inscription papier" : "Saisir une inscription papier"}</DialogTitle>
           </DialogHeader>
+          {isLockedPapierEdit && (
+            <p className="rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-200/60 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+              Inscription déjà validée : l'identité, les disciplines, la saison, le type et le mode de règlement ne sont plus modifiables ici (un compte et des accès en dépendent déjà). Seuls les champs sans impact restent éditables.
+            </p>
+          )}
           <div className="space-y-6 pt-2">
 
             <div>
@@ -3805,17 +3817,19 @@ const AdminMembres = () => {
               <div className="grid grid-cols-2 gap-3">
                 {(["adulte", "mineur"] as const).map((type) => (
                   <button key={type} type="button"
+                    disabled={isLockedPapierEdit}
                     onClick={() => {
                       if (type !== papierForm.typeInscription) {
                         papierDirRef.current = type === "mineur" ? 1 : -1;
                         setPapierForm(f => ({ ...f, typeInscription: type }));
                       }
                     }}
-                    className={`rounded-md border-2 py-3 text-sm font-semibold capitalize transition-colors ${papierForm.typeInscription === type ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:border-primary/40"}`}>
+                    className={`rounded-md border-2 py-3 text-sm font-semibold capitalize transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${papierForm.typeInscription === type ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:border-primary/40"}`}>
                     {type === "adulte" ? "Adulte" : "Mineur"}
                   </button>
                 ))}
               </div>
+              {isLockedPapierEdit && <p className="mt-1.5 text-xs text-muted-foreground">Non modifiable après validation.</p>}
             </div>
 
             <AnimatePresence mode="wait" custom={papierDirRef.current}>
@@ -3834,11 +3848,11 @@ const AdminMembres = () => {
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1.5">
                         <Label htmlFor="p-nom">Nom *</Label>
-                        <Input id="p-nom" placeholder="Nom" value={papierForm.nom} onChange={e => setPapierForm(f => ({ ...f, nom: e.target.value }))} />
+                        <Input id="p-nom" placeholder="Nom" value={papierForm.nom} onChange={e => setPapierForm(f => ({ ...f, nom: e.target.value }))} disabled={isLockedPapierEdit} />
                       </div>
                       <div className="space-y-1.5">
                         <Label htmlFor="p-prenom">Prénom *</Label>
-                        <Input id="p-prenom" placeholder="Prénom" value={papierForm.prenom} onChange={e => setPapierForm(f => ({ ...f, prenom: e.target.value }))} />
+                        <Input id="p-prenom" placeholder="Prénom" value={papierForm.prenom} onChange={e => setPapierForm(f => ({ ...f, prenom: e.target.value }))} disabled={isLockedPapierEdit} />
                       </div>
                     </div>
                     <div className="space-y-1.5">
@@ -3848,7 +3862,7 @@ const AdminMembres = () => {
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1.5">
                         <Label htmlFor="p-ddn">Date de naissance *</Label>
-                        <Input id="p-ddn" type="date" value={papierForm.dateNaissance} onChange={e => {
+                        <Input id="p-ddn" type="date" disabled={isLockedPapierEdit} value={papierForm.dateNaissance} onChange={e => {
                           const ddn = e.target.value;
                           const year = Number(ddn.slice(0, 4));
                           const isPlausible = year >= 1900 && year <= new Date().getFullYear();
@@ -3882,12 +3896,12 @@ const AdminMembres = () => {
                     <div className="space-y-3">
                       <div className="space-y-1.5">
                         <Label htmlFor="p-mobile">Tél. mobile</Label>
-                        <Input id="p-mobile" type="tel" maxLength={14} placeholder="06 00 00 00 00" value={papierForm.telMobile} onChange={e => { setPapierForm(f => ({ ...f, telMobile: formatTelephone(e.target.value) })); clearPapierFieldError('telMobile'); }} onBlur={() => validatePapierTel('telMobile', papierForm.telMobile)} className={papierErrors.telMobile ? 'border-destructive' : ''} />
+                        <Input id="p-mobile" type="tel" maxLength={14} placeholder="06 00 00 00 00" disabled={isLockedPapierEdit} value={papierForm.telMobile} onChange={e => { setPapierForm(f => ({ ...f, telMobile: formatTelephone(e.target.value) })); clearPapierFieldError('telMobile'); }} onBlur={() => validatePapierTel('telMobile', papierForm.telMobile)} className={papierErrors.telMobile ? 'border-destructive' : ''} />
                         {papierErrors.telMobile && <p className="text-xs text-destructive">{papierErrors.telMobile}</p>}
                       </div>
                       <div className="space-y-1.5">
                         <Label htmlFor="p-email">Email</Label>
-                        <Input id="p-email" type="email" placeholder="email@exemple.com" value={papierForm.email} onChange={e => { setPapierForm(f => ({ ...f, email: e.target.value })); clearPapierFieldError('email'); }} onBlur={() => validatePapierEmail('email', papierForm.email)} className={papierErrors.email ? 'border-destructive' : ''} />
+                        <Input id="p-email" type="email" placeholder="email@exemple.com" disabled={isLockedPapierEdit} value={papierForm.email} onChange={e => { setPapierForm(f => ({ ...f, email: e.target.value })); clearPapierFieldError('email'); }} onBlur={() => validatePapierEmail('email', papierForm.email)} className={papierErrors.email ? 'border-destructive' : ''} />
                         {papierErrors.email && <p className="text-xs text-destructive">{papierErrors.email}</p>}
                       </div>
                     </div>
@@ -3902,12 +3916,12 @@ const AdminMembres = () => {
                         <div className="rounded-md border border-border/50 p-3 space-y-3">
                           <p className="text-xs font-semibold">Parent 1 <span className="font-normal text-muted-foreground">(contact principal)</span> *</p>
                           <div className="grid gap-3 sm:grid-cols-2">
-                            <div className="space-y-1.5"><Label>Nom *</Label><Input placeholder="Nom" value={papierForm.parent1Nom} onChange={e => setPapierForm(f => ({ ...f, parent1Nom: e.target.value }))} /></div>
-                            <div className="space-y-1.5"><Label>Prénom *</Label><Input placeholder="Prénom" value={papierForm.parent1Prenom} onChange={e => setPapierForm(f => ({ ...f, parent1Prenom: e.target.value }))} /></div>
+                            <div className="space-y-1.5"><Label>Nom *</Label><Input placeholder="Nom" disabled={isLockedPapierEdit} value={papierForm.parent1Nom} onChange={e => setPapierForm(f => ({ ...f, parent1Nom: e.target.value }))} /></div>
+                            <div className="space-y-1.5"><Label>Prénom *</Label><Input placeholder="Prénom" disabled={isLockedPapierEdit} value={papierForm.parent1Prenom} onChange={e => setPapierForm(f => ({ ...f, parent1Prenom: e.target.value }))} /></div>
                           </div>
                           <div className="grid gap-3 sm:grid-cols-2">
-                            <div className="space-y-1.5"><Label>Email</Label><Input type="email" placeholder="email@exemple.com" value={papierForm.parent1Email} onChange={e => { setPapierForm(f => ({ ...f, parent1Email: e.target.value })); clearPapierFieldError('parent1Email'); }} onBlur={() => validatePapierEmail('parent1Email', papierForm.parent1Email)} className={papierErrors.parent1Email ? 'border-destructive' : ''} />{papierErrors.parent1Email && <p className="text-xs text-destructive">{papierErrors.parent1Email}</p>}</div>
-                            <div className="space-y-1.5"><Label>Téléphone</Label><Input type="tel" maxLength={14} placeholder="06 00 00 00 00" value={papierForm.parent1Tel} onChange={e => { setPapierForm(f => ({ ...f, parent1Tel: formatTelephone(e.target.value) })); clearPapierFieldError('parent1Tel'); }} onBlur={() => validatePapierTel('parent1Tel', papierForm.parent1Tel)} className={papierErrors.parent1Tel ? 'border-destructive' : ''} />{papierErrors.parent1Tel && <p className="text-xs text-destructive">{papierErrors.parent1Tel}</p>}</div>
+                            <div className="space-y-1.5"><Label>Email</Label><Input type="email" placeholder="email@exemple.com" disabled={isLockedPapierEdit} value={papierForm.parent1Email} onChange={e => { setPapierForm(f => ({ ...f, parent1Email: e.target.value })); clearPapierFieldError('parent1Email'); }} onBlur={() => validatePapierEmail('parent1Email', papierForm.parent1Email)} className={papierErrors.parent1Email ? 'border-destructive' : ''} />{papierErrors.parent1Email && <p className="text-xs text-destructive">{papierErrors.parent1Email}</p>}</div>
+                            <div className="space-y-1.5"><Label>Téléphone</Label><Input type="tel" maxLength={14} placeholder="06 00 00 00 00" disabled={isLockedPapierEdit} value={papierForm.parent1Tel} onChange={e => { setPapierForm(f => ({ ...f, parent1Tel: formatTelephone(e.target.value) })); clearPapierFieldError('parent1Tel'); }} onBlur={() => validatePapierTel('parent1Tel', papierForm.parent1Tel)} className={papierErrors.parent1Tel ? 'border-destructive' : ''} />{papierErrors.parent1Tel && <p className="text-xs text-destructive">{papierErrors.parent1Tel}</p>}</div>
                           </div>
                         </div>
                         <div className="rounded-md border border-border/50 p-3 space-y-3">
@@ -3960,9 +3974,10 @@ const AdminMembres = () => {
                         ).map(disc => {
                           const checked = papierForm.disciplines.split(",").map(s => s.trim()).filter(Boolean).includes(disc._id);
                           return (
-                            <label key={disc._id} className="flex cursor-pointer items-center gap-2">
+                            <label key={disc._id} className={`flex items-center gap-2 ${isLockedPapierEdit ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}>
                               <Checkbox
                                 checked={checked}
+                                disabled={isLockedPapierEdit}
                                 onCheckedChange={(v) => {
                                   setPapierForm(f => {
                                     const current = f.disciplines.split(",").map(s => s.trim()).filter(Boolean);
@@ -3976,6 +3991,7 @@ const AdminMembres = () => {
                           );
                         })}
                       </div>
+                      {isLockedPapierEdit && <p className="text-xs text-muted-foreground">Non modifiable après validation.</p>}
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1.5">
@@ -3983,8 +3999,9 @@ const AdminMembres = () => {
                         <select
                           id="p-saison"
                           value={papierForm.saison}
+                          disabled={isLockedPapierEdit}
                           onChange={e => setPapierForm(f => ({ ...f, saison: e.target.value }))}
-                          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {saisonsDisponibles.map(s => (
                             <option key={s} value={s}>{s}{s === saisonCourante ? " (en cours)" : ""}</option>
@@ -4009,12 +4026,13 @@ const AdminMembres = () => {
                       { value: "especes", label: "Espèces" },
                       { value: "virement", label: "Virement bancaire (en une seule fois)" },
                     ].map(option => (
-                      <label key={option.value} className="flex cursor-pointer items-start gap-3">
+                      <label key={option.value} className={`flex items-start gap-3 ${isLockedPapierEdit ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}>
                         <input
                           type="radio"
                           name="papierMoyenPaiement"
                           value={option.value}
                           checked={papierForm.moyenPaiement === option.value}
+                          disabled={isLockedPapierEdit}
                           onChange={() => setPapierForm(f => ({ ...f, moyenPaiement: option.value }))}
                           className="mt-0.5 accent-primary shrink-0"
                         />
@@ -4024,6 +4042,7 @@ const AdminMembres = () => {
                         </div>
                       </label>
                     ))}
+                    {isLockedPapierEdit && <p className="text-xs text-muted-foreground">Non modifiable après validation — utilisez la fiche règlement pour ajuster les paiements déjà enregistrés.</p>}
                   </div>
                 </div>
 
