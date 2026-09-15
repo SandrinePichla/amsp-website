@@ -157,6 +157,11 @@ const inscriptionToRecapData = (insc: {
 const REGEX_TEL_FR = /^(?:(?:\+|00)33[\s.-]?|0)[1-9](?:[\s.-]?\d{2}){4}$/;
 const REGEX_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
+const formatTelephone = (value: string) => {
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+  return digits.replace(/(\d{2})(?=\d)/g, "$1 ");
+};
+
 const papierFormVariants = {
   enter: (dir: number) => ({ x: dir * 80, opacity: 0 }),
   center: { x: 0, opacity: 1, transition: { duration: 0.32, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] } },
@@ -3845,7 +3850,9 @@ const AdminMembres = () => {
                         <Label htmlFor="p-ddn">Date de naissance *</Label>
                         <Input id="p-ddn" type="date" value={papierForm.dateNaissance} onChange={e => {
                           const ddn = e.target.value;
-                          const age = calcAge(ddn);
+                          const year = Number(ddn.slice(0, 4));
+                          const isPlausible = year >= 1900 && year <= new Date().getFullYear();
+                          const age = isPlausible ? calcAge(ddn) : null;
                           if (age !== null) {
                             const newType = age < 18 ? "mineur" : "adulte";
                             if (newType !== papierForm.typeInscription) {
@@ -3875,7 +3882,7 @@ const AdminMembres = () => {
                     <div className="space-y-3">
                       <div className="space-y-1.5">
                         <Label htmlFor="p-mobile">Tél. mobile</Label>
-                        <Input id="p-mobile" type="tel" placeholder="06 00 00 00 00" value={papierForm.telMobile} onChange={e => { setPapierForm(f => ({ ...f, telMobile: e.target.value })); clearPapierFieldError('telMobile'); }} onBlur={() => validatePapierTel('telMobile', papierForm.telMobile)} className={papierErrors.telMobile ? 'border-destructive' : ''} />
+                        <Input id="p-mobile" type="tel" maxLength={14} placeholder="06 00 00 00 00" value={papierForm.telMobile} onChange={e => { setPapierForm(f => ({ ...f, telMobile: formatTelephone(e.target.value) })); clearPapierFieldError('telMobile'); }} onBlur={() => validatePapierTel('telMobile', papierForm.telMobile)} className={papierErrors.telMobile ? 'border-destructive' : ''} />
                         {papierErrors.telMobile && <p className="text-xs text-destructive">{papierErrors.telMobile}</p>}
                       </div>
                       <div className="space-y-1.5">
@@ -3900,7 +3907,7 @@ const AdminMembres = () => {
                           </div>
                           <div className="grid gap-3 sm:grid-cols-2">
                             <div className="space-y-1.5"><Label>Email</Label><Input type="email" placeholder="email@exemple.com" value={papierForm.parent1Email} onChange={e => { setPapierForm(f => ({ ...f, parent1Email: e.target.value })); clearPapierFieldError('parent1Email'); }} onBlur={() => validatePapierEmail('parent1Email', papierForm.parent1Email)} className={papierErrors.parent1Email ? 'border-destructive' : ''} />{papierErrors.parent1Email && <p className="text-xs text-destructive">{papierErrors.parent1Email}</p>}</div>
-                            <div className="space-y-1.5"><Label>Téléphone</Label><Input type="tel" placeholder="06 00 00 00 00" value={papierForm.parent1Tel} onChange={e => { setPapierForm(f => ({ ...f, parent1Tel: e.target.value })); clearPapierFieldError('parent1Tel'); }} onBlur={() => validatePapierTel('parent1Tel', papierForm.parent1Tel)} className={papierErrors.parent1Tel ? 'border-destructive' : ''} />{papierErrors.parent1Tel && <p className="text-xs text-destructive">{papierErrors.parent1Tel}</p>}</div>
+                            <div className="space-y-1.5"><Label>Téléphone</Label><Input type="tel" maxLength={14} placeholder="06 00 00 00 00" value={papierForm.parent1Tel} onChange={e => { setPapierForm(f => ({ ...f, parent1Tel: formatTelephone(e.target.value) })); clearPapierFieldError('parent1Tel'); }} onBlur={() => validatePapierTel('parent1Tel', papierForm.parent1Tel)} className={papierErrors.parent1Tel ? 'border-destructive' : ''} />{papierErrors.parent1Tel && <p className="text-xs text-destructive">{papierErrors.parent1Tel}</p>}</div>
                           </div>
                         </div>
                         <div className="rounded-md border border-border/50 p-3 space-y-3">
@@ -3911,7 +3918,7 @@ const AdminMembres = () => {
                           </div>
                           <div className="grid gap-3 sm:grid-cols-2">
                             <div className="space-y-1.5"><Label>Email</Label><Input type="email" placeholder="email@exemple.com" value={papierForm.parent2Email} onChange={e => { setPapierForm(f => ({ ...f, parent2Email: e.target.value })); clearPapierFieldError('parent2Email'); }} onBlur={() => validatePapierEmail('parent2Email', papierForm.parent2Email)} className={papierErrors.parent2Email ? 'border-destructive' : ''} />{papierErrors.parent2Email && <p className="text-xs text-destructive">{papierErrors.parent2Email}</p>}</div>
-                            <div className="space-y-1.5"><Label>Téléphone</Label><Input type="tel" placeholder="06 00 00 00 00" value={papierForm.parent2Tel} onChange={e => { setPapierForm(f => ({ ...f, parent2Tel: e.target.value })); clearPapierFieldError('parent2Tel'); }} onBlur={() => validatePapierTel('parent2Tel', papierForm.parent2Tel)} className={papierErrors.parent2Tel ? 'border-destructive' : ''} />{papierErrors.parent2Tel && <p className="text-xs text-destructive">{papierErrors.parent2Tel}</p>}</div>
+                            <div className="space-y-1.5"><Label>Téléphone</Label><Input type="tel" maxLength={14} placeholder="06 00 00 00 00" value={papierForm.parent2Tel} onChange={e => { setPapierForm(f => ({ ...f, parent2Tel: formatTelephone(e.target.value) })); clearPapierFieldError('parent2Tel'); }} onBlur={() => validatePapierTel('parent2Tel', papierForm.parent2Tel)} className={papierErrors.parent2Tel ? 'border-destructive' : ''} />{papierErrors.parent2Tel && <p className="text-xs text-destructive">{papierErrors.parent2Tel}</p>}</div>
                           </div>
                         </div>
                       </div>
@@ -3934,7 +3941,7 @@ const AdminMembres = () => {
                     </div>
                     <div className="space-y-1.5">
                       <Label htmlFor="p-urgtel">Téléphone</Label>
-                      <Input id="p-urgtel" type="tel" placeholder="06 00 00 00 00" value={papierForm.urgenceTel} onChange={e => { setPapierForm(f => ({ ...f, urgenceTel: e.target.value })); clearPapierFieldError('urgenceTel'); }} onBlur={() => validatePapierTel('urgenceTel', papierForm.urgenceTel)} className={papierErrors.urgenceTel ? 'border-destructive' : ''} />
+                      <Input id="p-urgtel" type="tel" maxLength={14} placeholder="06 00 00 00 00" value={papierForm.urgenceTel} onChange={e => { setPapierForm(f => ({ ...f, urgenceTel: formatTelephone(e.target.value) })); clearPapierFieldError('urgenceTel'); }} onBlur={() => validatePapierTel('urgenceTel', papierForm.urgenceTel)} className={papierErrors.urgenceTel ? 'border-destructive' : ''} />
                       {papierErrors.urgenceTel && <p className="text-xs text-destructive">{papierErrors.urgenceTel}</p>}
                     </div>
                   </div>
