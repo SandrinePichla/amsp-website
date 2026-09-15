@@ -161,7 +161,26 @@ Si un espace existe déjà, un bouton **"Renvoyer l'invitation / reset mot de pa
 
 ---
 
-## 6. Modifier le contenu du site avec Sanity
+## 6. Modifier une inscription (papier ou en ligne)
+
+Une erreur de saisie, une adresse qui change, un numéro de téléphone à jour... vous pouvez corriger une inscription à tout moment, qu'elle ait été saisie sur papier ou remplie en ligne par l'adhérent.
+
+**Étapes :**
+
+1. Trouver l'inscription :
+   - **Pas encore validée** (en attente d'examen ou en attente de paiement) → elle apparaît directement dans la liste
+   - **Déjà validée** → ouvrir la fiche du membre → onglet **"Adhésions"** → cliquer sur la ligne de l'inscription pour la déplier
+2. Cliquer sur le bouton **"Modifier"** (icône crayon)
+3. Une fenêtre de confirmation s'affiche → cliquer sur **"Modifier"** pour continuer (cela évite les modifications faites par erreur)
+4. Corriger les champs souhaités, puis cliquer sur **"Enregistrer les modifications"**
+
+> ⚠️ **Une fois l'inscription validée**, certains champs sont grisés (non modifiables) car un compte membre et des accès en dépendent déjà : **nom, prénom, date de naissance, type Adulte/Mineur, email, nom/prénom/email du parent 1, disciplines, saison, mode de règlement**. Pour changer l'un de ces champs sur une inscription déjà validée, contactez le développeur.
+>
+> Restent toujours modifiables, même après validation : **adresse, téléphone (mobile, contact d'urgence, et téléphone du parent 1), groupe sanguin, allergies, niveau, informations du parent 2, droit à l'image, autorisation parentale, Pass Sport, document scanné**.
+
+---
+
+## 7. Modifier le contenu du site avec Sanity
 
 Sanity est l'outil qui permet de modifier le contenu du site (textes, photos, actualités, disciplines, etc.) **sans toucher au code**.
 
@@ -209,7 +228,7 @@ Sanity est l'outil qui permet de modifier le contenu du site (textes, photos, ac
 
 ---
 
-## 7. Vérifier que les modifications sont bien en ligne
+## 8. Vérifier que les modifications sont bien en ligne
 
 ### Pour les modifications de contenu Sanity
 
@@ -241,7 +260,7 @@ Sur **https://github.com/SandrinePichla/amsp-website** :
 
 ---
 
-## 8. Modifier les emails automatiques avec EmailJS
+## 9. Modifier les emails automatiques avec EmailJS
 
 EmailJS gère les emails envoyés automatiquement par le site :
 - Email reçu quand quelqu'un remplit le formulaire d'**inscription**
@@ -290,6 +309,7 @@ Si vous dépassez 200 emails/mois, il faudra passer à un abonnement payant sur 
 |-------|-------|----------------------|
 | Valider/refuser des inscriptions | Site AMSP | Aucune |
 | Saisir une inscription papier | Site AMSP | Aucune |
+| Modifier une inscription (papier ou en ligne) | Site AMSP | Aucune |
 | Créer un espace membre (adulte ou parent) | Site AMSP | Aucune |
 | Promouvoir un admin ou admin de discipline | Site AMSP | Aucune |
 | Exporter les inscriptions en Excel | Site AMSP | Aucune |
