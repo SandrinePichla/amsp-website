@@ -312,11 +312,7 @@ export const ReglementsPanel = ({
             )}
             {insc.montant_attendu == null && tranchesKarate[insc.id] && suggestionAuto?.calculable && !editingMontant && (
               <button
-                onClick={() => {
-                  const suggestion = calculs.find((c) => c.inscriptionId === insc.id)?.montant;
-                  setMontantInput(suggestion != null ? String(suggestion) : "");
-                  setEditingMontant(true);
-                }}
+                onClick={() => saveMontantAttendu(calculs.find((c) => c.inscriptionId === insc.id)?.montant ?? null)}
                 className="mt-1 text-[10px] text-primary underline"
               >
                 Enregistrer le montant suggéré pour ce foyer ({formatMontant(calculs.find((c) => c.inscriptionId === insc.id)?.montant)})
