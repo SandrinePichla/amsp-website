@@ -262,6 +262,11 @@ const AdminMembres = () => {
   const [confirmValider, setConfirmValider] = useState<Inscription | null>(null);
   const [confirmModifierInsc, setConfirmModifierInsc] = useState<Inscription | null>(null);
   const [reglementsPanelInscId, setReglementsPanelInscId] = useState<string | null>(null);
+  const [reglementsPanelEcheance, setReglementsPanelEcheance] = useState<number | undefined>(undefined);
+  const openReglementsPanel = (inscId: string, echeance?: number) => {
+    setReglementsPanelEcheance(echeance);
+    setReglementsPanelInscId(inscId);
+  };
   const [grilleTarifs, setGrilleTarifs] = useState<GrilleTarifs | null>(null);
   useEffect(() => { fetchGrilleTarifs().then(setGrilleTarifs); }, []);
   const [disciplinesSanity, setDisciplinesSanity] = useState<{ _id: string; nom: string; nomCourt?: string }[]>([]);
@@ -2326,16 +2331,17 @@ const AdminMembres = () => {
                                     {isMontantReglementMode && (
                                       <td className="py-3 pr-4">
                                         {cheque ? (
-                                          <button onClick={() => openChequeModal(row.key, row.chequeId, evt)}
+                                          <button onClick={() => openReglementsPanel(evt.insc.id, evt.installment)}
                                             className="inline-flex flex-col items-start gap-0.5 rounded-md border border-border/50 bg-secondary/30 px-2 py-1 text-left hover:border-primary/40 hover:bg-secondary/50 transition-colors">
                                             <span className="text-xs font-semibold">{cheque.type === 'cheque' ? `N° ${cheque.numero}` : TYPE_REGLEMENT_LABELS[cheque.type]}</span>
                                             <span className="text-[10px] text-muted-foreground">
-                                              {cheque.montant != null ? `${cheque.montant.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} €` : "Montant non renseigné"}
+                                              {formatMontant(cheque.montant)}
                                               {row.events.length > 1 ? ` · ${row.events.length} pers.` : ""}
+                                              {(cheque.statut ?? "recu") === "attendu" ? " · en attente" : ""}
                                             </span>
                                           </button>
                                         ) : (
-                                          <Button size="sm" variant="outline" onClick={() => openChequeModal(row.key, null, evt)} className="h-7 px-2 text-xs gap-1 text-muted-foreground">
+                                          <Button size="sm" variant="outline" onClick={() => openReglementsPanel(evt.insc.id, evt.installment)} className="h-7 px-2 text-xs gap-1 text-muted-foreground">
                                             <Plus size={11} /> Renseigner
                                           </Button>
                                         )}
@@ -2583,11 +2589,10 @@ const AdminMembres = () => {
                                         <td className="py-3" onClick={(e) => e.stopPropagation()}>
                                           {(() => {
                                             const bilan = resteDuInscription(inscRef);
-                                            if (!bilan || bilan.resteDu == null) return <span className="text-xs text-muted-foreground italic">—</span>;
-                                            const cls = bilan.tropPercu ? "bg-sky-500/10 text-sky-700" : bilan.resteDu > 0 ? "bg-amber-500/10 text-amber-700" : "bg-emerald-500/10 text-emerald-700";
+                                            const cls = !bilan || bilan.resteDu == null ? "bg-secondary text-muted-foreground" : bilan.tropPercu ? "bg-sky-500/10 text-sky-700" : bilan.resteDu > 0 ? "bg-amber-500/10 text-amber-700" : "bg-emerald-500/10 text-emerald-700";
                                             return (
-                                              <button onClick={() => inscRef && setReglementsPanelInscId(inscRef.id)} className={`rounded-full px-2 py-0.5 text-[11px] font-medium hover:underline ${cls}`}>
-                                                {bilan.tropPercu ? "+" : ""}{formatMontant(bilan.resteDu)}
+                                              <button onClick={() => inscRef && openReglementsPanel(inscRef.id)} className={`rounded-full px-2 py-0.5 text-[11px] font-medium hover:underline ${cls}`} title={!bilan || bilan.resteDu == null ? "Montant théorique à préciser (ex : tranche d'âge Karaté)" : undefined}>
+                                                {!bilan || bilan.resteDu == null ? "—" : `${bilan.tropPercu ? "+" : ""}${formatMontant(bilan.resteDu)}`}
                                               </button>
                                             );
                                           })()}
@@ -2664,11 +2669,10 @@ const AdminMembres = () => {
                                 <td className="py-3" onClick={(e) => e.stopPropagation()}>
                                   {(() => {
                                     const bilan = resteDuInscription(insc);
-                                    if (!bilan || bilan.resteDu == null) return <span className="text-xs text-muted-foreground italic">—</span>;
-                                    const cls = bilan.tropPercu ? "bg-sky-500/10 text-sky-700" : bilan.resteDu > 0 ? "bg-amber-500/10 text-amber-700" : "bg-emerald-500/10 text-emerald-700";
+                                    const cls = !bilan || bilan.resteDu == null ? "bg-secondary text-muted-foreground" : bilan.tropPercu ? "bg-sky-500/10 text-sky-700" : bilan.resteDu > 0 ? "bg-amber-500/10 text-amber-700" : "bg-emerald-500/10 text-emerald-700";
                                     return (
-                                      <button onClick={() => setReglementsPanelInscId(insc.id)} className={`rounded-full px-2 py-0.5 text-[11px] font-medium hover:underline ${cls}`}>
-                                        {bilan.tropPercu ? "+" : ""}{formatMontant(bilan.resteDu)}
+                                      <button onClick={() => openReglementsPanel(insc.id)} className={`rounded-full px-2 py-0.5 text-[11px] font-medium hover:underline ${cls}`} title={!bilan || bilan.resteDu == null ? "Montant théorique à préciser (ex : tranche d'âge Karaté)" : undefined}>
+                                        {!bilan || bilan.resteDu == null ? "—" : `${bilan.tropPercu ? "+" : ""}${formatMontant(bilan.resteDu)}`}
                                       </button>
                                     );
                                   })()}
@@ -3663,18 +3667,19 @@ const AdminMembres = () => {
       </Dialog>
 
       {/* Panneau de saisie des règlements (plusieurs modes/montants par échéance, théorique vs encaissé) */}
-      <Dialog open={!!reglementsPanelInscId} onOpenChange={(open) => { if (!open) setReglementsPanelInscId(null); }}>
+      <Dialog open={!!reglementsPanelInscId} onOpenChange={(open) => { if (!open) { setReglementsPanelInscId(null); setReglementsPanelEcheance(undefined); } }}>
         <DialogContent className="max-w-2xl max-h-[90vh] p-0 overflow-hidden">
           {reglementsPanelInscId && (
             <ReglementsPanel
               inscriptionId={reglementsPanelInscId}
+              initialEcheance={reglementsPanelEcheance}
               inscriptions={inscriptions}
               cheques={cheques}
               chequeEcheances={chequeEcheances}
               setCheques={setCheques}
               setChequeEcheances={setChequeEcheances}
               setInscriptions={setInscriptions}
-              onClose={() => setReglementsPanelInscId(null)}
+              onClose={() => { setReglementsPanelInscId(null); setReglementsPanelEcheance(undefined); }}
             />
           )}
         </DialogContent>

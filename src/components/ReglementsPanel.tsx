@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Trash2, Pencil, Check, X, Search, AlertTriangle, Users } from "lucide-react";
 import { toast } from "sonner";
@@ -53,6 +53,7 @@ const TYPE_LABELS: Record<string, string> = { cheque: "Chèque", especes: "Espè
 
 export const ReglementsPanel = ({
   inscriptionId,
+  initialEcheance,
   inscriptions,
   cheques,
   chequeEcheances,
@@ -62,6 +63,7 @@ export const ReglementsPanel = ({
   onClose,
 }: {
   inscriptionId: string;
+  initialEcheance?: number;
   inscriptions: InscriptionLite[];
   cheques: ChequeLite[];
   chequeEcheances: ChequeEcheanceLite[];
@@ -73,7 +75,7 @@ export const ReglementsPanel = ({
   const [currentId, setCurrentId] = useState(inscriptionId);
   const [grille, setGrille] = useState<GrilleTarifs | null>(null);
   const [tranchesKarate, setTranchesKarate] = useState<Record<string, string | null>>({});
-  const [activeEcheance, setActiveEcheance] = useState(1);
+  const [activeEcheance, setActiveEcheance] = useState(initialEcheance ?? 1);
   const [search, setSearch] = useState("");
   const [showSwitch, setShowSwitch] = useState(false);
   const [editingMontant, setEditingMontant] = useState(false);
@@ -87,7 +89,11 @@ export const ReglementsPanel = ({
   const [formPartages, setFormPartages] = useState<string[]>([]);
 
   useEffect(() => { fetchGrilleTarifs().then(setGrille); }, []);
-  useEffect(() => { setActiveEcheance(1); }, [currentId]);
+  const premierRenduRef = useRef(true);
+  useEffect(() => {
+    if (premierRenduRef.current) { premierRenduRef.current = false; return; }
+    setActiveEcheance(1);
+  }, [currentId]);
 
   const insc = inscriptions.find((i) => i.id === currentId);
 
