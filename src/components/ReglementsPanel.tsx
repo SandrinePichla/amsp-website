@@ -273,6 +273,31 @@ export const ReglementsPanel = ({
             {insc.montant_attendu == null && suggestionAuto && !suggestionAuto.calculable && !editingMontant && (
               <p className="mt-1 text-[10px] text-amber-600">{suggestionAuto.detail}</p>
             )}
+            {insc.montant_attendu == null && suggestionAuto && !suggestionAuto.calculable && !editingMontant && grille && grille.tarifsKarate.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {grille.tarifsKarate.map((t) => (
+                  <button
+                    key={t.label}
+                    onClick={() => setTranchesKarate((prev) => ({ ...prev, [insc.id]: t.label }))}
+                    className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${tranchesKarate[insc.id] === t.label ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:bg-secondary/80"}`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {insc.montant_attendu == null && tranchesKarate[insc.id] && suggestionAuto?.calculable && !editingMontant && (
+              <button
+                onClick={() => {
+                  const suggestion = calculs.find((c) => c.inscriptionId === insc.id)?.montant;
+                  setMontantInput(suggestion != null ? String(suggestion) : "");
+                  setEditingMontant(true);
+                }}
+                className="mt-1 text-[10px] text-primary underline"
+              >
+                Tranche choisie — cliquer pour enregistrer le montant suggéré ({formatMontant(calculs.find((c) => c.inscriptionId === insc.id)?.montant)})
+              </button>
+            )}
           </div>
           <div className="rounded-md bg-card border border-border/40 px-3 py-2">
             <p className="text-[11px] text-muted-foreground">Encaissé</p>
