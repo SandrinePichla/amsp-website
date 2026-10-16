@@ -1234,7 +1234,7 @@ const AdminMembres = () => {
     // perdre aucune donnée.
     const data = baseData.filter(i => i.statut === 'validee').sort(sortNomPrenom);
     const dataEnAttenteReglement = baseData.filter(i => i.statut === 'acceptee').sort(sortNomPrenom);
-    const dataRefusees = baseData.filter(i => i.statut === 'refusee').sort(sortNomPrenom);
+    const dataRefuseesEtSupprimees = baseData.filter(i => i.statut === 'refusee' || i.statut === 'supprimee').sort(sortNomPrenom);
 
     const ExcelJS = (await import('exceljs')).default;
     const workbook = new ExcelJS.Workbook();
@@ -1353,8 +1353,6 @@ const AdminMembres = () => {
     };
 
     construireFeuilleIdentite('Identité', data);
-    construireFeuilleIdentite('En attente de règlement', dataEnAttenteReglement);
-    construireFeuilleIdentite('Refusées', dataRefusees);
 
     // ─── Feuille "Santé & urgence" : une ligne par personne.
     const sheetSante = creerFeuille('Santé & urgence', `${data.length} inscription(s)`, 6);
@@ -1521,7 +1519,40 @@ const AdminMembres = () => {
     });
     totalRow.height = 24;
 
+    // "En attente" ci-dessus ne compte que les règlements saisis avec le statut "en attente" — ça ne
+    // représente pas ce qu'une famille doit encore au club si elle n'a même pas encore annoncé de
+    // règlement pour un trimestre. On ajoute donc aussi le "reste dû théorique" (même calcul que le
+    // total affiché sur le site, foyer par foyer, déduit de la grille tarifaire) pour que ce chiffre
+    // corresponde à celui du tableau "Validés".
+    const foyersVusExport = new Set<string>();
+    let totalResteDuTheorique = 0;
+    let resteDuIncomplet = false;
+    for (const insc of data) {
+      const foyerIds = getFoyerIds(insc.id, insc.saison, cheques, chequeEcheances);
+      const foyerKey = Array.from(foyerIds).sort().join(',');
+      if (foyersVusExport.has(foyerKey)) continue;
+      foyersVusExport.add(foyerKey);
+      const bilan = resteDuInscription(insc);
+      if (!bilan || bilan.resteDu == null) { resteDuIncomplet = true; continue; }
+      totalResteDuTheorique += bilan.tropPercu ? -bilan.resteDu : bilan.resteDu;
+    }
+    const resteDuRow = sheetReglements.addRow([
+      '', 'Reste dû théorique (foyers validés, calculé depuis la grille tarifaire)', '', '',
+      resteDuIncomplet
+        ? `${formatMontant(totalResteDuTheorique)} (calcul partiel — tranche d'âge Karaté à préciser pour certains foyers)`
+        : formatMontant(totalResteDuTheorique),
+    ]);
+    sheetReglements.mergeCells(resteDuRow.number, 5, resteDuRow.number, NB_COLS_REGL);
+    resteDuRow.eachCell((cell) => {
+      cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: AMBRE_FG } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AMBRE_BG } };
+      cell.alignment = { vertical: 'middle' };
+    });
+
     [12, 28, 12, 16, 14, 10, 14, 14].forEach((w, i) => { sheetReglements.getColumn(i + 1).width = w; });
+
+    construireFeuilleIdentite('En attente de règlement', dataEnAttenteReglement);
+    construireFeuilleIdentite('Refusées et supprimées', dataRefuseesEtSupprimees);
 
     const buf = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
