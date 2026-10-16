@@ -89,6 +89,12 @@ export const ReglementsPanel = ({
   const [formStatut, setFormStatut] = useState<"attendu" | "recu">("recu");
   const [formPartages, setFormPartages] = useState<string[]>([]);
 
+  const [editingChequeId, setEditingChequeId] = useState<string | null>(null);
+  const [editType, setEditType] = useState<"cheque" | "especes" | "virement">("cheque");
+  const [editNumero, setEditNumero] = useState("");
+  const [editMontant, setEditMontant] = useState("");
+  const [editStatut, setEditStatut] = useState<"attendu" | "recu">("recu");
+
   useEffect(() => { fetchGrilleTarifs().then(setGrille); }, []);
   const premierRenduRef = useRef(true);
   useEffect(() => {
@@ -127,6 +133,7 @@ export const ReglementsPanel = ({
   }, [search, foyerMembres, inscriptions, currentId]);
 
   const resetForm = () => {
+    setFormType("cheque");
     setFormNumero("");
     setFormMontant("");
     setFormStatut("recu");
@@ -189,6 +196,28 @@ export const ReglementsPanel = ({
     const { error } = await supabase.from("cheques").update({ statut: nouveau }).eq("id", cheque.id);
     if (error) { toast.error("Erreur : " + error.message); return; }
     setCheques((prev) => prev.map((c) => (c.id === cheque.id ? { ...c, statut: nouveau } : c)));
+  };
+
+  const startEdit = (cheque: ChequeLite) => {
+    setEditingChequeId(cheque.id);
+    setEditType(cheque.type);
+    setEditNumero(cheque.numero || "");
+    setEditMontant(cheque.montant != null ? String(cheque.montant) : "");
+    setEditStatut((cheque.statut ?? "recu") as "attendu" | "recu");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingChequeId) return;
+    if (editType === "cheque" && !editNumero.trim()) { toast.error("Le numéro de chèque est obligatoire."); return; }
+    const montant = editMontant.trim() ? Number(editMontant.replace(",", ".")) : null;
+    const { error } = await supabase
+      .from("cheques")
+      .update({ type: editType, numero: editType === "cheque" ? editNumero.trim() : null, montant, statut: editStatut })
+      .eq("id", editingChequeId);
+    if (error) { toast.error("Erreur : " + error.message); return; }
+    setCheques((prev) => prev.map((c) => (c.id === editingChequeId ? { ...c, type: editType, numero: editType === "cheque" ? editNumero.trim() : null, montant, statut: editStatut } : c)));
+    toast.success("Règlement modifié.");
+    setEditingChequeId(null);
   };
 
   const saveMontantAttendu = async (valeur: number | null) => {
@@ -374,29 +403,62 @@ export const ReglementsPanel = ({
                 </div>
               )}
 
-              {regls.map(({ link, cheque }) => (
-                <div key={link.id} className="flex items-center justify-between rounded-md border border-border/40 px-3 py-2">
-                  <div className="text-sm">
-                    <span className="font-medium">{TYPE_LABELS[cheque.type]}</span>
-                    {cheque.numero && <span className="text-muted-foreground"> — N° {cheque.numero}</span>}
-                    <span className="ml-2 font-semibold">{formatMontant(cheque.montant)}</span>
-                    {(chequeEcheances.filter((l) => l.cheque_id === cheque.id).length > 1) && (
-                      <span className="ml-2 text-[10px] text-violet-600">partagé</span>
-                    )}
+              {regls.map(({ link, cheque }) =>
+                editingChequeId === cheque.id ? (
+                  <div key={link.id} className="rounded-md border border-primary/30 bg-primary/5 p-3 space-y-2.5">
+                    <div className="flex gap-1.5">
+                      {(["cheque", "especes", "virement"] as const).map((t) => (
+                        <button
+                          key={t}
+                          onClick={() => setEditType(t)}
+                          className={`rounded-md px-2.5 py-1 text-xs font-medium ${editType === t ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}
+                        >
+                          {TYPE_LABELS[t]}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {editType === "cheque" && (
+                        <Input placeholder="N° de chèque" value={editNumero} onChange={(e) => setEditNumero(e.target.value)} className="h-8 text-sm" />
+                      )}
+                      <Input type="number" step="0.01" placeholder="Montant (€)" value={editMontant} onChange={(e) => setEditMontant(e.target.value)} className="h-8 text-sm" />
+                    </div>
+                    <label className="flex items-center gap-2 text-xs">
+                      <Checkbox checked={editStatut === "attendu"} onCheckedChange={(v) => setEditStatut(v ? "attendu" : "recu")} />
+                      Annoncé mais pas encore reçu (« en attente »)
+                    </label>
+                    <div className="flex justify-end gap-1.5 pt-1">
+                      <Button size="sm" variant="outline" onClick={() => setEditingChequeId(null)} className="h-7 text-xs">Annuler</Button>
+                      <Button size="sm" onClick={handleSaveEdit} className="h-7 text-xs gap-1"><Check size={12} /> Enregistrer</Button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => handleToggleStatut(cheque)}
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${(cheque.statut ?? "recu") === "recu" ? "bg-emerald-500/10 text-emerald-700" : "bg-amber-500/10 text-amber-700"}`}
-                    >
-                      {(cheque.statut ?? "recu") === "recu" ? "Reçu" : "En attente"}
-                    </button>
-                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive" onClick={() => handleSupprimer(link)}>
-                      <Trash2 size={13} />
-                    </Button>
+                ) : (
+                  <div key={link.id} className="flex items-center justify-between rounded-md border border-border/40 px-3 py-2">
+                    <div className="text-sm">
+                      <span className="font-medium">{TYPE_LABELS[cheque.type]}</span>
+                      {cheque.numero && <span className="text-muted-foreground"> — N° {cheque.numero}</span>}
+                      <span className="ml-2 font-semibold">{formatMontant(cheque.montant)}</span>
+                      {(chequeEcheances.filter((l) => l.cheque_id === cheque.id).length > 1) && (
+                        <span className="ml-2 text-[10px] text-violet-600">partagé</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleToggleStatut(cheque)}
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${(cheque.statut ?? "recu") === "recu" ? "bg-emerald-500/10 text-emerald-700" : "bg-amber-500/10 text-amber-700"}`}
+                      >
+                        {(cheque.statut ?? "recu") === "recu" ? "Reçu" : "En attente"}
+                      </button>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground" onClick={() => startEdit(cheque)}>
+                        <Pencil size={13} />
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive" onClick={() => handleSupprimer(link)}>
+                        <Trash2 size={13} />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              )}
 
               {!formOpen ? (
                 <Button size="sm" variant="outline" onClick={() => setFormOpen(true)} className="gap-1.5 text-xs">

@@ -169,28 +169,24 @@ export const bilanFoyer = (theorique: number | null, encaisse: number): BilanFoy
   return { theorique, encaisse, resteDu: Math.abs(diff), tropPercu: diff < 0 };
 };
 
-/** Les échéances (trimestres) d'un mode de règlement, avec leur date d'échéance pour détecter un trimestre "passé sans rien saisi". */
+/**
+ * Les 4 trimestres, toujours proposés quel que soit le mode de règlement choisi sur la fiche
+ * d'inscription — dans les faits, le mode de paiement effectif peut différer de celui coché au
+ * départ (ex : quelqu'un qui avait coché "1 fois" règle finalement en plusieurs fois). La saisie
+ * des règlements est donc volontairement libre, avec la date d'échéance de chaque trimestre pour
+ * détecter un trimestre "passé sans rien saisi".
+ */
 export const echeancesDuMoyenPaiement = (
-  moyenPaiement: string | null,
+  _moyenPaiement: string | null,
   dateCreation: string
 ): { echeance: number; label: string; dueDate: Date }[] => {
   const created = new Date(dateCreation);
   const y1 = created.getMonth() >= 7 ? created.getFullYear() : created.getFullYear() - 1;
   const y2 = y1 + 1;
-  if (moyenPaiement === "cheque_4x") {
-    return [
-      { echeance: 1, label: "À l'inscription", dueDate: created },
-      { echeance: 2, label: `Décembre ${y1}`, dueDate: new Date(y1, 11, 1) },
-      { echeance: 3, label: `Mars ${y2}`, dueDate: new Date(y2, 2, 1) },
-      { echeance: 4, label: `Juin ${y2}`, dueDate: new Date(y2, 5, 1) },
-    ];
-  }
-  if (moyenPaiement === "cheque_3x_pass_sport") {
-    return [
-      { echeance: 1, label: "À l'inscription", dueDate: created },
-      { echeance: 2, label: `Décembre ${y1}`, dueDate: new Date(y1, 11, 1) },
-      { echeance: 3, label: `Mars ${y2}`, dueDate: new Date(y2, 2, 1) },
-    ];
-  }
-  return [{ echeance: 1, label: "À l'inscription", dueDate: created }];
+  return [
+    { echeance: 1, label: "À l'inscription", dueDate: created },
+    { echeance: 2, label: `Décembre ${y1}`, dueDate: new Date(y1, 11, 1) },
+    { echeance: 3, label: `Mars ${y2}`, dueDate: new Date(y2, 2, 1) },
+    { echeance: 4, label: `Juin ${y2}`, dueDate: new Date(y2, 5, 1) },
+  ];
 };

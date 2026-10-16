@@ -1732,6 +1732,35 @@ const AdminMembres = () => {
     });
   })();
 
+  /**
+   * Totaux (onglet "Validés" uniquement) : encaissé et reste dû additionnés sur l'ensemble des
+   * lignes affichées, en ne comptant qu'une fois chaque foyer (déduplication par clé de foyer,
+   * sinon un couple ou une fratrie serait compté deux fois pour le même montant partagé).
+   */
+  const totauxValides = activeTab === "tous" ? (() => {
+    const foyersVus = new Set<string>();
+    let encaisse = 0;
+    let resteDu = 0;
+    let theoriqueConnu = true;
+    for (const ligne of lignesSorted) {
+      const inscRef = ligne.type === "profil"
+        ? (ligne.inscriptions.find(i => i.statut === "validee") ?? ligne.inscriptions[0] ?? null)
+        : ligne.inscription;
+      if (!inscRef) continue;
+      const foyerIds = getFoyerIds(inscRef.id, inscRef.saison, cheques, chequeEcheances);
+      const foyerKey = [...foyerIds].sort().join(",");
+      if (foyersVus.has(foyerKey)) continue;
+      foyersVus.add(foyerKey);
+      const bilan = resteDuInscription(inscRef);
+      if (bilan) {
+        encaisse += bilan.encaisse;
+        if (bilan.resteDu == null) theoriqueConnu = false;
+        else resteDu += bilan.tropPercu ? -bilan.resteDu : bilan.resteDu;
+      }
+    }
+    return { encaisse, resteDu, theoriqueConnu, nbFoyers: foyersVus.size };
+  })() : null;
+
   type FamilleGroupe = { key: string; profil: Membre | null; lignes: Ligne[] };
   const familleGroupes: FamilleGroupe[] = viewMode === "famille" ? (() => {
     const map = new Map<string, FamilleGroupe>();
@@ -2491,7 +2520,7 @@ const AdminMembres = () => {
                             return (
                               <tr className="border-b border-border/60">
                                 {thLabel("nom", "Membre", "min-w-[200px]")}
-                                {thLabel("statut", "Statut", "min-w-[140px]")}
+                                {activeTab !== "tous" && thLabel("statut", "Statut", "min-w-[140px]")}
                                 {thLabel("age", "Âge", "w-24")}
                                 {thLabel("disciplines", "Disciplines")}
                                 {thLabel("urgence", "Urgence")}
@@ -2540,12 +2569,14 @@ const AdminMembres = () => {
                                       </div>
                                     </div>
                                   </td>
-                                  <td className="py-3 pr-4">
-                                    <div className="flex flex-col gap-1">
-                                      <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium w-fit ${statusBdg.cls}`}>{statusBdg.label}</span>
-                                      {pendingCount > 0 && <span className="text-[10px] text-amber-600 font-medium">{pendingCount} en attente</span>}
-                                    </div>
-                                  </td>
+                                  {activeTab !== "tous" && (
+                                    <td className="py-3 pr-4">
+                                      <div className="flex flex-col gap-1">
+                                        <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium w-fit ${statusBdg.cls}`}>{statusBdg.label}</span>
+                                        {pendingCount > 0 && <span className="text-[10px] text-amber-600 font-medium">{pendingCount} en attente</span>}
+                                      </div>
+                                    </td>
+                                  )}
                                   <td className="py-3 pr-4">
                                     {calcAge(dateNaissance) !== null ? (
                                       <div>
@@ -2635,9 +2666,11 @@ const AdminMembres = () => {
                                     </div>
                                   </div>
                                 </td>
-                                <td className="py-3 pr-4">
-                                  <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium w-fit ${iBdg.cls}`}>{iBdg.label}</span>
-                                </td>
+                                {activeTab !== "tous" && (
+                                  <td className="py-3 pr-4">
+                                    <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium w-fit ${iBdg.cls}`}>{iBdg.label}</span>
+                                  </td>
+                                )}
                                 <td className="py-3 pr-4">
                                   {calcAge(insc.date_naissance) !== null ? (
                                     <div>
@@ -2695,6 +2728,25 @@ const AdminMembres = () => {
                             );
                           })}
                         </tbody>
+                        {totauxValides && (
+                          <tfoot>
+                            <tr className="border-t-2 border-border/60 bg-secondary/40 font-semibold">
+                              <td colSpan={activeTab !== "tous" ? 7 : 6} className="py-2.5 pr-4 text-xs text-muted-foreground text-right">
+                                Total ({totauxValides.nbFoyers} foyer{totauxValides.nbFoyers > 1 ? "s" : ""}, chèques partagés comptés une seule fois) :
+                              </td>
+                              <td className="py-2.5 pr-4 text-sm text-emerald-700">{formatMontant(totauxValides.encaisse)}</td>
+                              <td className="py-2.5 text-sm">
+                                {totauxValides.theoriqueConnu ? (
+                                  <span className={totauxValides.resteDu < 0 ? "text-sky-700" : totauxValides.resteDu > 0 ? "text-amber-700" : "text-emerald-700"}>
+                                    {totauxValides.resteDu < 0 ? "+" : ""}{formatMontant(Math.abs(totauxValides.resteDu))}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground font-normal italic">partiel — tranches Karaté à préciser sur certains foyers</span>
+                                )}
+                              </td>
+                            </tr>
+                          </tfoot>
+                        )}
                       </table>
                     </div>
                   )}
