@@ -1658,20 +1658,34 @@ const AdminMembres = () => {
     }
     lignesBilanFoyer.sort((a, b) => a.triNom.localeCompare(b.triNom, 'fr', { sensitivity: 'base' }));
 
+    // Formats de nombre Excel natifs : la couleur et le signe +/- sont appliqués par Excel lui-même
+    // selon la valeur réelle de la cellule — toujours un vrai nombre (donc sommable, utilisable dans
+    // une formule), jamais un texte pré-formaté. Convention d'affichage : négatif = reste dû (manque),
+    // positif = trop-perçu (en trop).
+    // Couleurs limitées aux 8 noms reconnus par Excel dans un format numérique personnalisé
+    // ([Black] [Blue] [Cyan] [Green] [Magenta] [Red] [White] [Yellow]) — un code hexadécimal n'y est
+    // pas accepté, contrairement au remplissage/texte habituel des cellules.
+    const FMT_RESTE_DU = '[Green]"+"#,##0.00" €";[Red]"-"#,##0.00" €";[Blue]0.00" €"';
+    const FMT_DEPOSE = '[Green]#,##0.00" €";[Red]#,##0.00" €";[Red]0.00" €"';
+    const FMT_EUR = '#,##0.00" €"';
+
     const sheetBilan = creerFeuille('Bilan par foyer', `${lignesBilanFoyer.length} foyer(s)`, 6, VERT_FG, 1);
-    styleEnTete(sheetBilan.addRow(['Foyer', 'Théorique', 'Encaissé', 'Remis en banque', 'Reste dû / Trop-perçu', 'Saison']));
+    styleEnTete(sheetBilan.addRow(['Foyer', 'Théorique', 'Encaissé', 'Remis en banque', 'Reste dû (-) / Trop-perçu (+)', 'Saison']));
     let totalBilanTheorique = 0, totalBilanEncaisse = 0, totalBilanDepose = 0, totalBilanResteDu = 0;
     let bilanIncomplet = false;
     lignesBilanFoyer.forEach((l, idx) => {
       const rowBg = idx % 2 === 0 ? GRIS_CLAIR : BLANC;
-      const resteDuTexte = l.resteDu == null ? 'à préciser (Karaté)' : `${l.tropPercu ? '+' : ''}${formatMontant(l.resteDu)}`;
-      const row = sheetBilan.addRow([l.noms, l.theorique ?? '', l.encaisse, l.depose, resteDuTexte, l.saison]);
+      const resteDuNet = l.resteDu == null ? null : (l.tropPercu ? l.resteDu : -l.resteDu);
+      const row = sheetBilan.addRow([l.noms, l.theorique ?? '', l.encaisse, l.depose, resteDuNet ?? "à préciser (Karaté)", l.saison]);
       row.height = 18;
       row.eachCell((cell, colNum) => {
-        cell.font = { name: 'Calibri', size: 9 };
+        cell.font = { name: 'Calibri', size: 9, bold: colNum === 5 };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBg } };
         cell.alignment = { vertical: 'middle', wrapText: false };
-        if (colNum === 2 || colNum === 3 || colNum === 4) cell.numFmt = '#,##0.00 "€"';
+        if (colNum === 2) cell.numFmt = FMT_EUR;
+        if (colNum === 3) cell.numFmt = FMT_EUR;
+        if (colNum === 4) cell.numFmt = FMT_DEPOSE;
+        if (colNum === 5 && typeof cell.value === 'number') cell.numFmt = FMT_RESTE_DU;
       });
       if (l.theorique == null || l.resteDu == null) bilanIncomplet = true;
       else {
@@ -1686,19 +1700,25 @@ const AdminMembres = () => {
       bilanIncomplet ? 'partiel' : totalBilanTheorique,
       totalBilanEncaisse,
       totalBilanDepose,
-      bilanIncomplet ? 'partiel' : `${totalBilanResteDu < 0 ? '+' : ''}${formatMontant(Math.abs(totalBilanResteDu))}`,
+      bilanIncomplet ? 'partiel' : -totalBilanResteDu,
       '',
     ]);
     totalBilanRow.eachCell((cell, colNum) => {
-      cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: BLANC } };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLEU } };
+      // La colonne "Reste dû/Trop-perçu" reste sur fond clair pour que le vert/rouge du format
+      // numérique (appliqué par Excel selon la valeur) reste lisible — sur fond bleu foncé comme le
+      // reste de la ligne, ces couleurs deviendraient invisibles.
+      const estColonneResteDu = colNum === 5 && typeof cell.value === 'number';
+      cell.font = estColonneResteDu ? { name: 'Calibri', size: 11, bold: true } : { name: 'Calibri', size: 11, bold: true, color: { argb: BLANC } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: estColonneResteDu ? BLANC : BLEU } };
       cell.alignment = { vertical: 'middle', horizontal: colNum === 1 ? 'left' : 'center' };
-      if ((colNum === 2 || colNum === 3 || colNum === 4) && typeof cell.value === 'number') cell.numFmt = '#,##0.00 "€"';
+      if ((colNum === 2 || colNum === 3) && typeof cell.value === 'number') cell.numFmt = FMT_EUR;
+      if (colNum === 4 && typeof cell.value === 'number') cell.numFmt = FMT_DEPOSE;
+      if (estColonneResteDu) cell.numFmt = FMT_RESTE_DU;
     });
     totalBilanRow.height = 24;
-    [32, 14, 14, 16, 18, 14].forEach((w, i) => { sheetBilan.getColumn(i + 1).width = w; });
+    [32, 14, 14, 16, 22, 14].forEach((w, i) => { sheetBilan.getColumn(i + 1).width = w; });
     if (lignesBilanFoyer.length > 0) {
-      appliquerAlignement(sheetBilan, 5, 4 + lignesBilanFoyer.length, ['left', 'right', 'right', 'right', 'center', 'center']);
+      appliquerAlignement(sheetBilan, 5, 4 + lignesBilanFoyer.length, ['left', 'right', 'right', 'right', 'right', 'center']);
       activerFiltre(sheetBilan, 6, 4 + lignesBilanFoyer.length);
     }
 
