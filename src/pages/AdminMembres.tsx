@@ -1385,171 +1385,109 @@ const AdminMembres = () => {
     });
     [7, 16, 14, 9, 11, 16, 22, 24, 13, 22, 24, 13].forEach((w, i) => { sheetAutorisations.getColumn(i + 1).width = w; });
 
-    // ─── Feuille "Règlements" : une ligne par foyer (personnes qui partagent au
-    // moins un règlement ensemble), pas par personne — pour que "Montant total"
-    // et les sommes par échéance (rapprochement bancaire) ne comptent jamais
-    // deux fois un chèque partagé par plusieurs membres d'une même famille.
+    // ─── Feuille "Règlements" : un journal de recettes façon logiciel de compta —
+    // une ligne par règlement réellement reçu (pas par foyer ni par personne), groupée
+    // par trimestre avec un sous-total par trimestre, pour que tous les modes (chèque,
+    // espèces, virement) apparaissent ensemble sur la même échéance avec leur propre
+    // montant. Un chèque partagé par plusieurs personnes reste une seule ligne (toutes
+    // les personnes concernées listées dans une cellule) — jamais compté deux fois.
     const inscriptionIds = new Set(data.map((i) => i.id));
     const nomParInscription = new Map(data.map((i) => [i.id, `${i.prenom || ''} ${i.nom || ''}`.trim()]));
+    const TYPE_LABELS_EXPORT: Record<string, string> = { cheque: 'Chèque', especes: 'Espèces', virement: 'Virement' };
+    const STATUT_REGLEMENT_LABELS_EXPORT: Record<string, string> = { attendu: 'En attente', recu: 'Reçu', depose: 'Remis en banque' };
+    const TRIMESTRE_LABELS = ["T1 · À l'inscription", 'T2 · Décembre', 'T3 · Mars', 'T4 · Juin'];
 
-    const idsAvecReglement = new Set(
-      chequeEcheances.filter((ce) => inscriptionIds.has(ce.inscription_id)).map((ce) => ce.inscription_id)
-    );
-
-    // Union-find : deux inscriptions rejoignent le même foyer dès qu'elles partagent un règlement.
-    const parent = new Map<string, string>();
-    const find = (x: string): string => {
-      if (!parent.has(x)) parent.set(x, x);
-      const p = parent.get(x)!;
-      if (p !== x) { const root = find(p); parent.set(x, root); return root; }
-      return x;
-    };
-    const union = (a: string, b: string) => {
-      const ra = find(a), rb = find(b);
-      if (ra !== rb) parent.set(ra, rb);
-    };
-    const inscriptionsParCheque = new Map<string, Set<string>>();
-    chequeEcheances
-      .filter((ce) => idsAvecReglement.has(ce.inscription_id))
-      .forEach((ce) => {
-        find(ce.inscription_id);
-        const set = inscriptionsParCheque.get(ce.cheque_id) || new Set<string>();
-        set.add(ce.inscription_id);
-        inscriptionsParCheque.set(ce.cheque_id, set);
+    type LigneReglement = { echeance: number; noms: string; type: string; numero: string; montant: number; statut: string; saison: string };
+    const lignesReglement: LigneReglement[] = [];
+    for (const cheque of cheques) {
+      const links = chequeEcheances.filter((ce) => ce.cheque_id === cheque.id && inscriptionIds.has(ce.inscription_id));
+      if (links.length === 0) continue;
+      const noms = Array.from(new Set(links.map((l) => nomParInscription.get(l.inscription_id) || ''))).filter(Boolean).sort().join(', ');
+      const saisons = Array.from(new Set(links.map((l) => data.find((i) => i.id === l.inscription_id)?.saison).filter(Boolean)));
+      lignesReglement.push({
+        echeance: links[0].echeance,
+        noms,
+        type: cheque.type,
+        numero: cheque.type === 'cheque' ? (cheque.numero || '') : '',
+        montant: cheque.montant || 0,
+        statut: cheque.statut ?? 'recu',
+        saison: saisons.join(', '),
       });
-    inscriptionsParCheque.forEach((idsSet) => {
-      const ids = Array.from(idsSet);
-      for (let k = 1; k < ids.length; k++) union(ids[0], ids[k]);
-    });
-
-    const foyers = new Map<string, Set<string>>(); // racine -> inscription_ids du foyer
-    idsAvecReglement.forEach((id) => {
-      const root = find(id);
-      const set = foyers.get(root) || new Set<string>();
-      set.add(id);
-      foyers.set(root, set);
-    });
-
-    const LABELS_ECHEANCE = ['à l\'inscription', 'décembre', 'mars', 'juin'];
-
-    const lignesFoyers = Array.from(foyers.values()).map((membreIds) => {
-      const membres = Array.from(membreIds);
-      const noms = membres.map((id) => nomParInscription.get(id) || '').filter(Boolean).sort();
-      const chequeIdsDuFoyer = new Set(
-        chequeEcheances.filter((ce) => membreIds.has(ce.inscription_id)).map((ce) => ce.cheque_id)
-      );
-      const montantTotal = Array.from(chequeIdsDuFoyer)
-        .map((cid) => cheques.find((c) => c.id === cid)?.montant || 0)
-        .reduce((s, m) => s + m, 0);
-
-      // Règlement 1-4 : uniquement les chèques (les échéances n'ont de sens que pour eux).
-      const parEcheance = [1, 2, 3, 4].map((echeance) => {
-        const chequeIds = new Set(
-          chequeEcheances
-            .filter((ce) => membreIds.has(ce.inscription_id) && ce.echeance === echeance)
-            .map((ce) => ce.cheque_id)
-        );
-        const chequesEcheance = Array.from(chequeIds)
-          .map((cid) => cheques.find((c) => c.id === cid))
-          .filter((c): c is Cheque => !!c && c.type === 'cheque');
-        return {
-          numero: chequesEcheance.map((c) => c.numero).filter(Boolean).join(', '),
-          montant: chequesEcheance.length > 0 ? chequesEcheance.reduce((s, c) => s + (c.montant || 0), 0) : ('' as number | ''),
-        };
-      });
-
-      // Espèces et virement : montant total du foyer pour ce type, toutes échéances confondues
-      // (ces règlements sont toujours "en une fois", pas de notion d'échéance 1-4 pour eux).
-      const montantParType = (type: 'especes' | 'virement'): number | '' => {
-        const idsDuType = new Set(
-          chequeEcheances.filter((ce) => membreIds.has(ce.inscription_id)).map((ce) => ce.cheque_id)
-        );
-        const total = Array.from(idsDuType)
-          .map((cid) => cheques.find((c) => c.id === cid))
-          .filter((c): c is Cheque => !!c && c.type === type)
-          .reduce((s, c) => s + (c.montant || 0), 0);
-        return total > 0 ? total : '';
-      };
-      const montantEspeces = montantParType('especes');
-      const montantVirement = montantParType('virement');
-
-      const saisons = Array.from(new Set(membres.map((id) => data.find((i) => i.id === id)?.saison).filter(Boolean)));
-
-      return { noms, parEcheance, montantEspeces, montantVirement, montantTotal, saison: saisons.join(', ') };
-    }).sort((a, b) => a.noms.join(', ').localeCompare(b.noms.join(', ')));
-
-    const sheetCheques = workbook.addWorksheet('Règlements', { views: [{ state: 'frozen', ySplit: 4 }] });
-    const NB_COLS_CHEQUES = 13;
-
-    sheetCheques.mergeCells(1, 1, 1, NB_COLS_CHEQUES);
-    const titreCheques = sheetCheques.getCell(1, 1);
-    titreCheques.value = 'AMSP — Règlements reçus';
-    titreCheques.font = { name: 'Calibri', size: 16, bold: true, color: { argb: BLANC } };
-    titreCheques.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLEU } };
-    titreCheques.alignment = { vertical: 'middle', horizontal: 'center' };
-    sheetCheques.getRow(1).height = 30;
-
-    sheetCheques.mergeCells(2, 1, 2, NB_COLS_CHEQUES);
-    const sousTitreCheques = sheetCheques.getCell(2, 1);
-    sousTitreCheques.value = `Exporté le ${new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} — ${lignesFoyers.length} foyer(s)`;
-    sousTitreCheques.font = { name: 'Calibri', size: 10, italic: true, color: { argb: BLANC } };
-    sousTitreCheques.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLEU } };
-    sousTitreCheques.alignment = { vertical: 'middle', horizontal: 'center' };
-    sheetCheques.getRow(2).height = 18;
-
-    // Ligne 3 : en-tête groupé "Règlement N (échéance)" fusionné sur les 2 colonnes (Numéro + Montant)
-    sheetCheques.addRow([]);
-    for (let r = 0; r < 4; r++) {
-      const startCol = 2 + r * 2;
-      sheetCheques.mergeCells(3, startCol, 3, startCol + 1);
-      const cell = sheetCheques.getCell(3, startCol);
-      cell.value = `Règlement ${r + 1} (${LABELS_ECHEANCE[r]})`;
-      cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: BLANC } };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ROUGE } };
-      cell.alignment = { vertical: 'middle', horizontal: 'center' };
     }
-    sheetCheques.getRow(3).height = 20;
-    [1, 10, 11, 12, 13].forEach((col) => {
-      sheetCheques.getCell(3, col).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ROUGE } };
-    });
+    lignesReglement.sort((a, b) => a.noms.localeCompare(b.noms, 'fr', { sensitivity: 'base' }));
 
-    // Ligne 4 : en-têtes de colonnes
-    const headerRowCheques = sheetCheques.addRow([
-      'Personnes concernées', 'Numéro', 'Montant', 'Numéro', 'Montant',
-      'Numéro', 'Montant', 'Numéro', 'Montant', 'Espèces', 'Virement', 'Montant total', 'Saison',
-    ]);
-    headerRowCheques.height = 22;
-    headerRowCheques.eachCell((cell) => {
-      cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: BLANC } };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ROUGE } };
-      cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-      cell.border = { bottom: { style: 'thin', color: { argb: BLANC } } };
-    });
+    const sheetReglements = creerFeuille('Règlements', `${lignesReglement.length} règlement(s)`, 7);
+    styleEnTete(sheetReglements.addRow(['Trimestre', 'Personnes concernées', 'Mode', 'N° chèque', 'Montant', 'Statut', 'Saison']));
 
-    lignesFoyers.forEach((ligne, idx) => {
-      const isEven = idx % 2 === 0;
-      const rowBg = isEven ? GRIS_CLAIR : BLANC;
-      const row = sheetCheques.addRow([
-        ligne.noms.join(', '),
-        ligne.parEcheance[0].numero, ligne.parEcheance[0].montant,
-        ligne.parEcheance[1].numero, ligne.parEcheance[1].montant,
-        ligne.parEcheance[2].numero, ligne.parEcheance[2].montant,
-        ligne.parEcheance[3].numero, ligne.parEcheance[3].montant,
-        ligne.montantEspeces, ligne.montantVirement,
-        ligne.montantTotal,
-        ligne.saison,
-      ]);
-      row.height = 18;
-      row.eachCell((cell, colNum) => {
-        cell.font = { name: 'Calibri', size: 9 };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBg } };
-        cell.alignment = { vertical: 'middle', wrapText: false };
-        if ([3, 5, 7, 9, 10, 11, 12].includes(colNum)) cell.numFmt = '#,##0 "€"';
+    let totalGeneralEncaisse = 0, totalGeneralAttente = 0;
+    for (let echeance = 1; echeance <= 4; echeance++) {
+      const lignesTrimestre = lignesReglement.filter((l) => l.echeance === echeance);
+
+      // Bandeau de groupe
+      const bandeauRow = sheetReglements.addRow([TRIMESTRE_LABELS[echeance - 1]]);
+      sheetReglements.mergeCells(bandeauRow.number, 1, bandeauRow.number, 7);
+      const bandeauCell = sheetReglements.getCell(bandeauRow.number, 1);
+      bandeauCell.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: BLANC } };
+      bandeauCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLEU } };
+      bandeauCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+      bandeauRow.height = 20;
+
+      if (lignesTrimestre.length === 0) {
+        const videRow = sheetReglements.addRow(['', 'Aucun règlement saisi pour ce trimestre']);
+        videRow.getCell(2).font = { name: 'Calibri', size: 9, italic: true, color: { argb: GRIS_FG } };
+        continue;
+      }
+
+      let totalTrimestreEncaisse = 0, totalTrimestreAttente = 0;
+      lignesTrimestre.forEach((ligne, idx) => {
+        const rowBg = idx % 2 === 0 ? GRIS_CLAIR : BLANC;
+        const sc = statutColors[ligne.statut === 'attendu' ? 'en_attente' : ligne.statut === 'depose' ? 'acceptee' : 'validee'];
+        const row = sheetReglements.addRow([
+          TRIMESTRE_LABELS[echeance - 1], ligne.noms, TYPE_LABELS_EXPORT[ligne.type] ?? ligne.type,
+          ligne.numero, ligne.montant, STATUT_REGLEMENT_LABELS_EXPORT[ligne.statut] ?? ligne.statut, ligne.saison,
+        ]);
+        row.height = 18;
+        row.eachCell((cell, colNum) => {
+          if (colNum === 6) {
+            cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: sc.fg } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: sc.bg } };
+          } else {
+            cell.font = { name: 'Calibri', size: 9 };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBg } };
+          }
+          cell.alignment = { vertical: 'middle', wrapText: false };
+          if (colNum === 5) cell.numFmt = '#,##0.00 "€"';
+        });
+        if (ligne.statut === 'attendu') totalTrimestreAttente += ligne.montant;
+        else totalTrimestreEncaisse += ligne.montant;
       });
-    });
 
-    const colWidthsCheques = [28, 14, 10, 14, 10, 14, 10, 14, 10, 12, 12, 13, 14];
-    colWidthsCheques.forEach((w, i) => { sheetCheques.getColumn(i + 1).width = w; });
+      const sousTotalRow = sheetReglements.addRow([
+        '', `Sous-total ${TRIMESTRE_LABELS[echeance - 1]}`, '', '',
+        `${formatMontant(totalTrimestreEncaisse)} reçus/déposés`, `${formatMontant(totalTrimestreAttente)} en attente`, '',
+      ]);
+      sousTotalRow.eachCell((cell) => {
+        cell.font = { name: 'Calibri', size: 9.5, bold: true };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GRIS_BG } };
+        cell.alignment = { vertical: 'middle' };
+      });
+      sheetReglements.addRow([]);
+      totalGeneralEncaisse += totalTrimestreEncaisse;
+      totalGeneralAttente += totalTrimestreAttente;
+    }
+
+    const totalRow = sheetReglements.addRow([
+      '', 'TOTAL GÉNÉRAL', '', '',
+      `${formatMontant(totalGeneralEncaisse)} reçus/déposés`, `${formatMontant(totalGeneralAttente)} en attente`, '',
+    ]);
+    totalRow.eachCell((cell) => {
+      cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: BLANC } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLEU } };
+      cell.alignment = { vertical: 'middle' };
+    });
+    totalRow.height = 24;
+
+    [12, 28, 12, 16, 14, 16, 14].forEach((w, i) => { sheetReglements.getColumn(i + 1).width = w; });
 
     const buf = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
