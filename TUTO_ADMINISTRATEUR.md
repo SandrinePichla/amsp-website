@@ -156,7 +156,10 @@ On l'ouvre avec le bouton **"Règlements"** (disponible dès l'onglet **"À vali
 - On peut enregistrer **plusieurs règlements par trimestre**, de modes différents (ex : un chèque et des espèces).
 - **"+ Ajouter un règlement"** enchaîne les saisies sans fermer le panneau. Après chaque enregistrement, le mode revient sur "chèque".
 - Le **crayon** sur une ligne permet de corriger un règlement déjà saisi.
-- Pour le **Karaté**, choisir la tranche d'âge : le prix de chaque tranche est affiché à côté, et un lien **"réinitialiser"** permet de corriger une erreur.
+- Pour le **Karaté**, choisir la tranche d'âge (le prix de chaque tranche est affiché à côté), puis cliquer sur **"Enregistrer le montant suggéré"**. Un lien **"réinitialiser"** permet de corriger une erreur de tranche.
+
+> ⚠️ **Karaté : la tranche d'âge est obligatoire pour obtenir le montant théorique.** Tant qu'elle n'est pas choisie, le théorique et le reste dû restent vides, sur le site comme dans l'export Excel. Le choix n'est conservé qu'après le clic sur "Enregistrer le montant suggéré" : si le panneau est fermé avant, il faut recommencer.
+
 - Le montant théorique est calculé à partir de la grille tarifaire Sanity, remise famille comprise. Il est indicatif : le crayon à côté permet de le remplacer à la main (ex : arrivée en cours d'année), et un lien permet de revenir au calcul automatique.
 
 ### L'onglet "Règlements" (vue d'ensemble)
