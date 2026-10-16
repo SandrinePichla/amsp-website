@@ -243,14 +243,14 @@
       <td>✅ Accepter &nbsp;&nbsp; ❌ Refuser</td>
     </tr>
     <tr>
-      <td><strong>En attente de paiement</strong> <span class="badge badge-violet">N</span></td>
-      <td>Dossiers acceptés, mais dont le paiement n'a pas encore été encaissé. Le badge violet indique le nombre de dossiers.</td>
-      <td>✅ Valider définitivement &nbsp;&nbsp; ❌ Refuser</td>
+      <td><strong>À valider</strong> <span class="badge badge-violet">N</span></td>
+      <td>Dossiers acceptés, mais dont le paiement n'a pas encore été (totalement) encaissé. Le badge violet indique le nombre de dossiers. On peut déjà y saisir des règlements via le bouton <strong>"Règlements"</strong>, avant même de valider définitivement.</td>
+      <td>✅ Valider définitivement &nbsp;&nbsp; ❌ Refuser &nbsp;&nbsp; 💶 Règlements</td>
     </tr>
     <tr>
       <td><strong>Règlements</strong></td>
-      <td>Calendrier des paiements, organisé par mode de paiement (Chèque 1 fois, Espèces, Virement, Chèque 4 fois, Chèque 3 fois + Pass Sport). Pour les chèques en plusieurs fois, des sous-onglets par échéance : <em>À l'inscription, Décembre, Mars, Juin</em> (ou <em>Code Pass Sport</em> pour le mode Pass Sport — détails ci-dessous).</td>
-      <td>Renseigner un règlement (chèque, espèces ou virement) avec son montant, rattacher plusieurs personnes à un même règlement, saisir un code Pass Sport</td>
+      <td>Vue d'ensemble de tous les paiements, organisée en <strong>4 onglets trimestre</strong> toujours visibles (<em>À l'inscription, Décembre, Mars, Juin</em>), quel que soit le mode de paiement choisi à l'inscription, avec un filtre par mode (chèque / espèces / virement) et un bouton séparé pour les <strong>codes Pass Sport</strong> — détails ci-dessous.</td>
+      <td>Cocher des lignes et changer leur statut en lot, filtrer par mode, ouvrir le panneau de règlement d'une personne</td>
     </tr>
     <tr>
       <td><strong>Refusées</strong></td>
@@ -264,31 +264,57 @@
   </div>
 
   <h3>Enregistrer un règlement ou un code Pass Sport (onglet Règlements)</h3>
-  <p>Depuis la refonte de septembre 2026, <strong>chèque, espèces et virement</strong> se saisissent tous les trois de la même façon, avec un montant à renseigner et la possibilité de partager un même règlement entre plusieurs personnes — plus seulement les chèques.</p>
+  <p>Depuis la refonte d'octobre 2026, chaque règlement (chèque, espèces ou virement) suit un cycle à <strong>3 statuts</strong>, qui reflète la pratique comptable d'une association (bordereau de remise en banque) :</p>
+  <table>
+    <tr>
+      <th>Statut</th>
+      <th>Signification</th>
+    </tr>
+    <tr>
+      <td><strong>Attendu</strong></td>
+      <td>Le règlement est annoncé (échéance connue) mais pas encore physiquement en main.</td>
+    </tr>
+    <tr>
+      <td><strong>Reçu</strong></td>
+      <td>Le chèque, les espèces ou le virement sont reçus, mais pas encore déposés en banque. Le règlement compte dès ce stade dans le montant <strong>"Encaissé"</strong> affiché sur la fiche et dans le tableau principal.</td>
+    </tr>
+    <tr>
+      <td><strong>Remis en banque</strong></td>
+      <td>Le règlement a été déposé en banque. Il reste compté dans l'encaissé et apparaît en plus dans la colonne <strong>"Remis en banque"</strong> de l'export Excel.</td>
+    </tr>
+  </table>
   <table>
     <tr>
       <th>Pour…</th>
       <th>Faire…</th>
     </tr>
     <tr>
-      <td>Noter un règlement reçu (chèque, espèces ou virement)</td>
-      <td>Bouton <strong>"Renseigner"</strong> sur la ligne de la personne concernée → choisir le <strong>type de règlement</strong> (Chèque / Espèces / Virement) en haut de la fenêtre. Le champ numéro n'apparaît que pour le type "Chèque" ; pour Espèces et Virement, seul le montant est demandé.</td>
+      <td>Saisir, modifier ou supprimer un règlement d'une personne</td>
+      <td>Bouton <strong>"Règlements"</strong> sur la ligne de la personne (disponible aussi bien dans "À valider" que dans "Règlements") → le panneau de règlement s'ouvre, avec en permanence le <strong>montant théorique</strong>, l'<strong>encaissé</strong> et le <strong>reste dû</strong> du foyer en en-tête, et un onglet par trimestre. Choisir "+ Ajouter un règlement" pour une nouvelle ligne, ou le crayon sur une ligne existante pour la corriger.</td>
     </tr>
     <tr>
-      <td>Un même règlement couvre plusieurs personnes (ex : une famille qui règle en une fois)</td>
-      <td>Dans la fenêtre du règlement, <strong>"Ajouter quelqu'un à ce règlement"</strong> → rechercher le nom de l'autre personne, même si elle n'apparaît pas dans la liste affichée à l'écran (discipline différente, filtre en cours…).</td>
+      <td>Faire passer plusieurs règlements au statut suivant d'un coup (ex : remise en banque d'un lot de chèques)</td>
+      <td>Dans l'onglet "Règlements", cocher les cases des lignes concernées puis cliquer sur <strong>"Marquer reçu"</strong> ou <strong>"Marquer remis en banque"</strong>.</td>
     </tr>
     <tr>
-      <td>Modifier un règlement déjà saisi</td>
-      <td>Cliquer sur le règlement affiché (ex : <em>"N° 1234567"</em> ou <em>"Espèces"</em>) → la fenêtre <strong>"Modifier le règlement"</strong> s'ouvre avec les valeurs actuelles.</td>
+      <td>Repérer un trimestre pour lequel rien n'a encore été saisi alors que l'échéance est passée</td>
+      <td>Surligné automatiquement en orange (ambre) dans la vue d'ensemble — aucune action bloquante, juste un repère visuel.</td>
+    </tr>
+    <tr>
+      <td>Pour une personne qui fait du Karaté, indiquer sa tranche d'âge (nécessaire au calcul du montant théorique)</td>
+      <td>Dans le panneau de règlement, choisir la tranche dans le sélecteur dédié — un lien "réinitialiser" permet de revenir en arrière.</td>
+    </tr>
+    <tr>
+      <td>Surcharger à la main le montant théorique d'une personne (ex : nouvel arrivant en cours d'année, qui ne doit que 3 trimestres sur 4)</td>
+      <td>Dans le panneau de règlement, cliquer sur le crayon à côté du montant théorique, saisir le montant, puis "Enregistrer". Un lien permet de revenir au calcul automatique.</td>
     </tr>
     <tr>
       <td>Saisir le code Pass Sport d'un adhérent</td>
-      <td>Choisir le mode <strong>"Chèque 3 fois + Pass Sport"</strong>, puis le 4ᵉ sous-onglet <strong>"Code Pass Sport"</strong> — une ligne par personne, saisie directe dans le champ.</td>
+      <td>Bouton <strong>"Codes Pass Sport"</strong> dans l'onglet Règlements — une ligne par personne, saisie directe dans le champ, sauvegarde automatique dès que vous quittez le champ.</td>
     </tr>
   </table>
   <div class="conseil">
-    💡 Le code Pass Sport se sauvegarde automatiquement dès que vous quittez le champ. Pour un règlement (chèque, espèces, virement), pensez à cliquer sur le bouton d'enregistrement dans la fenêtre "Renseigner le règlement".
+    💡 Le montant théorique est calculé automatiquement à partir des disciplines et de la grille tarifaire (avec remise famille appliquée par foyer), mais reste purement indicatif : la saisie des montants reçus se fait toujours librement, à la main.
   </div>
 
 
@@ -310,7 +336,7 @@
       <td><strong>1 — Accepter</strong></td>
       <td>Cliquer sur <strong>"Accepter"</strong> dans la fiche</td>
       <td>Le dossier est mis en attente de paiement. Un message de confirmation avec le nom de l'adhérent s'affiche en haut de page. <strong>Aucun email n'est envoyé à l'adhérent à cette étape.</strong></td>
-      <td>→ <strong>En attente de paiement</strong></td>
+      <td>→ <strong>À valider</strong></td>
     </tr>
     <tr>
       <td><strong>2 — Valider</strong></td>
@@ -334,9 +360,9 @@
       <li>Cliquer sur l'onglet <strong>"Dossiers à examiner"</strong></li>
       <li>Cliquer sur un nom pour ouvrir la fiche complète du dossier</li>
       <li>Vérifier les informations (discipline choisie, informations de santé, etc.)</li>
-      <li>Cliquer sur <strong>"Accepter"</strong> — le dossier passe en "En attente de paiement"</li>
-      <li>Lorsque le chèque, les espèces ou le virement est reçu, aller dans l'onglet <strong>"En attente de paiement"</strong></li>
-      <li>Ouvrir la fiche et cliquer sur <strong>"Valider"</strong></li>
+      <li>Cliquer sur <strong>"Accepter"</strong> — le dossier passe en "À valider"</li>
+      <li>Vous pouvez dès cette étape saisir les règlements au fur et à mesure qu'ils arrivent, via le bouton <strong>"Règlements"</strong> sur la ligne du dossier (voir section 3)</li>
+      <li>Une fois le paiement complet reçu, ouvrir la fiche et cliquer sur <strong>"Valider"</strong></li>
       <li>L'adhérent reçoit automatiquement un email pour activer son espace membre</li>
     </ol>
   </div>
@@ -359,7 +385,7 @@
   <div class="page-break"></div>
   <h2>5. Les deux vues du tableau : Liste et Famille</h2>
 
-  <p>Dans les onglets <strong>"Validés"</strong>, <strong>"Dossiers à examiner"</strong> et <strong>"En attente de paiement"</strong>, un petit bouton en haut à droite de la barre de recherche permet de basculer entre deux modes d'affichage :</p>
+  <p>Dans les onglets <strong>"Validés"</strong>, <strong>"Dossiers à examiner"</strong> et <strong>"À valider"</strong>, un petit bouton en haut à droite de la barre de recherche permet de basculer entre deux modes d'affichage :</p>
 
   <table>
     <tr>
@@ -432,6 +458,10 @@
 
   <div class="conseil">
     💡 Restent toujours modifiables, même après validation : adresse, téléphone (mobile, contact d'urgence, et téléphone du parent 1), groupe sanguin, allergies, niveau, informations du parent 2, droit à l'image, autorisation parentale, Pass Sport, document scanné.
+  </div>
+
+  <div class="conseil">
+    💡 Le mode de règlement coché à l'inscription (1 fois, 3 fois, 4 fois…) est verrouillé, mais la saisie des règlements elle-même reste toujours libre : dans la pratique, rien n'empêche de saisir un paiement en plusieurs fois même si "1 fois" avait été coché au départ. Les 4 trimestres sont toujours proposés dans le panneau de règlement, quel que soit le mode choisi.
   </div>
 
 
@@ -551,21 +581,44 @@
     </ol>
   </div>
 
-  <p>Le fichier contient <strong>deux feuilles</strong> :</p>
+  <p>Le fichier contient <strong>7 feuilles</strong>, regroupées par statut (validées, puis en attente de règlement, puis refusées et supprimées), toutes triées par ordre alphabétique nom puis prénom :</p>
   <table>
     <tr>
       <th>Feuille</th>
       <th>Contenu</th>
     </tr>
     <tr>
-      <td><strong>Inscriptions</strong> (première feuille)</td>
-      <td>Une ligne par inscrit, avec quatre colonnes <strong>"Règlement 1" à "Règlement 4"</strong> (numéro de chèque + montant reçus à chaque échéance).</td>
+      <td><strong>Identité</strong></td>
+      <td>Coordonnées et informations générales de chaque inscrit validé.</td>
+    </tr>
+    <tr>
+      <td><strong>Santé & urgence</strong></td>
+      <td>Groupe sanguin, allergies, contact d'urgence de chaque inscrit validé.</td>
+    </tr>
+    <tr>
+      <td><strong>Autorisations</strong></td>
+      <td>Droit à l'image, autorisation parentale, Pass Sport de chaque inscrit validé.</td>
     </tr>
     <tr>
       <td><strong>Règlements</strong></td>
-      <td>Une ligne par <strong>foyer</strong> (personnes qui partagent au moins un règlement) — jamais par personne, pour ne pas compter deux fois un chèque partagé par une famille. Colonnes : Règlement 1 à 4 (numéro + montant), Espèces, Virement, Montant total, Saison. Pratique pour le rapprochement bancaire.</td>
+      <td>Une ligne par règlement, colonnes <em>Trimestre, Personnes concernées, Mode, N° chèque, Montant reçu, Remis en banque, Montant en attente, Saison</em> — le montant apparaît dans une seule des trois colonnes de statut selon son état, avec des sous-totaux et un total général par statut.</td>
+    </tr>
+    <tr>
+      <td><strong>Bilan par foyer</strong></td>
+      <td>Une ligne par <strong>foyer</strong> (personnes qui partagent au moins un règlement) — jamais par personne, pour ne pas compter deux fois un chèque partagé par une famille. Colonnes : <em>Foyer, Théorique, Encaissé, Reste dû (-) / Trop-perçu (+), Remis en banque, Saison</em>, avec montants au format monétaire et code couleur (vert/rouge) selon le signe.</td>
+    </tr>
+    <tr>
+      <td><strong>En attente de règlement</strong></td>
+      <td>Identité des dossiers "À valider", pour ne perdre aucune donnée sur les dossiers pas encore complets.</td>
+    </tr>
+    <tr>
+      <td><strong>Refusées et supprimées</strong></td>
+      <td>Identité des dossiers refusés ou supprimés, pour garder un historique complet.</td>
     </tr>
   </table>
+  <div class="conseil">
+    💡 Toutes les colonnes de montant sont au format monétaire natif Excel (pas du texte) — elles restent utilisables dans des calculs ou des tableaux croisés. Chaque feuille dispose de filtres automatiques sur ses en-têtes.
+  </div>
 
   <h3>Imprimer ou télécharger une fiche d'inscription</h3>
   <div class="etapes">
@@ -788,7 +841,7 @@
     </tr>
     <tr>
       <td>Valider définitivement (après paiement reçu)</td>
-      <td>Site AMSP → Gestion des membres → En attente de paiement → Valider</td>
+      <td>Site AMSP → Gestion des membres → À valider → Valider</td>
       <td>Aucune</td>
     </tr>
     <tr>
@@ -807,7 +860,7 @@
       <td>Aucune</td>
     </tr>
     <tr>
-      <td>Voir les paiements à venir (chèques 4 fois)</td>
+      <td>Voir et saisir les règlements par trimestre</td>
       <td>Site AMSP → Gestion des membres → Règlements</td>
       <td>Aucune</td>
     </tr>
