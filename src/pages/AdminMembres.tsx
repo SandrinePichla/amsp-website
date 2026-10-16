@@ -13,7 +13,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Clock, CheckCircle, XCircle, Shield, Download, ChevronDown, ChevronUp, ChevronsUpDown,
   UserX, UserPlus, ClipboardList, Link2, Plus, FileText, Trash2, Search, Pencil, Upload, ExternalLink,
-  List, Users,
+  List, Users, AlertTriangle,
 } from "lucide-react";
 import { sendBrevoEmail, TEMPLATES } from "@/lib/brevo";
 import { client } from "@/sanityClient";
@@ -185,7 +185,7 @@ const roleBadge = (role: string) => {
 
 const inscBadge = (statut: string | null) => {
   if (statut === "validee")   return { label: "Validée",                cls: "bg-green-500/10 text-green-700" };
-  if (statut === "acceptee")  return { label: "En attente de paiement", cls: "bg-violet-500/10 text-violet-700" };
+  if (statut === "acceptee")  return { label: "Paiement en cours", cls: "bg-violet-500/10 text-violet-700" };
   if (statut === "refusee")   return { label: "Refusée",                cls: "bg-red-500/10 text-red-600" };
   if (statut === "supprimee") return { label: "Supprimée",              cls: "bg-muted text-muted-foreground line-through" };
   return                             { label: "En cours d'examen",      cls: "bg-amber-500/10 text-amber-700" };
@@ -1340,7 +1340,7 @@ const AdminMembres = () => {
         i.parent1_tel || '',
         [i.parent2_prenom, i.parent2_nom].filter(Boolean).join(' ') || '',
         i.saison || '',
-        { validee: 'Validée', refusee: 'Refusée', en_attente: "En cours d'examen", acceptee: 'En attente de paiement', supprimee: 'Supprimée' }[statut] ?? statut,
+        { validee: 'Validée', refusee: 'Refusée', en_attente: "En cours d'examen", acceptee: 'Paiement en cours', supprimee: 'Supprimée' }[statut] ?? statut,
         i.source === 'papier' ? 'Papier' : 'En ligne',
         new Date(i.created_at).toLocaleDateString('fr-FR'),
       ]);
@@ -1654,7 +1654,7 @@ const AdminMembres = () => {
       if (ligne.type === "inscription_seule" && ligne.inscription.statut !== "en_attente") return false;
     }
 
-    // Onglet "En attente de paiement"
+    // Onglet "Paiement en cours"
     if (activeTab === "reglement") {
       if (ligne.type === "profil") return false;
       if (ligne.type === "inscription_seule" && ligne.inscription.statut !== "acceptee") return false;
@@ -2085,13 +2085,13 @@ const AdminMembres = () => {
                   </div>
                 )}
 
-                {/* Bloc 2 — En attente de paiement */}
+                {/* Bloc 2 — Paiement en cours */}
                 {accepteeInscription.length > 0 && (
                   <div className="rounded-lg border border-violet-200/60 bg-violet-50/30 dark:bg-violet-950/10 p-5">
                     <div className="flex items-center gap-2 mb-4">
                       <ClipboardList size={16} className="text-violet-600" />
                       <h2 className="font-serif font-bold text-sm text-violet-800 dark:text-violet-400">
-                        En attente de paiement
+                        Paiement en cours
                         <span className="ml-2 rounded-full bg-violet-500 px-2 py-0.5 text-xs text-white">{accepteeInscription.length}</span>
                       </h2>
                     </div>
@@ -2169,7 +2169,7 @@ const AdminMembres = () => {
                         Dossiers à examiner {countEnAttente > 0 && <span className="ml-1.5 rounded-full bg-amber-500 text-white text-[10px] px-1.5 py-0.5 leading-none">{countEnAttente}</span>}
                       </TabsTrigger>
                       <TabsTrigger value="reglement" className="text-xs px-3 h-7">
-                        En attente de paiement {countReglement > 0 && <span className="ml-1.5 rounded-full bg-violet-500 text-white text-[10px] px-1.5 py-0.5 leading-none">{countReglement}</span>}
+                        Paiement en cours {countReglement > 0 && <span className="ml-1.5 rounded-full bg-violet-500 text-white text-[10px] px-1.5 py-0.5 leading-none">{countReglement}</span>}
                       </TabsTrigger>
                       <TabsTrigger value="reglements" className="text-xs px-3 h-7">
                         Règlements {countReglementsMois > 0 && <span className="ml-1.5 rounded-full bg-blue-500 text-white text-[10px] px-1.5 py-0.5 leading-none">{countReglementsMois}</span>}
@@ -3386,7 +3386,7 @@ const AdminMembres = () => {
                       {/* ——— Adhésions ——— */}
                       <TabsContent value="adhesions" className="m-0 p-6 space-y-5">
                         {(() => {
-                          const sectionLabel = insc.statut === "validee" ? "Validées" : insc.statut === "en_attente" ? "En attente" : insc.statut === "acceptee" ? "En attente de paiement" : "Refusées / supprimées";
+                          const sectionLabel = insc.statut === "validee" ? "Validées" : insc.statut === "en_attente" ? "En attente" : insc.statut === "acceptee" ? "Paiement en cours" : "Refusées / supprimées";
                           const sectionCls = insc.statut === "validee" ? "text-emerald-700" : insc.statut === "en_attente" || insc.statut === "acceptee" ? "text-amber-700" : "text-muted-foreground";
                           const isExpanded = expandedInscIds.has(insc.id);
                           return (
