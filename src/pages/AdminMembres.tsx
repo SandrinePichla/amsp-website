@@ -1443,7 +1443,13 @@ const AdminMembres = () => {
     const VERT_CLAIR_BG = 'FFe8f5e9';
     const OUI_NON_CLS = (oui: boolean) => (oui ? { bg: VERT_CLAIR_BG, fg: VERT_FG } : { bg: GRIS_BG, fg: GRIS_FG });
 
-    let totalGeneralEncaisse = 0, totalGeneralAttente = 0;
+    // 3 états bien distincts, jamais fusionnés dans les totaux pour éviter toute ambiguïté :
+    //  - En attente   : annoncé par la famille, chèque pas encore en main
+    //  - Reçu         : chèque en main, mais pas encore porté à la banque
+    //  - Remis banque : déposé à la banque (bordereau de remise)
+    let totalGeneralAttente = 0, totalGeneralRecu = 0, totalGeneralDepose = 0;
+    const formatSynthese = (attente: number, recu: number, depose: number) =>
+      `En attente : ${formatMontant(attente)}  ·  Reçu (non déposé) : ${formatMontant(recu)}  ·  Remis en banque : ${formatMontant(depose)}`;
     for (let echeance = 1; echeance <= 4; echeance++) {
       const lignesTrimestre = lignesReglement.filter((l) => l.echeance === echeance);
 
@@ -1462,7 +1468,7 @@ const AdminMembres = () => {
         continue;
       }
 
-      let totalTrimestreEncaisse = 0, totalTrimestreAttente = 0;
+      let totalTrimestreAttente = 0, totalTrimestreRecu = 0, totalTrimestreDepose = 0;
       lignesTrimestre.forEach((ligne, idx) => {
         const rowBg = idx % 2 === 0 ? GRIS_CLAIR : BLANC;
         const estRecu = ligne.statut === 'recu' || ligne.statut === 'depose';
@@ -1489,12 +1495,13 @@ const AdminMembres = () => {
           if (colNum === 5) cell.numFmt = '#,##0.00 "€"';
         });
         if (ligne.statut === 'attendu') totalTrimestreAttente += ligne.montant;
-        else totalTrimestreEncaisse += ligne.montant;
+        else if (ligne.statut === 'depose') totalTrimestreDepose += ligne.montant;
+        else totalTrimestreRecu += ligne.montant;
       });
 
       const sousTotalRow = sheetReglements.addRow([
         '', `Sous-total ${TRIMESTRE_LABELS[echeance - 1]}`, '', '',
-        `${formatMontant(totalTrimestreEncaisse)} reçus/déposés · ${formatMontant(totalTrimestreAttente)} en attente`,
+        formatSynthese(totalTrimestreAttente, totalTrimestreRecu, totalTrimestreDepose),
       ]);
       sheetReglements.mergeCells(sousTotalRow.number, 5, sousTotalRow.number, NB_COLS_REGL);
       sousTotalRow.eachCell((cell) => {
@@ -1503,13 +1510,14 @@ const AdminMembres = () => {
         cell.alignment = { vertical: 'middle' };
       });
       sheetReglements.addRow([]);
-      totalGeneralEncaisse += totalTrimestreEncaisse;
       totalGeneralAttente += totalTrimestreAttente;
+      totalGeneralRecu += totalTrimestreRecu;
+      totalGeneralDepose += totalTrimestreDepose;
     }
 
     const totalRow = sheetReglements.addRow([
       '', 'TOTAL GÉNÉRAL', '', '',
-      `${formatMontant(totalGeneralEncaisse)} reçus/déposés · ${formatMontant(totalGeneralAttente)} en attente`,
+      formatSynthese(totalGeneralAttente, totalGeneralRecu, totalGeneralDepose),
     ]);
     sheetReglements.mergeCells(totalRow.number, 5, totalRow.number, NB_COLS_REGL);
     totalRow.eachCell((cell) => {
