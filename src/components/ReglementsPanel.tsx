@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   GrilleTarifs,
   fetchGrilleTarifs,
+  estDisciplineKarate,
 } from "@/lib/tarifs";
 import {
   formatMontant,
@@ -190,19 +191,21 @@ export const ReglementsPanel = ({
     setCheques((prev) => prev.map((c) => (c.id === cheque.id ? { ...c, statut: nouveau } : c)));
   };
 
-  const handleSaveMontantAttendu = async () => {
+  const saveMontantAttendu = async (valeur: number | null) => {
     if (!insc) return;
-    const valeur = montantInput.trim() ? Number(montantInput.replace(",", ".")) : null;
     const { error } = await supabase.from("inscriptions").update({ montant_attendu: valeur }).eq("id", insc.id);
     if (error) { toast.error("Erreur : " + error.message); return; }
     setInscriptions((prev) => prev.map((i) => (i.id === insc.id ? { ...i, montant_attendu: valeur } : i)));
     setEditingMontant(false);
     toast.success(valeur == null ? "Retour au calcul automatique." : "Montant attendu mis à jour.");
   };
+  const handleSaveMontantAttendu = () => saveMontantAttendu(montantInput.trim() ? Number(montantInput.replace(",", ".")) : null);
+  const handleResetMontantAttendu = () => saveMontantAttendu(null);
 
   const suggestionAuto = insc && grille
     ? prixBrutPersonne(grille, insc.disciplines, tranchesKarate[insc.id] ?? null)
     : null;
+  const aKarate = !!insc && !!grille && (insc.disciplines || "").split(",").map((s) => s.trim()).some((id) => estDisciplineKarate(grille, id));
 
   if (!insc) return null;
 
@@ -274,22 +277,37 @@ export const ReglementsPanel = ({
               <p className="text-sm font-semibold">{formatMontant(theoriqueFoyer)}</p>
             )}
             {insc.montant_attendu != null && !editingMontant && (
-              <p className="text-[10px] text-muted-foreground">saisi à la main</p>
+              <p className="text-[10px] text-muted-foreground">saisi à la main — <button onClick={handleResetMontantAttendu} className="underline hover:text-foreground">revenir au calcul auto</button></p>
             )}
             {insc.montant_attendu == null && suggestionAuto && !suggestionAuto.calculable && !editingMontant && (
               <p className="mt-1 text-[10px] text-amber-600">{suggestionAuto.detail}</p>
             )}
-            {insc.montant_attendu == null && suggestionAuto && !suggestionAuto.calculable && !editingMontant && grille && grille.tarifsKarate.length > 0 && (
-              <div className="mt-1.5 flex flex-wrap gap-1">
-                {grille.tarifsKarate.map((t) => (
-                  <button
-                    key={t.label}
-                    onClick={() => setTranchesKarate((prev) => ({ ...prev, [insc.id]: t.label }))}
-                    className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${tranchesKarate[insc.id] === t.label ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:bg-secondary/80"}`}
-                  >
-                    {t.label}
-                  </button>
-                ))}
+
+            {/* Aide au choix de la tranche d'âge Karaté : toujours visible pour un karatéka, avec le tarif de
+                chaque tranche affiché à côté (utile quand l'âge est à la limite entre deux tranches) et un moyen
+                de réinitialiser le choix en cas d'erreur de sélection. */}
+            {!editingMontant && aKarate && grille && grille.tarifsKarate.length > 0 && (
+              <div className="mt-1.5">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] text-muted-foreground">Tranche d'âge Karaté :</p>
+                  {tranchesKarate[insc.id] && (
+                    <button onClick={() => setTranchesKarate((prev) => ({ ...prev, [insc.id]: null }))} className="text-[10px] text-muted-foreground hover:text-destructive underline">
+                      réinitialiser
+                    </button>
+                  )}
+                </div>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {grille.tarifsKarate.map((t) => (
+                    <button
+                      key={t.label}
+                      onClick={() => setTranchesKarate((prev) => ({ ...prev, [insc.id]: t.label }))}
+                      className={`flex flex-col items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-tight ${tranchesKarate[insc.id] === t.label ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:bg-secondary/80"}`}
+                    >
+                      <span>{t.label}</span>
+                      <span className="opacity-80">{formatMontant(t.total)}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
             {insc.montant_attendu == null && tranchesKarate[insc.id] && suggestionAuto?.calculable && !editingMontant && (
@@ -301,7 +319,7 @@ export const ReglementsPanel = ({
                 }}
                 className="mt-1 text-[10px] text-primary underline"
               >
-                Tranche choisie — cliquer pour enregistrer le montant suggéré ({formatMontant(calculs.find((c) => c.inscriptionId === insc.id)?.montant)})
+                Enregistrer le montant suggéré pour ce foyer ({formatMontant(calculs.find((c) => c.inscriptionId === insc.id)?.montant)})
               </button>
             )}
           </div>
