@@ -333,7 +333,7 @@
 
 <div class="page">
   <header>
-    <p class="eyebrow">Support de présentation · 11 septembre 2026 · mis à jour le 12 septembre 2026</p>
+    <p class="eyebrow">Support de présentation · 11 septembre 2026 · mis à jour le 17 octobre 2026</p>
     <h1>AMSP en trois écrans</h1>
     <p class="lede">Un tour rapide des trois écrans que vous utiliserez comme administrateur : le site que voit le public, l'espace de gestion des membres (sur ce même site), et le site séparé où l'on gère les textes et les photos.</p>
     <hr class="rule">
@@ -416,28 +416,29 @@
       <table>
         <thead><tr><th>Onglet</th><th>Ce qu'il montre</th></tr></thead>
         <tbody>
-          <tr><td><span class="pill ok">Validés</span></td><td>Inscriptions acceptées.</td></tr>
+          <tr><td><span class="pill ok">Validés</span></td><td>Inscriptions acceptées. Colonnes <strong>Encaissé (foyer)</strong> et <strong>Reste dû</strong> cliquables, totaux en bas de page.</td></tr>
           <tr><td><span class="pill wait">En attente</span></td><td>Nouvelles demandes à traiter. Un badge indique le nombre.</td></tr>
-          <tr><td><span class="pill wait">En attente de paiement</span></td><td>Inscription acceptée, règlement pas encore reçu.</td></tr>
-          <tr><td>Règlements</td><td>Suivi des chèques et des codes Pass Sport — voir ci-dessous.</td></tr>
-          <tr><td><span class="pill no">Refusées</span></td><td>Demandes refusées.</td></tr>
+          <tr><td><span class="pill wait">À valider</span></td><td>Inscription acceptée, règlement pas encore (totalement) reçu. On peut déjà y saisir des paiements via le bouton <strong>« Règlements »</strong>.</td></tr>
+          <tr><td>Règlements</td><td>Vue d'ensemble par trimestre de tous les paiements — voir ci-dessous.</td></tr>
+          <tr><td><span class="pill no">Refusées</span></td><td>Demandes refusées ou supprimées.</td></tr>
         </tbody>
       </table>
     </div>
     <p class="tight">Cliquer sur une ligne ouvre la <strong>fiche du membre</strong>, avec les onglets&nbsp;: <em>Adhésions · Coordonnées · Santé · Accès web · Connexions</em>.</p>
 
     <h3>Onglet Règlements — chèques, espèces, virement et Pass Sport</h3>
-    <p class="tight">Sous-onglets par échéance (À l'inscription · Décembre · Mars · Juin) selon le mode de paiement choisi à l'inscription. Chèque, espèces et virement se saisissent de la même façon. Sur chaque ligne&nbsp;:</p>
+    <p class="tight">Quatre onglets <strong>trimestre</strong> (À l'inscription · Décembre · Mars · Juin), toujours tous visibles quel que soit le mode de paiement choisi à l'inscription, avec un filtre par mode. Chaque règlement suit un cycle à 3 statuts&nbsp;:</p>
     <div class="tbl-wrap">
       <table>
-        <thead><tr><th>Pour…</th><th>Faire…</th></tr></thead>
+        <thead><tr><th>Statut</th><th>Signification</th></tr></thead>
         <tbody>
-          <tr><td>Noter un règlement reçu (chèque, espèces ou virement) et son montant</td><td>Bouton <strong>« Renseigner »</strong> sur la ligne de la personne → choisir le type en haut de la fenêtre.</td></tr>
-          <tr><td>Un même règlement couvre plusieurs personnes (ex&nbsp;: une famille)</td><td>Dans la fenêtre, <strong>« Ajouter quelqu'un à ce règlement »</strong> — recherche par nom.</td></tr>
-          <tr><td>Saisir le code Pass Sport</td><td>Mode <em>Chèque 3 fois + Pass Sport</em> → 4ᵉ onglet <strong>« Code Pass Sport »</strong>, une ligne par personne.</td></tr>
+          <tr><td>Attendu</td><td>Annoncé mais pas encore en main.</td></tr>
+          <tr><td>Reçu</td><td>Chèque, espèces ou virement physiquement reçu, pas encore en banque. Il compte déjà comme « encaissé ».</td></tr>
+          <tr><td>Remis en banque</td><td>Déposé à la banque.</td></tr>
         </tbody>
       </table>
     </div>
+    <p class="tight">On peut cocher plusieurs lignes et les faire changer de statut en une fois (<strong>« Marquer reçu / remis en banque »</strong>). Pour saisir ou modifier un règlement d'une personne (montant théorique, tranche Karaté, ajout/édition/suppression d'un paiement), cliquer sur <strong>« Règlements »</strong> sur sa ligne — ouvre un panneau dédié qui affiche en permanence théorique · encaissé · reste dû. Le code Pass Sport se saisit séparément via le bouton <strong>« Codes Pass Sport »</strong>.</p>
 
     <h3>Les gestes courants</h3>
     <div class="tbl-wrap">
@@ -446,7 +447,8 @@
         <tbody>
           <tr><td>Valider ou refuser une demande</td><td>Onglet <em>En attente</em> → boutons ✅ / ❌ sur la ligne.</td></tr>
           <tr><td>Saisir une inscription papier</td><td>Bouton <strong>« + Saisir inscription papier »</strong> en haut de page.</td></tr>
-          <tr><td>Récupérer la liste sous Excel</td><td>Bouton <strong>« Exporter »</strong> en haut de page.</td></tr>
+          <tr><td>Corriger une inscription existante</td><td>Ouvrir la fiche → bouton <strong>« Modifier »</strong> (icône crayon) → confirmer.</td></tr>
+          <tr><td>Récupérer la liste sous Excel</td><td>Bouton <strong>« Exporter »</strong> en haut de page — fichier à 7 onglets (identité, santé, autorisations, règlements, bilan par foyer, en attente, refusées).</td></tr>
           <tr><td>Donner un accès en ligne à un adhérent ou un parent</td><td>Fiche du membre → onglet <em>Accès web</em> → <strong>« Créer l'espace web »</strong>.</td></tr>
           <tr><td>Changer le rôle de quelqu'un</td><td>Fiche du membre → onglet <em>Accès web</em> → bouton <strong>« Promouvoir… »</strong>.</td></tr>
         </tbody>

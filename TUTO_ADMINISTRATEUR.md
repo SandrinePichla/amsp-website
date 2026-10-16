@@ -9,11 +9,12 @@
 2. [Valider ou refuser une demande de membre](#2-valider-ou-refuser-une-demande-de-membre)
 3. [Promouvoir un membre (admin ou admin de discipline)](#3-promouvoir-un-membre-admin-ou-admin-de-discipline)
 4. [Lire le tableau des inscrits](#4-lire-le-tableau-des-inscrits)
-5. [Saisir une inscription papier et créer un espace membre](#5-saisir-une-inscription-papier-et-créer-un-espace-membre)
-6. [Modifier une inscription (papier ou en ligne)](#6-modifier-une-inscription-papier-ou-en-ligne)
-7. [Modifier le contenu du site avec Sanity](#7-modifier-le-contenu-du-site-avec-sanity)
-8. [Vérifier que les modifications sont bien en ligne](#8-vérifier-que-les-modifications-sont-bien-en-ligne)
-9. [Modifier les emails automatiques avec EmailJS](#9-modifier-les-emails-automatiques-avec-emailjs)
+5. [Saisir et suivre les règlements](#5-saisir-et-suivre-les-règlements)
+6. [Saisir une inscription papier et créer un espace membre](#6-saisir-une-inscription-papier-et-créer-un-espace-membre)
+7. [Modifier une inscription (papier ou en ligne)](#7-modifier-une-inscription-papier-ou-en-ligne)
+8. [Modifier le contenu du site avec Sanity](#8-modifier-le-contenu-du-site-avec-sanity)
+9. [Vérifier que les modifications sont bien en ligne](#9-vérifier-que-les-modifications-sont-bien-en-ligne)
+10. [Modifier les emails automatiques avec EmailJS](#10-modifier-les-emails-automatiques-avec-emailjs)
 
 ---
 
@@ -107,31 +108,69 @@ Le tableau de la page "Gestion des membres" présente chaque inscrit sur une lig
 | Colonne | Ce qu'elle contient |
 |---------|---------------------|
 | **Membre** | Nom, prénom, email |
-| **Statut** | Admin / Membre / En attente / Validée… |
+| **Statut** | Validée, À valider… (masquée dans l'onglet "Validés", où toutes les lignes ont le même statut) |
 | **Âge** | Adulte ou Mineur (calculé depuis la date de naissance) |
-| **Disciplines actives** | Disciplines des inscriptions validées |
-| **Accès web** | Bouton pour ouvrir la fiche ou créer un espace |
+| **Disciplines** | Disciplines de l'inscription |
+| **Urgence · Pass Sport · Droit image** | Informations de la fiche d'inscription |
+| **Encaissé (foyer)** | Total des règlements reçus pour le foyer (personnes qui partagent au moins un règlement). Cliquable : ouvre le panneau de règlement |
+| **Reste dû** | Montant théorique du foyer moins l'encaissé. Un montant négatif signale un trop-perçu. Cliquable : ouvre le panneau de règlement |
+
+En bas du tableau, une ligne de **totaux** affiche le théorique, l'encaissé et le reste dû de toutes les inscriptions validées. Les totaux sont calculés par foyer, donc un règlement partagé par une famille n'est compté qu'une fois.
 
 ### Export Excel
 
-Le bouton **"Exporter"** en haut de page génère un fichier Excel avec les colonnes dans cet ordre :
-Numéro · Nom · Prénom · Date naissance · Type · Adresse · Téléphone · Email · Discipline(s) · Niveau · Groupe sanguin · Allergie(s) · Urgence · Paiement · Pass Sport · Droit image · Autorisation parentale · Parent 1 · Parent 1 email · Parent 1 tél · Parent 2 · Saison · Statut · Source · Reçue le
+Le bouton **"Exporter"** en haut de page génère un fichier Excel de **7 feuilles**, regroupées par couleur d'onglet et toutes triées par nom puis prénom :
 
-### Enregistrer un chèque ou un code Pass Sport (onglet Règlements)
+| Feuille | Contenu |
+|---------|---------|
+| 🟢 **Identité** | Coordonnées et informations générales des inscrits validés |
+| 🟢 **Santé & urgence** | Groupe sanguin, allergies, contact d'urgence |
+| 🟢 **Autorisations** | Droit à l'image, autorisation parentale, Pass Sport |
+| 🟢 **Règlements** | Une ligne par règlement, classée par trimestre : Personnes concernées, Mode, N° chèque, puis le montant dans la colonne de son statut (**Montant reçu**, **Remis en banque** ou **Montant en attente**). Sous-totaux par trimestre et total général |
+| 🟢 **Bilan par foyer** | Une ligne par foyer : Théorique, Encaissé, Reste dû (−) / Trop-perçu (+), Remis en banque |
+| 🟠 **En attente de règlement** | Identité des dossiers "À valider" |
+| 🔴 **Refusées et supprimées** | Identité des dossiers refusés ou supprimés, pour garder un historique complet |
 
-L'onglet **"Règlements"** liste les paiements par mode (Chèque 1 fois, Espèces, Virement, Chèque 4 fois, Chèque 3 fois + Pass Sport), avec des sous-onglets par échéance pour les paiements en plusieurs fois.
-
-| Pour… | Faire… |
-|-------|--------|
-| Noter le numéro et le montant d'un chèque reçu | Bouton **"Lier un chèque"** sur la ligne de la personne. |
-| Un même chèque couvre plusieurs personnes (ex : une famille qui règle en un seul chèque) | Dans la fenêtre du chèque, **"Ajouter quelqu'un à ce chèque"** → rechercher le nom, même si la personne n'apparaît pas dans la liste affichée à l'écran. |
-| Saisir le code Pass Sport | Mode **"Chèque 3 fois + Pass Sport"** → 4ᵉ sous-onglet **"Code Pass Sport"**, une ligne par personne. |
-
-> 💡 Le numéro de chèque et le code Pass Sport s'enregistrent automatiquement dès que vous quittez le champ.
+> 💡 Seules les inscriptions **validées** entrent dans les feuilles Règlements et Bilan par foyer, comme sur le site. Tous les montants sont au format monétaire Excel (pas du texte) : ils restent utilisables dans des calculs. Chaque feuille a des filtres sur ses en-têtes.
 
 ---
 
-## 5. Saisir une inscription papier et créer un espace membre
+## 5. Saisir et suivre les règlements
+
+### Les 3 statuts d'un règlement
+
+Chaque règlement (chèque, espèces ou virement) a un statut, sur le modèle du bordereau de remise en banque :
+
+| Statut | Signification |
+|--------|---------------|
+| **Attendu** | Le règlement est annoncé mais pas encore en main. Il ne compte pas dans l'encaissé |
+| **Reçu** | Le règlement est en main mais pas encore déposé. Il compte dans l'encaissé |
+| **Remis en banque** | Le règlement a été déposé à la banque |
+
+### Le panneau de règlement d'une personne
+
+On l'ouvre avec le bouton **"Règlements"** (disponible dès l'onglet **"À valider"**, donc avant la validation) ou en cliquant sur **Encaissé** / **Reste dû** dans le tableau.
+
+- L'en-tête affiche en permanence le **montant théorique**, l'**encaissé** et le **reste dû** du foyer.
+- Les **4 trimestres** sont toujours proposés, quel que soit le mode de paiement coché sur la fiche d'inscription.
+- On peut enregistrer **plusieurs règlements par trimestre**, de modes différents (ex : un chèque et des espèces).
+- **"+ Ajouter un règlement"** enchaîne les saisies sans fermer le panneau. Après chaque enregistrement, le mode revient sur "chèque".
+- Le **crayon** sur une ligne permet de corriger un règlement déjà saisi.
+- Pour le **Karaté**, choisir la tranche d'âge : le prix de chaque tranche est affiché à côté, et un lien **"réinitialiser"** permet de corriger une erreur.
+- Le montant théorique est calculé à partir de la grille tarifaire Sanity, remise famille comprise. Il est indicatif : le crayon à côté permet de le remplacer à la main (ex : arrivée en cours d'année), et un lien permet de revenir au calcul automatique.
+
+### L'onglet "Règlements" (vue d'ensemble)
+
+| Pour… | Faire… |
+|-------|--------|
+| Voir les règlements d'un trimestre | Choisir l'un des 4 onglets trimestre, puis filtrer si besoin par mode (chèque / espèces / virement) |
+| Repérer un trimestre oublié | Les lignes sans règlement sur un trimestre échu sont surlignées en orange (alerte non bloquante) |
+| Changer le statut de plusieurs règlements d'un coup (ex : dépôt d'un lot de chèques) | Cocher les lignes puis **"Marquer reçu"** ou **"Marquer remis en banque"** |
+| Saisir un code Pass Sport | Bouton **"Codes Pass Sport"** : une ligne par personne, enregistrement automatique en quittant le champ |
+
+---
+
+## 6. Saisir une inscription papier et créer un espace membre
 
 ### Saisir une inscription papier
 
@@ -161,14 +200,14 @@ Si un espace existe déjà, un bouton **"Renvoyer l'invitation / reset mot de pa
 
 ---
 
-## 6. Modifier une inscription (papier ou en ligne)
+## 7. Modifier une inscription (papier ou en ligne)
 
 Une erreur de saisie, une adresse qui change, un numéro de téléphone à jour... vous pouvez corriger une inscription à tout moment, qu'elle ait été saisie sur papier ou remplie en ligne par l'adhérent.
 
 **Étapes :**
 
 1. Trouver l'inscription :
-   - **Pas encore validée** (en attente d'examen ou en attente de paiement) → elle apparaît directement dans la liste
+   - **Pas encore validée** (onglet "Dossiers à examiner" ou "À valider") → elle apparaît directement dans la liste
    - **Déjà validée** → ouvrir la fiche du membre → onglet **"Adhésions"** → cliquer sur la ligne de l'inscription pour la déplier
 2. Cliquer sur le bouton **"Modifier"** (icône crayon)
 3. Une fenêtre de confirmation s'affiche → cliquer sur **"Modifier"** pour continuer (cela évite les modifications faites par erreur)
@@ -177,10 +216,12 @@ Une erreur de saisie, une adresse qui change, un numéro de téléphone à jour.
 > ⚠️ **Une fois l'inscription validée**, certains champs sont grisés (non modifiables) car un compte membre et des accès en dépendent déjà : **nom, prénom, date de naissance, type Adulte/Mineur, email, nom/prénom/email du parent 1, disciplines, saison, mode de règlement**. Pour changer l'un de ces champs sur une inscription déjà validée, contactez le développeur.
 >
 > Restent toujours modifiables, même après validation : **adresse, téléphone (mobile, contact d'urgence, et téléphone du parent 1), groupe sanguin, allergies, niveau, informations du parent 2, droit à l'image, autorisation parentale, Pass Sport, document scanné**.
+>
+> 💡 Le mode de règlement coché sur la fiche est verrouillé, mais la saisie des règlements reste libre : les 4 trimestres sont toujours proposés dans le panneau de règlement (voir section 5).
 
 ---
 
-## 7. Modifier le contenu du site avec Sanity
+## 8. Modifier le contenu du site avec Sanity
 
 Sanity est l'outil qui permet de modifier le contenu du site (textes, photos, actualités, disciplines, etc.) **sans toucher au code**.
 
@@ -228,7 +269,7 @@ Sanity est l'outil qui permet de modifier le contenu du site (textes, photos, ac
 
 ---
 
-## 8. Vérifier que les modifications sont bien en ligne
+## 9. Vérifier que les modifications sont bien en ligne
 
 ### Pour les modifications de contenu Sanity
 
@@ -260,7 +301,7 @@ Sur **https://github.com/SandrinePichla/amsp-website** :
 
 ---
 
-## 9. Modifier les emails automatiques avec EmailJS
+## 10. Modifier les emails automatiques avec EmailJS
 
 EmailJS gère les emails envoyés automatiquement par le site :
 - Email reçu quand quelqu'un remplit le formulaire d'**inscription**
@@ -310,6 +351,7 @@ Si vous dépassez 200 emails/mois, il faudra passer à un abonnement payant sur 
 | Valider/refuser des inscriptions | Site AMSP | Aucune |
 | Saisir une inscription papier | Site AMSP | Aucune |
 | Modifier une inscription (papier ou en ligne) | Site AMSP | Aucune |
+| Saisir et suivre les règlements par trimestre | Site AMSP | Aucune |
 | Créer un espace membre (adulte ou parent) | Site AMSP | Aucune |
 | Promouvoir un admin ou admin de discipline | Site AMSP | Aucune |
 | Exporter les inscriptions en Excel | Site AMSP | Aucune |
