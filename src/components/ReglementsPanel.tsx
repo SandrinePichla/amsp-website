@@ -232,10 +232,9 @@ export const ReglementsPanel = ({
             )}
           </div>
           <div className="flex items-center gap-1.5">
-            <Button size="sm" variant="outline" onClick={() => setShowSwitch((v) => !v)} className="h-8 gap-1.5 text-xs">
+            <Button size="sm" variant="outline" onClick={() => setShowSwitch((v) => !v)} className="h-8 gap-1.5 text-xs mr-6">
               <Search size={13} /> Changer d'adhérent
             </Button>
-            <Button size="sm" variant="ghost" onClick={onClose} className="h-8 w-8 p-0"><X size={15} /></Button>
           </div>
         </div>
 

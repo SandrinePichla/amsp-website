@@ -2087,6 +2087,7 @@ const AdminMembres = () => {
                             </p>
                           </div>
                           <div className="flex gap-2 shrink-0">
+                            <Button size="sm" variant="outline" onClick={() => openReglementsPanel(insc.id)} className="gap-1 text-muted-foreground"><Pencil size={13} /> Règlements</Button>
                             <Button size="sm" onClick={() => setConfirmValider(insc)} disabled={processing === `insc-${insc.id}`} className="gap-1 bg-green-600 hover:bg-green-700 text-white border-0"><CheckCircle size={13} /> Valider</Button>
                             <Button size="sm" variant="outline" onClick={() => setConfirmRefuser(insc)} disabled={processing === `insc-${insc.id}`} className="gap-1 text-destructive hover:text-destructive"><XCircle size={13} /> Refuser</Button>
                           </div>
@@ -2498,6 +2499,7 @@ const AdminMembres = () => {
                                 <th className={`${thCls} pr-4 ${sortCol === "droit_image" ? "text-primary" : "text-muted-foreground hover:text-foreground"}`} onClick={() => handleSort("droit_image")}>
                                   <span className="inline-flex items-center">Droit image{ico("droit_image")}</span>
                                 </th>
+                                <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Encaissé (foyer)</th>
                                 <th className="text-left pb-3 pr-0 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Reste dû</th>
                               </tr>
                             );
@@ -2586,6 +2588,12 @@ const AdminMembres = () => {
                                             ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-700"><CheckCircle size={10} /> Oui</span>
                                             : <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] text-muted-foreground"><XCircle size={10} /> Non</span>}
                                         </td>
+                                        <td className="py-3 pr-4">
+                                          {(() => {
+                                            const bilan = resteDuInscription(inscRef);
+                                            return <span className="text-xs font-medium text-emerald-700">{bilan ? formatMontant(bilan.encaisse) : "—"}</span>;
+                                          })()}
+                                        </td>
                                         <td className="py-3" onClick={(e) => e.stopPropagation()}>
                                           {(() => {
                                             const bilan = resteDuInscription(inscRef);
@@ -2665,6 +2673,12 @@ const AdminMembres = () => {
                                   {insc.droit_image
                                     ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-700"><CheckCircle size={10} /> Oui</span>
                                     : <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] text-muted-foreground"><XCircle size={10} /> Non</span>}
+                                </td>
+                                <td className="py-3 pr-4">
+                                  {(() => {
+                                    const bilan = resteDuInscription(insc);
+                                    return <span className="text-xs font-medium text-emerald-700">{bilan ? formatMontant(bilan.encaisse) : "—"}</span>;
+                                  })()}
                                 </td>
                                 <td className="py-3" onClick={(e) => e.stopPropagation()}>
                                   {(() => {
