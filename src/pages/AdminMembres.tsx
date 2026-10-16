@@ -1392,21 +1392,24 @@ const AdminMembres = () => {
     // montant. Un chèque partagé par plusieurs personnes reste une seule ligne (toutes
     // les personnes concernées listées dans une cellule) — jamais compté deux fois.
     const inscriptionIds = new Set(data.map((i) => i.id));
-    const nomParInscription = new Map(data.map((i) => [i.id, `${i.prenom || ''} ${i.nom || ''}`.trim()]));
+    // "Nom Prénom" (nom de famille en premier, comme partout ailleurs sur le site) pour l'affichage
+    // ET pour le tri alphabétique — trier sur la chaîne affichée revient alors à trier par nom de famille.
+    const nomParInscription = new Map(data.map((i) => [i.id, `${i.nom || ''} ${i.prenom || ''}`.trim()]));
     const TYPE_LABELS_EXPORT: Record<string, string> = { cheque: 'Chèque', especes: 'Espèces', virement: 'Virement' };
     const STATUT_REGLEMENT_LABELS_EXPORT: Record<string, string> = { attendu: 'En attente', recu: 'Reçu', depose: 'Remis en banque' };
     const TRIMESTRE_LABELS = ["T1 · À l'inscription", 'T2 · Décembre', 'T3 · Mars', 'T4 · Juin'];
 
-    type LigneReglement = { echeance: number; noms: string; type: string; numero: string; montant: number; statut: string; saison: string };
+    type LigneReglement = { echeance: number; noms: string; triNom: string; type: string; numero: string; montant: number; statut: string; saison: string };
     const lignesReglement: LigneReglement[] = [];
     for (const cheque of cheques) {
       const links = chequeEcheances.filter((ce) => ce.cheque_id === cheque.id && inscriptionIds.has(ce.inscription_id));
       if (links.length === 0) continue;
-      const noms = Array.from(new Set(links.map((l) => nomParInscription.get(l.inscription_id) || ''))).filter(Boolean).sort().join(', ');
+      const nomsTries = Array.from(new Set(links.map((l) => nomParInscription.get(l.inscription_id) || ''))).filter(Boolean).sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
       const saisons = Array.from(new Set(links.map((l) => data.find((i) => i.id === l.inscription_id)?.saison).filter(Boolean)));
       lignesReglement.push({
         echeance: links[0].echeance,
-        noms,
+        noms: nomsTries.join(', '),
+        triNom: nomsTries[0] || '',
         type: cheque.type,
         numero: cheque.type === 'cheque' ? (cheque.numero || '') : '',
         montant: cheque.montant || 0,
@@ -1414,7 +1417,7 @@ const AdminMembres = () => {
         saison: saisons.join(', '),
       });
     }
-    lignesReglement.sort((a, b) => a.noms.localeCompare(b.noms, 'fr', { sensitivity: 'base' }));
+    lignesReglement.sort((a, b) => a.triNom.localeCompare(b.triNom, 'fr', { sensitivity: 'base' }));
 
     const sheetReglements = creerFeuille('Règlements', `${lignesReglement.length} règlement(s)`, 7);
     styleEnTete(sheetReglements.addRow(['Trimestre', 'Personnes concernées', 'Mode', 'N° chèque', 'Montant', 'Statut', 'Saison']));
