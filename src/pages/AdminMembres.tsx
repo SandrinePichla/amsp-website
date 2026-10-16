@@ -1487,22 +1487,53 @@ const AdminMembres = () => {
     }
     lignesReglement.sort((a, b) => a.triNom.localeCompare(b.triNom, 'fr', { sensitivity: 'base' }));
 
+    // Formats de nombre Excel natifs, partagés avec "Bilan par foyer" plus bas : la couleur et le
+    // signe sont appliqués par Excel lui-même selon la valeur réelle — toujours un vrai nombre,
+    // jamais un texte pré-formaté (sommable, utilisable dans une formule).
+    const FMT_EUR = '#,##0.00" €"';
+    const FMT_RESTE_DU = '[Green]"+"#,##0.00" €";[Red]"-"#,##0.00" €";[Blue]0.00" €"';
+    const FMT_DEPOSE = '[Green]#,##0.00" €";[Red]#,##0.00" €";[Red]0.00" €"';
+    // Versions saturées des couleurs de statut, pour les en-têtes de colonne (le reste du fichier
+    // réserve les teintes pâles — AMBRE_BG, VERT_BG... — au contenu des cellules, pas aux en-têtes).
+    const AMBRE_SATURE = 'FFd97706';
+    const VERT_SATURE = 'FF16a34a';
+
     const NB_COLS_REGL = 8;
     const sheetReglements = creerFeuille('Règlements', `${lignesReglement.length} règlement(s)`, NB_COLS_REGL, VERT_FG, 2);
-    styleEnTete(sheetReglements.addRow(['Trimestre', 'Personnes concernées', 'Mode', 'N° chèque', 'Montant', 'Reçu', 'Remis en banque', 'Saison']));
-
-    const VERT_CLAIR_BG = 'FFe8f5e9';
-    // Même code couleur que "Bilan par foyer" : vert = fait, rouge = pas encore — pour repérer aussi
-    // vite ici qu'en un coup d'œil sur cette feuille-là.
-    const OUI_NON_CLS = (oui: boolean) => (oui ? { bg: VERT_CLAIR_BG, fg: VERT_FG } : { bg: ROUGE_BG, fg: ROUGE_FG });
+    // Une colonne par statut (plutôt qu'une colonne "Montant" + des cases Oui/Non) : le montant d'un
+    // règlement apparaît dans une seule des 3 colonnes selon son statut actuel, les deux autres
+    // restant vides sur cette ligne — la couleur de la colonne suffit à montrer où il en est.
+    const headerReglements = sheetReglements.addRow(['Trimestre', 'Personnes concernées', 'Mode', 'N° chèque', 'Montant reçu', 'Remis en banque', 'Montant en attente', 'Saison']);
+    headerReglements.height = 22;
+    headerReglements.eachCell((cell, colNum) => {
+      const coloreeParStatut: Record<number, string> = { 5: AMBRE_SATURE, 6: VERT_SATURE, 7: ROUGE };
+      cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: BLANC } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: coloreeParStatut[colNum] ?? ROUGE } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      cell.border = { bottom: { style: 'thin', color: { argb: BLANC } } };
+    });
 
     // 3 états bien distincts, jamais fusionnés dans les totaux pour éviter toute ambiguïté :
-    //  - En attente   : annoncé par la famille, chèque pas encore en main
     //  - Reçu         : chèque en main, mais pas encore porté à la banque
     //  - Remis banque : déposé à la banque (bordereau de remise)
-    let totalGeneralAttente = 0, totalGeneralRecu = 0, totalGeneralDepose = 0;
-    const formatSynthese = (attente: number, recu: number, depose: number) =>
-      `Total encaissé : ${formatMontant(recu + depose)} (dont reçu non déposé : ${formatMontant(recu)} · remis en banque : ${formatMontant(depose)})  ·  En attente : ${formatMontant(attente)}`;
+    //  - En attente   : annoncé par la famille, chèque pas encore en main
+    let totalGeneralRecu = 0, totalGeneralDepose = 0, totalGeneralAttente = 0;
+    const ajouterLigneSynthese = (libelle: string, recu: number, depose: number, attente: number, estTotalGeneral: boolean) => {
+      const totalEncaisse = recu + depose;
+      const row = sheetReglements.addRow([
+        '', `${libelle}  —  total encaissé : ${formatMontant(totalEncaisse)}`, '', '', recu, depose, attente, '',
+      ]);
+      row.eachCell((cell, colNum) => {
+        cell.font = estTotalGeneral
+          ? { name: 'Calibri', size: 11, bold: true, color: { argb: BLANC } }
+          : { name: 'Calibri', size: 9.5, bold: true };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: estTotalGeneral ? BLEU : GRIS_BG } };
+        cell.alignment = { vertical: 'middle', horizontal: colNum === 2 ? 'left' : 'center' };
+        if (colNum === 5 || colNum === 6 || colNum === 7) cell.numFmt = FMT_EUR;
+      });
+      row.height = estTotalGeneral ? 24 : 20;
+      return row;
+    };
     for (let echeance = 1; echeance <= 4; echeance++) {
       const lignesTrimestre = lignesReglement.filter((l) => l.echeance === echeance);
 
@@ -1521,72 +1552,50 @@ const AdminMembres = () => {
         continue;
       }
 
-      let totalTrimestreAttente = 0, totalTrimestreRecu = 0, totalTrimestreDepose = 0;
+      let totalTrimestreRecu = 0, totalTrimestreDepose = 0, totalTrimestreAttente = 0;
       lignesTrimestre.forEach((ligne, idx) => {
         const rowBg = idx % 2 === 0 ? GRIS_CLAIR : BLANC;
-        const estRecu = ligne.statut === 'recu' || ligne.statut === 'depose';
-        const estDepose = ligne.statut === 'depose';
-        const scRecu = OUI_NON_CLS(estRecu);
-        const scDepose = OUI_NON_CLS(estDepose);
+        const montantRecu = ligne.statut === 'recu' ? ligne.montant : null;
+        const montantDepose = ligne.statut === 'depose' ? ligne.montant : null;
+        const montantAttente = ligne.statut === 'attendu' ? ligne.montant : null;
         const row = sheetReglements.addRow([
           TRIMESTRE_LABELS[echeance - 1], ligne.noms, TYPE_LABELS_EXPORT[ligne.type] ?? ligne.type,
-          ligne.numero, ligne.montant, estRecu ? 'Oui' : 'Non', estDepose ? 'Oui' : 'Non', ligne.saison,
+          ligne.numero, montantRecu ?? '', montantDepose ?? '', montantAttente ?? '', ligne.saison,
         ]);
         row.height = 18;
         row.eachCell((cell, colNum) => {
-          if (colNum === 6) {
-            cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: scRecu.fg } };
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: scRecu.bg } };
-          } else if (colNum === 7) {
-            cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: scDepose.fg } };
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: scDepose.bg } };
-          } else {
-            cell.font = { name: 'Calibri', size: 9 };
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBg } };
-          }
-          const alignColReglement: Record<number, 'left' | 'center' | 'right'> = { 1: 'center', 2: 'left', 3: 'center', 4: 'center', 5: 'right', 6: 'center', 7: 'center', 8: 'center' };
+          const colorsParColonne: Record<number, { bg: string; fg: string } | null> = {
+            5: montantRecu != null ? { bg: AMBRE_BG, fg: AMBRE_FG } : null,
+            6: montantDepose != null ? { bg: VERT_BG, fg: VERT_FG } : null,
+            7: montantAttente != null ? { bg: ROUGE_BG, fg: ROUGE_FG } : null,
+          };
+          const sc = colorsParColonne[colNum];
+          cell.font = sc ? { name: 'Calibri', size: 9, bold: true, color: { argb: sc.fg } } : { name: 'Calibri', size: 9 };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: sc ? sc.bg : rowBg } };
+          const alignColReglement: Record<number, 'left' | 'center' | 'right'> = { 1: 'center', 2: 'left', 3: 'center', 4: 'center', 5: 'right', 6: 'right', 7: 'right', 8: 'center' };
           cell.alignment = { vertical: 'middle', horizontal: alignColReglement[colNum] ?? 'left', wrapText: false };
           cell.border = { bottom: BORDURE_LEGERE };
-          if (colNum === 5) cell.numFmt = '#,##0.00 "€"';
+          if ((colNum === 5 || colNum === 6 || colNum === 7) && typeof cell.value === 'number') cell.numFmt = FMT_EUR;
         });
-        if (ligne.statut === 'attendu') totalTrimestreAttente += ligne.montant;
-        else if (ligne.statut === 'depose') totalTrimestreDepose += ligne.montant;
-        else totalTrimestreRecu += ligne.montant;
+        if (montantRecu != null) totalTrimestreRecu += montantRecu;
+        else if (montantDepose != null) totalTrimestreDepose += montantDepose;
+        else if (montantAttente != null) totalTrimestreAttente += montantAttente;
       });
 
-      const sousTotalRow = sheetReglements.addRow([
-        '', `Sous-total ${TRIMESTRE_LABELS[echeance - 1]}`, '', '',
-        formatSynthese(totalTrimestreAttente, totalTrimestreRecu, totalTrimestreDepose),
-      ]);
-      sheetReglements.mergeCells(sousTotalRow.number, 5, sousTotalRow.number, NB_COLS_REGL);
-      sousTotalRow.eachCell((cell) => {
-        cell.font = { name: 'Calibri', size: 9.5, bold: true };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GRIS_BG } };
-        cell.alignment = { vertical: 'middle' };
-      });
+      ajouterLigneSynthese(`Sous-total ${TRIMESTRE_LABELS[echeance - 1]}`, totalTrimestreRecu, totalTrimestreDepose, totalTrimestreAttente, false);
       sheetReglements.addRow([]);
-      totalGeneralAttente += totalTrimestreAttente;
       totalGeneralRecu += totalTrimestreRecu;
       totalGeneralDepose += totalTrimestreDepose;
+      totalGeneralAttente += totalTrimestreAttente;
     }
 
-    const totalRow = sheetReglements.addRow([
-      '', 'TOTAL GÉNÉRAL', '', '',
-      formatSynthese(totalGeneralAttente, totalGeneralRecu, totalGeneralDepose),
-    ]);
-    sheetReglements.mergeCells(totalRow.number, 5, totalRow.number, NB_COLS_REGL);
-    totalRow.eachCell((cell) => {
-      cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: BLANC } };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLEU } };
-      cell.alignment = { vertical: 'middle' };
-    });
-    totalRow.height = 24;
+    ajouterLigneSynthese('TOTAL GÉNÉRAL', totalGeneralRecu, totalGeneralDepose, totalGeneralAttente, true);
 
-    // "En attente" ci-dessus ne compte que les règlements saisis avec le statut "en attente" — ça ne
+    // Le total "en attente" ci-dessus ne compte que les règlements déjà saisis avec ce statut — ça ne
     // représente pas ce qu'une famille doit encore au club si elle n'a même pas encore annoncé de
     // règlement pour un trimestre. On ajoute donc aussi le "reste dû théorique" (même calcul que le
     // total affiché sur le site, foyer par foyer, déduit de la grille tarifaire) pour que ce chiffre
-    // corresponde à celui du tableau "Validés".
+    // corresponde à celui du tableau "Validés" — un vrai nombre signé, pas un texte.
     const foyersVusExport = new Set<string>();
     let totalResteDuTheorique = 0;
     let resteDuIncomplet = false;
@@ -1600,19 +1609,18 @@ const AdminMembres = () => {
       totalResteDuTheorique += bilan.tropPercu ? -bilan.resteDu : bilan.resteDu;
     }
     const resteDuRow = sheetReglements.addRow([
-      '', 'Reste dû théorique (foyers validés, calculé depuis la grille tarifaire)', '', '',
-      resteDuIncomplet
-        ? `${formatMontant(totalResteDuTheorique)} (calcul partiel — tranche d'âge Karaté à préciser pour certains foyers)`
-        : formatMontant(totalResteDuTheorique),
+      '',
+      resteDuIncomplet ? 'Reste dû théorique (partiel — tranche Karaté à préciser pour certains foyers)' : 'Reste dû théorique (foyers validés, calculé depuis la grille tarifaire)',
+      '', '', '', '', -totalResteDuTheorique, '',
     ]);
-    sheetReglements.mergeCells(resteDuRow.number, 5, resteDuRow.number, NB_COLS_REGL);
-    resteDuRow.eachCell((cell) => {
-      cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: AMBRE_FG } };
+    resteDuRow.eachCell((cell, colNum) => {
+      cell.font = colNum === 7 ? { name: 'Calibri', size: 9.5, bold: true } : { name: 'Calibri', size: 9.5, bold: true, color: { argb: AMBRE_FG } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AMBRE_BG } };
-      cell.alignment = { vertical: 'middle' };
+      cell.alignment = { vertical: 'middle', horizontal: colNum === 2 ? 'left' : 'center' };
+      if (colNum === 7) cell.numFmt = FMT_RESTE_DU;
     });
 
-    [12, 28, 12, 16, 14, 10, 14, 14].forEach((w, i) => { sheetReglements.getColumn(i + 1).width = w; });
+    [12, 30, 12, 16, 14, 14, 14, 14].forEach((w, i) => { sheetReglements.getColumn(i + 1).width = w; });
 
     // ─── Feuille "Bilan par foyer" : le même calcul que le tableau "Validés" du site (théorique
     // depuis la grille tarifaire, encaissé, reste dû), une ligne par foyer — pour ne plus avoir à
@@ -1660,17 +1668,8 @@ const AdminMembres = () => {
     }
     lignesBilanFoyer.sort((a, b) => a.triNom.localeCompare(b.triNom, 'fr', { sensitivity: 'base' }));
 
-    // Formats de nombre Excel natifs : la couleur et le signe +/- sont appliqués par Excel lui-même
-    // selon la valeur réelle de la cellule — toujours un vrai nombre (donc sommable, utilisable dans
-    // une formule), jamais un texte pré-formaté. Convention d'affichage : négatif = reste dû (manque),
-    // positif = trop-perçu (en trop).
-    // Couleurs limitées aux 8 noms reconnus par Excel dans un format numérique personnalisé
-    // ([Black] [Blue] [Cyan] [Green] [Magenta] [Red] [White] [Yellow]) — un code hexadécimal n'y est
-    // pas accepté, contrairement au remplissage/texte habituel des cellules.
-    const FMT_RESTE_DU = '[Green]"+"#,##0.00" €";[Red]"-"#,##0.00" €";[Blue]0.00" €"';
-    const FMT_DEPOSE = '[Green]#,##0.00" €";[Red]#,##0.00" €";[Red]0.00" €"';
-    const FMT_EUR = '#,##0.00" €"';
-
+    // Réutilise FMT_EUR / FMT_RESTE_DU / FMT_DEPOSE déclarés plus haut (feuille "Règlements") — même
+    // convention de couleur/signe sur tout l'export : négatif = reste dû (manque), positif = trop-perçu.
     const sheetBilan = creerFeuille('Bilan par foyer', `${lignesBilanFoyer.length} foyer(s)`, 6, VERT_FG, 1);
     styleEnTete(sheetBilan.addRow(['Foyer', 'Théorique', 'Encaissé', 'Reste dû (-) / Trop-perçu (+)', 'Remis en banque', 'Saison']));
     let totalBilanTheorique = 0, totalBilanEncaisse = 0, totalBilanDepose = 0, totalBilanResteDu = 0;
