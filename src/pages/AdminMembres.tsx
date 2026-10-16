@@ -26,6 +26,9 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PrintableInscription, type RecapData } from "@/components/PrintableInscription";
+import { ReglementsPanel } from "@/components/ReglementsPanel";
+import { fetchGrilleTarifs, type GrilleTarifs } from "@/lib/tarifs";
+import { getFoyerIds, calculerMontantsFoyer, calculerEncaisseFoyer, bilanFoyer, formatMontant } from "@/lib/reglements";
 
 interface Membre {
   id: string;
@@ -74,6 +77,7 @@ interface Inscription {
   attestation_url: string | null;
   numeros_cheques: ChequeNumero[] | null;
   pass_sport_code: string | null;
+  montant_attendu: number | null;
 }
 
 /** Un chèque reçu pour une échéance donnée d'une inscription (1 pour cheque_1x, jusqu'à 4 pour cheque_4x…). */
@@ -95,6 +99,7 @@ interface Cheque {
   numero: string | null;
   montant: number | null;
   saison: string | null;
+  statut: 'attendu' | 'recu';
   created_at: string;
 }
 
@@ -256,6 +261,9 @@ const AdminMembres = () => {
   const [confirmRefuser, setConfirmRefuser] = useState<Inscription | null>(null);
   const [confirmValider, setConfirmValider] = useState<Inscription | null>(null);
   const [confirmModifierInsc, setConfirmModifierInsc] = useState<Inscription | null>(null);
+  const [reglementsPanelInscId, setReglementsPanelInscId] = useState<string | null>(null);
+  const [grilleTarifs, setGrilleTarifs] = useState<GrilleTarifs | null>(null);
+  useEffect(() => { fetchGrilleTarifs().then(setGrilleTarifs); }, []);
   const [disciplinesSanity, setDisciplinesSanity] = useState<{ _id: string; nom: string; nomCourt?: string }[]>([]);
   const [accesGalerieData, setAccesGalerieData] = useState<{ id: string; compte_id: string; discipline_sanity_id: string; actif: boolean; source: string; saison: string }[]>([]);
   const [enfantsData, setEnfantsData] = useState<{ id: string; nom: string; prenom: string; date_naissance: string | null; groupe_sanguin: string | null; allergie: string | null }[]>([]);
@@ -366,7 +374,7 @@ const AdminMembres = () => {
       supabase.from("enfants").select("id, nom, prenom, date_naissance, groupe_sanguin, allergie"),
       supabase.from("liens_compte_enfant").select("id, compte_id, enfant_id, type_acces, enfant:enfants(id, nom, prenom, date_naissance)"),
       supabase.from("connexions_log").select("id, user_id, email, prenom, created_at").order("created_at", { ascending: false }).limit(1000),
-      supabase.from("cheques").select("id, type, numero, montant, saison, created_at"),
+      supabase.from("cheques").select("id, type, numero, montant, saison, statut, created_at"),
       supabase.from("cheque_echeances").select("id, cheque_id, inscription_id, echeance, label"),
     ]);
     if (profilsData) setMembres(profilsData);
@@ -685,6 +693,19 @@ const AdminMembres = () => {
   // bord restent modifiables une fois validée.
   const editingInsc = editingInscId ? inscriptions.find(i => i.id === editingInscId) ?? null : null;
   const isLockedInscEdit = editingInsc?.statut === "validee";
+
+  /** Reste dû (ou trop-perçu) du foyer d'une inscription, pour affichage rapide dans le tableau. */
+  const resteDuInscription = (insc: Inscription | null | undefined) => {
+    if (!insc) return null;
+    const foyerIds = getFoyerIds(insc.id, insc.saison, cheques, chequeEcheances);
+    const foyerMembres = inscriptions.filter((i) => foyerIds.includes(i.id));
+    const calculs = grilleTarifs ? calculerMontantsFoyer(grilleTarifs, foyerMembres, {}) : [];
+    const theorique = calculs.length > 0 && !calculs.some((c) => c.montant == null)
+      ? calculs.reduce((s, c) => s + (c.montant || 0), 0)
+      : null;
+    const encaisse = calculerEncaisseFoyer(foyerIds, insc.saison, cheques, chequeEcheances);
+    return bilanFoyer(theorique, encaisse);
+  };
 
   const chequeById = new Map(cheques.map((c) => [c.id, c]));
   const chequeLinkByInscEch = new Map(chequeEcheances.map((l) => [`${l.inscription_id}:${l.echeance}`, l]));
@@ -1188,15 +1209,21 @@ const AdminMembres = () => {
     let data = isSuperAdmin ? rawData : rawData.filter(i => disciplineMatch(i.disciplines, currentUserDisciplines));
     if (saisonFilter) data = data.filter(i => i.saison === saisonFilter);
 
-    // Cellule "Règlement N" : numéro de chèque puis montant, pour le tri par numéro.
+    // Cellule "Règlement N" : un ou plusieurs règlements (numéro + montant), séparés par " / " si l'échéance a été scindée.
     const getReglementCell = (inscriptionId: string, echeance: number): string => {
-      const link = chequeEcheances.find((ce) => ce.inscription_id === inscriptionId && ce.echeance === echeance);
-      if (!link) return '';
-      const cheque = cheques.find((c) => c.id === link.cheque_id);
-      if (!cheque) return '';
-      const numero = cheque.numero || '';
-      const montant = cheque.montant != null ? `${cheque.montant} €` : '';
-      return [numero, montant].filter(Boolean).join(' — ');
+      const links = chequeEcheances.filter((ce) => ce.inscription_id === inscriptionId && ce.echeance === echeance);
+      if (links.length === 0) return '';
+      return links
+        .map((link) => {
+          const cheque = cheques.find((c) => c.id === link.cheque_id);
+          if (!cheque) return null;
+          const numero = cheque.numero || '';
+          const montant = cheque.montant != null ? formatMontant(cheque.montant) : '';
+          const statut = (cheque.statut ?? 'recu') === 'attendu' ? ' (attendu)' : '';
+          return [numero, montant].filter(Boolean).join(' — ') + statut;
+        })
+        .filter(Boolean)
+        .join(' / ');
     };
 
     const ExcelJS = (await import('exceljs')).default;
@@ -2462,9 +2489,10 @@ const AdminMembres = () => {
                                 {thLabel("disciplines", "Disciplines")}
                                 {thLabel("urgence", "Urgence")}
                                 {thLabel("pass_sport", "Pass Sport")}
-                                <th className={`${thCls} pb-3 pr-0 ${sortCol === "droit_image" ? "text-primary" : "text-muted-foreground hover:text-foreground"}`} onClick={() => handleSort("droit_image")}>
+                                <th className={`${thCls} pr-4 ${sortCol === "droit_image" ? "text-primary" : "text-muted-foreground hover:text-foreground"}`} onClick={() => handleSort("droit_image")}>
                                   <span className="inline-flex items-center">Droit image{ico("droit_image")}</span>
                                 </th>
+                                <th className="text-left pb-3 pr-0 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Reste dû</th>
                               </tr>
                             );
                           })()}
@@ -2547,10 +2575,22 @@ const AdminMembres = () => {
                                             ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-700"><CheckCircle size={10} /> Oui</span>
                                             : <span className="text-xs text-muted-foreground italic">—</span>}
                                         </td>
-                                        <td className="py-3">
+                                        <td className="py-3 pr-4">
                                           {inscRef?.droit_image
                                             ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-700"><CheckCircle size={10} /> Oui</span>
                                             : <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] text-muted-foreground"><XCircle size={10} /> Non</span>}
+                                        </td>
+                                        <td className="py-3" onClick={(e) => e.stopPropagation()}>
+                                          {(() => {
+                                            const bilan = resteDuInscription(inscRef);
+                                            if (!bilan || bilan.resteDu == null) return <span className="text-xs text-muted-foreground italic">—</span>;
+                                            const cls = bilan.tropPercu ? "bg-sky-500/10 text-sky-700" : bilan.resteDu > 0 ? "bg-amber-500/10 text-amber-700" : "bg-emerald-500/10 text-emerald-700";
+                                            return (
+                                              <button onClick={() => inscRef && setReglementsPanelInscId(inscRef.id)} className={`rounded-full px-2 py-0.5 text-[11px] font-medium hover:underline ${cls}`}>
+                                                {bilan.tropPercu ? "+" : ""}{formatMontant(bilan.resteDu)}
+                                              </button>
+                                            );
+                                          })()}
                                         </td>
                                       </>
                                     );
@@ -2616,10 +2656,22 @@ const AdminMembres = () => {
                                     ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-700"><CheckCircle size={10} /> Oui</span>
                                     : <span className="text-xs text-muted-foreground italic">—</span>}
                                 </td>
-                                <td className="py-3">
+                                <td className="py-3 pr-4">
                                   {insc.droit_image
                                     ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-700"><CheckCircle size={10} /> Oui</span>
                                     : <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] text-muted-foreground"><XCircle size={10} /> Non</span>}
+                                </td>
+                                <td className="py-3" onClick={(e) => e.stopPropagation()}>
+                                  {(() => {
+                                    const bilan = resteDuInscription(insc);
+                                    if (!bilan || bilan.resteDu == null) return <span className="text-xs text-muted-foreground italic">—</span>;
+                                    const cls = bilan.tropPercu ? "bg-sky-500/10 text-sky-700" : bilan.resteDu > 0 ? "bg-amber-500/10 text-amber-700" : "bg-emerald-500/10 text-emerald-700";
+                                    return (
+                                      <button onClick={() => setReglementsPanelInscId(insc.id)} className={`rounded-full px-2 py-0.5 text-[11px] font-medium hover:underline ${cls}`}>
+                                        {bilan.tropPercu ? "+" : ""}{formatMontant(bilan.resteDu)}
+                                      </button>
+                                    );
+                                  })()}
                                 </td>
                               </tr>
                             );
@@ -3607,6 +3659,24 @@ const AdminMembres = () => {
               </div>
             );
           })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Panneau de saisie des règlements (plusieurs modes/montants par échéance, théorique vs encaissé) */}
+      <Dialog open={!!reglementsPanelInscId} onOpenChange={(open) => { if (!open) setReglementsPanelInscId(null); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] p-0 overflow-hidden">
+          {reglementsPanelInscId && (
+            <ReglementsPanel
+              inscriptionId={reglementsPanelInscId}
+              inscriptions={inscriptions}
+              cheques={cheques}
+              chequeEcheances={chequeEcheances}
+              setCheques={setCheques}
+              setChequeEcheances={setChequeEcheances}
+              setInscriptions={setInscriptions}
+              onClose={() => setReglementsPanelInscId(null)}
+            />
+          )}
         </DialogContent>
       </Dialog>
 
