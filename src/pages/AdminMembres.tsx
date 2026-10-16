@@ -28,7 +28,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PrintableInscription, type RecapData } from "@/components/PrintableInscription";
 import { ReglementsPanel } from "@/components/ReglementsPanel";
 import { fetchGrilleTarifs, type GrilleTarifs } from "@/lib/tarifs";
-import { getFoyerIds, calculerMontantsFoyer, calculerEncaisseFoyer, bilanFoyer, formatMontant } from "@/lib/reglements";
+import { getFoyerIds, calculerMontantsFoyer, calculerEncaisseFoyer, bilanFoyer, formatMontant, echeancesDuMoyenPaiement } from "@/lib/reglements";
 
 interface Membre {
   id: string;
@@ -99,7 +99,7 @@ interface Cheque {
   numero: string | null;
   montant: number | null;
   saison: string | null;
-  statut: 'attendu' | 'recu';
+  statut: 'attendu' | 'recu' | 'depose';
   created_at: string;
 }
 
@@ -283,14 +283,19 @@ const AdminMembres = () => {
     if (sortCol === col) { setSortDir(d => d === "asc" ? "desc" : "asc"); }
     else { setSortCol(col); setSortDir("asc"); }
   };
-  const [reglementMode, setReglementMode] = useState<"cheque_1x" | "especes" | "virement" | "cheque_4x" | "cheque_3x_pass_sport">("cheque_4x");
-  const [reglementFilter, setReglementFilter] = useState<"inscription" | "dec" | "mars" | "juin" | "code">(() => {
+  // Onglet "Règlements" : trié par trimestre (quand les encaissements ont réellement lieu),
+  // le mode de paiement et le statut "déposé" ne sont plus que des filtres secondaires —
+  // voir echeancesDuMoyenPaiement(), toujours 4 trimestres quel que soit le mode déclaré.
+  const [reglementTrimestre, setReglementTrimestre] = useState<1 | 2 | 3 | 4>(() => {
     const m = new Date().getMonth();
-    if (m === 11) return "dec";
-    if (m === 2)  return "mars";
-    if (m === 5)  return "juin";
-    return "inscription";
+    if (m === 11) return 2;
+    if (m === 2)  return 3;
+    if (m === 5)  return 4;
+    return 1;
   });
+  const [reglementModeFiltre, setReglementModeFiltre] = useState<"tous" | "cheque" | "especes" | "virement" | "non_renseigne">("tous");
+  const [showPassSportCodes, setShowPassSportCodes] = useState(false);
+  const [selectedChequeIds, setSelectedChequeIds] = useState<Set<string>>(new Set());
   const [adminSection, setAdminSection] = useState<"membres" | "familles" | "galeries" | "tiers" | "administration">("membres");
   const [promouvoirSelectedId, setPromouvoirSelectedId] = useState<string>("");
   const [creerMembreForm, setCreerMembreForm] = useState({ nom: "", prenom: "", email: "" });
@@ -776,6 +781,12 @@ const AdminMembres = () => {
   };
 
   const TYPE_REGLEMENT_LABELS: Record<string, string> = { cheque: "Chèque", especes: "Espèces", virement: "Virement" };
+  const STATUT_REGLEMENT_LABELS: Record<string, string> = { attendu: "En attente", recu: "Reçu", depose: "Remis en banque" };
+  const STATUT_REGLEMENT_CLS: Record<string, string> = {
+    attendu: "bg-amber-500/10 text-amber-700",
+    recu: "bg-emerald-500/10 text-emerald-700",
+    depose: "bg-sky-500/10 text-sky-700",
+  };
 
   /** Récap des règlements déjà liés à une inscription, tous échéances confondues (pour la fiche membre). */
   const chequesPourInscription = (inscId: string) =>
@@ -1224,7 +1235,8 @@ const AdminMembres = () => {
           if (!cheque) return null;
           const numero = cheque.numero || '';
           const montant = cheque.montant != null ? formatMontant(cheque.montant) : '';
-          const statut = (cheque.statut ?? 'recu') === 'attendu' ? ' (attendu)' : '';
+          const statutActuel = cheque.statut ?? 'recu';
+          const statut = statutActuel === 'attendu' ? ' (attendu)' : statutActuel === 'depose' ? ' (remis en banque)' : '';
           return [numero, montant].filter(Boolean).join(' — ') + statut;
         })
         .filter(Boolean)
@@ -1812,50 +1824,31 @@ const AdminMembres = () => {
     isFirstCheck: boolean;
   };
 
+  // Toujours les 4 trimestres pour tout le monde, quel que soit le mode de paiement déclaré à
+  // l'inscription — la saisie réelle est libre (voir echeancesDuMoyenPaiement, réutilisée aussi
+  // par le panneau de règlement individuel) : on ne présume plus qu'un "chèque 1 fois" ne peut
+  // avoir qu'une seule échéance.
   const allPaymentEvents: PaymentEvent[] = (() => {
     const evts: PaymentEvent[] = [];
     const relevant = inscriptions.filter(i =>
       (i.statut === "validee" || i.statut === "acceptee") &&
-      i.moyen_paiement &&
       (isSuperAdmin || disciplineMatch(i.disciplines, currentUserDisciplines)) &&
       (!saisonFilter || i.saison === saisonFilter)
     );
     for (const insc of relevant) {
-      const created = new Date(insc.created_at);
-      if (insc.moyen_paiement === "cheque_4x" && insc.saison) {
-        const years = (insc.saison.match(/\d{4}/g) || []).map(Number);
-        const y1 = years[0], y2 = years[1];
-        if (!y1 || !y2) continue;
-        evts.push({ insc, installment: 1, total: 4, dueMonth: created.getMonth(), dueYear: created.getFullYear(), dueDateLabel: "À l'inscription", isFirstCheck: true });
-        evts.push({ insc, installment: 2, total: 4, dueMonth: 11, dueYear: y1, dueDateLabel: `Décembre ${y1}`, isFirstCheck: false });
-        evts.push({ insc, installment: 3, total: 4, dueMonth: 2,  dueYear: y2, dueDateLabel: `Mars ${y2}`,     isFirstCheck: false });
-        evts.push({ insc, installment: 4, total: 4, dueMonth: 5,  dueYear: y2, dueDateLabel: `Juin ${y2}`,     isFirstCheck: false });
-      } else if (insc.moyen_paiement === "cheque_3x_pass_sport" && insc.saison) {
-        const years = (insc.saison.match(/\d{4}/g) || []).map(Number);
-        const y1 = years[0], y2 = years[1];
-        if (!y1 || !y2) continue;
-        evts.push({ insc, installment: 1, total: 3, dueMonth: created.getMonth(), dueYear: created.getFullYear(), dueDateLabel: "À l'inscription", isFirstCheck: true });
-        evts.push({ insc, installment: 2, total: 3, dueMonth: 11, dueYear: y1, dueDateLabel: `Décembre ${y1}`, isFirstCheck: false });
-        evts.push({ insc, installment: 3, total: 3, dueMonth: 2,  dueYear: y2, dueDateLabel: `Mars ${y2}`,     isFirstCheck: false });
-      } else {
-        evts.push({ insc, installment: 1, total: 1, dueMonth: created.getMonth(), dueYear: created.getFullYear(), dueDateLabel: "À l'inscription", isFirstCheck: true });
+      for (const e of echeancesDuMoyenPaiement(insc.moyen_paiement, insc.created_at)) {
+        evts.push({
+          insc, installment: e.echeance, total: 4,
+          dueMonth: e.dueDate.getMonth(), dueYear: e.dueDate.getFullYear(),
+          dueDateLabel: e.label, isFirstCheck: e.echeance === 1,
+        });
       }
     }
     return evts;
   })();
 
   const reglementEvents = (() => {
-    let evts = allPaymentEvents.filter(e => e.insc.moyen_paiement === reglementMode);
-    if (reglementMode === "cheque_4x") {
-      if (reglementFilter === "inscription") evts = evts.filter(e => e.installment === 1);
-      else if (reglementFilter === "dec")    evts = evts.filter(e => e.installment === 2);
-      else if (reglementFilter === "mars")   evts = evts.filter(e => e.installment === 3);
-      else if (reglementFilter === "juin")   evts = evts.filter(e => e.installment === 4);
-    } else if (reglementMode === "cheque_3x_pass_sport") {
-      if (reglementFilter === "inscription") evts = evts.filter(e => e.installment === 1);
-      else if (reglementFilter === "dec")    evts = evts.filter(e => e.installment === 2);
-      else if (reglementFilter === "mars")   evts = evts.filter(e => e.installment === 3);
-    }
+    let evts = allPaymentEvents.filter(e => e.installment === reglementTrimestre);
     if (filterDiscipline) evts = evts.filter(e => (e.insc.disciplines || "").split(",").map(s => s.trim()).includes(filterDiscipline));
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -1865,33 +1858,17 @@ const AdminMembres = () => {
         (e.insc.email || "").toLowerCase().includes(q)
       );
     }
-    return evts.sort((a, b) => {
-      if (a.dueYear !== b.dueYear) return a.dueYear - b.dueYear;
-      if (a.dueMonth !== b.dueMonth) return a.dueMonth - b.dueMonth;
-      return (a.insc.nom || "").localeCompare(b.insc.nom || "", "fr", { sensitivity: "base" });
-    });
+    return evts.sort((a, b) => (a.insc.nom || "").localeCompare(b.insc.nom || "", "fr", { sensitivity: "base" }));
   })();
-
-  // Vrai pour les 5 modes (chèque comme espèces/virement) : tous ont désormais un montant
-  // à renseigner et peuvent être partagés entre plusieurs inscriptions (table cheques/cheque_echeances).
-  const isMontantReglementMode = reglementMode === "cheque_1x" || reglementMode === "cheque_4x" || reglementMode === "cheque_3x_pass_sport" || reglementMode === "especes" || reglementMode === "virement";
-  // Chèque 4x et Chèque 3x + Pass Sport ont tous deux plusieurs échéances : on affiche le n° et la date
-  // pour les deux, pour que le champ "N° de chèque" (par ligne = par échéance) reste lisible.
-  const isMultiEcheanceMode = reglementMode === "cheque_4x" || reglementMode === "cheque_3x_pass_sport";
-  // 4ème onglet du mode "Chèque 3x + Pass Sport" : à la place d'une 4ème échéance (qui n'existe
-  // pas pour ce mode), une vue dédiée à la saisie du code Pass Sport, une ligne par personne.
-  const isPassSportCodeTab = reglementMode === "cheque_3x_pass_sport" && reglementFilter === "code";
 
   /**
    * Regroupe les lignes de reglementEvents qui partagent le même chèque
    * (ex : un couple + un enfant réglant leurs 3 adhésions avec un seul
-   * chèque par trimestre) en une seule ligne d'affichage.
+   * chèque par trimestre) en une seule ligne d'affichage, puis applique le
+   * filtre de mode (tous / chèque / espèces / virement / non renseigné).
    */
   type ReglementRow = { key: string; chequeId: string | null; events: PaymentEvent[]; representative: PaymentEvent };
   const reglementRows: ReglementRow[] = (() => {
-    if (!isMontantReglementMode) {
-      return reglementEvents.map((evt) => ({ key: `solo-${evt.insc.id}-${evt.installment}`, chequeId: null, events: [evt], representative: evt }));
-    }
     const seen = new Set<string>();
     const rows: ReglementRow[] = [];
     for (const evt of reglementEvents) {
@@ -1908,16 +1885,22 @@ const AdminMembres = () => {
         .filter((e): e is PaymentEvent => !!e);
       rows.push({ key: link.cheque_id, chequeId: link.cheque_id, events: groupEvents.length ? groupEvents : [evt], representative: evt });
     }
-    return rows;
+    return rows.filter((row) => {
+      if (reglementModeFiltre === "tous") return true;
+      const cheque = row.chequeId ? chequeById.get(row.chequeId) : null;
+      if (reglementModeFiltre === "non_renseigne") return !cheque;
+      return cheque?.type === reglementModeFiltre;
+    });
   })();
 
-  /** Vue dédiée "Code Pass Sport" : une ligne par personne (pas par échéance). */
+  /** Vue dédiée "Code Pass Sport" : une ligne par personne (pas par échéance), indépendante du trimestre affiché. */
   const passSportCodeRows: PaymentEvent[] = (() => {
-    if (!isPassSportCodeTab) return [];
+    if (!showPassSportCodes) return [];
     const seen = new Set<string>();
     const rows: PaymentEvent[] = [];
     for (const evt of allPaymentEvents) {
-      if (evt.insc.moyen_paiement !== "cheque_3x_pass_sport") continue;
+      if (evt.installment !== 1) continue;
+      if (!evt.insc.pass_sport) continue;
       if (seen.has(evt.insc.id)) continue;
       if (saisonFilter && evt.insc.saison !== saisonFilter) continue;
       if (filterDiscipline && !(evt.insc.disciplines || "").split(",").map(s => s.trim()).includes(filterDiscipline)) continue;
@@ -1934,13 +1917,26 @@ const AdminMembres = () => {
 
   const currentMonth = new Date().getMonth();
   const currentYear  = new Date().getFullYear();
-  const isCurrentFilterMonth = (filter: "dec" | "mars" | "juin") => {
-    if (filter === "dec"  && currentMonth === 11) return true;
-    if (filter === "mars" && currentMonth === 2)  return true;
-    if (filter === "juin" && currentMonth === 5)  return true;
-    return false;
+  const countReglementsMois = allPaymentEvents.filter(e => e.dueMonth === currentMonth && e.dueYear === currentYear && e.installment > 1).length;
+
+  const handleMarquerStatutLot = async (statut: "recu" | "depose") => {
+    if (selectedChequeIds.size === 0) return;
+    const ids = [...selectedChequeIds];
+    const { error } = await supabase.from("cheques").update({ statut }).in("id", ids);
+    if (error) { toast.error("Erreur : " + error.message); return; }
+    setCheques(prev => prev.map(c => ids.includes(c.id) ? { ...c, statut } : c));
+    setSelectedChequeIds(new Set());
+    toast.success(`${ids.length} règlement${ids.length > 1 ? "s" : ""} marqué${ids.length > 1 ? "s" : ""} "${statut === "depose" ? "remis en banque" : "reçu"}".`);
   };
-  const countReglementsMois = allPaymentEvents.filter(e => e.dueMonth === currentMonth && e.dueYear === currentYear && e.insc.moyen_paiement === "cheque_4x" && e.installment > 1).length;
+
+  const STATUT_REGLEMENT_ORDRE: ("attendu" | "recu" | "depose")[] = ["attendu", "recu", "depose"];
+  const handleCycleStatutOverview = async (cheque: Cheque) => {
+    const actuel = cheque.statut ?? "recu";
+    const nouveau = STATUT_REGLEMENT_ORDRE[(STATUT_REGLEMENT_ORDRE.indexOf(actuel) + 1) % STATUT_REGLEMENT_ORDRE.length];
+    const { error } = await supabase.from("cheques").update({ statut: nouveau }).eq("id", cheque.id);
+    if (error) { toast.error("Erreur : " + error.message); return; }
+    setCheques(prev => prev.map(c => c.id === cheque.id ? { ...c, statut: nouveau } : c));
+  };
 
   const refuseesItems = activeTab === "refusees"
     ? inscriptions.filter(i => {
@@ -2187,63 +2183,49 @@ const AdminMembres = () => {
                   {/* Tableau liste */}
                   {activeTab === "reglements" ? (
                     <div className="space-y-4">
-                      {/* Onglets mode de paiement */}
+                      {/* Onglets trimestre — c'est le rythme réel d'encaissement, quel que soit le mode
+                          de paiement déclaré à l'inscription (la saisie est libre, voir plus bas). */}
                       <div className="flex border-b border-border/50 overflow-x-auto -mx-1 px-1">
-                        {([
-                          { id: "cheque_1x",            label: "Chèque 1 fois",       cls: "bg-blue-500/10 text-blue-700" },
-                          { id: "especes",              label: "Espèces",              cls: "bg-green-500/10 text-green-700" },
-                          { id: "virement",             label: "Virement",             cls: "bg-violet-500/10 text-violet-700" },
-                          { id: "cheque_4x",            label: "Chèque 4 fois",        cls: "bg-orange-500/10 text-orange-700" },
-                          { id: "cheque_3x_pass_sport", label: "Chèque 3 fois + Pass Sport", cls: "bg-pink-500/10 text-pink-700" },
-                        ] as const).map(({ id, label, cls }) => {
-                          const cnt = allPaymentEvents.filter(e =>
-                            e.insc.moyen_paiement === id &&
-                            (!saisonFilter || e.insc.saison === saisonFilter) &&
-                            (isSuperAdmin || disciplineMatch(e.insc.disciplines, currentUserDisciplines))
-                          ).length;
-                          const isActive = reglementMode === id;
+                        {([1, 2, 3, 4] as const).map((t) => {
+                          const label = t === 1 ? "T1 · À l'inscription" : t === 2 ? "T2 · Décembre" : t === 3 ? "T3 · Mars" : "T4 · Juin";
+                          const cnt = allPaymentEvents.filter(e => e.installment === t).length;
+                          const isActive = !showPassSportCodes && reglementTrimestre === t;
                           return (
-                            <button key={id} onClick={() => { setReglementMode(id); setReglementFilter("inscription"); }}
+                            <button key={t} onClick={() => { setReglementTrimestre(t); setShowPassSportCodes(false); setSelectedChequeIds(new Set()); }}
                               className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium whitespace-nowrap border-b-2 transition-colors shrink-0 ${isActive ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
                               {label}
-                              {cnt > 0 && <span className={`rounded-full px-1.5 py-0.5 text-[10px] leading-none font-semibold ${isActive ? cls : "bg-secondary text-muted-foreground"}`}>{cnt}</span>}
+                              {cnt > 0 && <span className={`rounded-full px-1.5 py-0.5 text-[10px] leading-none font-semibold ${isActive ? "bg-primary/10 text-primary" : "bg-secondary text-muted-foreground"}`}>{cnt}</span>}
                             </button>
                           );
                         })}
+                        <button onClick={() => { setShowPassSportCodes(v => !v); setSelectedChequeIds(new Set()); }}
+                          className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium whitespace-nowrap border-b-2 transition-colors shrink-0 ${showPassSportCodes ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+                          Codes Pass Sport
+                        </button>
                       </div>
 
-                      {/* Sous-onglets échéances — Chèque 4 fois et Chèque 3 fois + Pass Sport, même organisation.
-                          Pas de 4ème échéance pour le Pass Sport : ce 4ème onglet sert à saisir le code. */}
-                      {isMultiEcheanceMode && (
+                      {/* Filtre par mode — pour isoler par exemple tous les chèques avant un dépôt en banque. */}
+                      {!showPassSportCodes && (
                         <div className="flex items-center gap-2 flex-wrap">
-                          {(reglementMode === "cheque_4x"
-                            ? ([
-                                { id: "inscription", label: "À l'inscription" },
-                                { id: "dec",  label: "Décembre" },
-                                { id: "mars", label: "Mars" },
-                                { id: "juin", label: "Juin" },
-                              ] as const)
-                            : ([
-                                { id: "inscription", label: "À l'inscription" },
-                                { id: "dec",  label: "Décembre" },
-                                { id: "mars", label: "Mars" },
-                                { id: "code", label: "Code Pass Sport" },
-                              ] as const)
-                          ).map(({ id, label }) => {
-                            const isCurrent = (id === "dec" || id === "mars" || id === "juin") && isCurrentFilterMonth(id);
-                            const isActive = reglementFilter === id;
+                          {([
+                            { id: "tous", label: "Tous" },
+                            { id: "cheque", label: "Chèque" },
+                            { id: "especes", label: "Espèces" },
+                            { id: "virement", label: "Virement" },
+                            { id: "non_renseigne", label: "Non renseigné" },
+                          ] as const).map(({ id, label }) => {
+                            const isActive = reglementModeFiltre === id;
                             return (
-                              <button key={id} onClick={() => setReglementFilter(id)}
-                                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors flex items-center gap-1.5 ${isActive ? "bg-primary text-primary-foreground" : isCurrent ? "bg-primary/10 text-primary hover:bg-primary/20" : "bg-secondary text-muted-foreground hover:bg-secondary/80"}`}>
+                              <button key={id} onClick={() => { setReglementModeFiltre(id); setSelectedChequeIds(new Set()); }}
+                                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${isActive ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:bg-secondary/80"}`}>
                                 {label}
-                                {isCurrent && <span className={`rounded-full px-1.5 py-0.5 text-[10px] leading-none ${isActive ? "bg-white/20 text-white" : "bg-primary/20 text-primary"}`}>Ce mois</span>}
                               </button>
                             );
                           })}
                         </div>
                       )}
 
-                      {isPassSportCodeTab ? (
+                      {showPassSportCodes ? (
                         passSportCodeRows.length === 0 ? (
                           <p className="text-center text-sm text-muted-foreground py-8">Personne à afficher pour ce filtre.</p>
                         ) : (
@@ -2298,67 +2280,71 @@ const AdminMembres = () => {
                       ) : reglementRows.length === 0 ? (
                         <p className="text-center text-sm text-muted-foreground py-8">Aucun règlement pour ce filtre.</p>
                       ) : (
-                        <div className="overflow-x-auto -mx-5 px-5">
-                          <table className="w-full text-sm border-collapse">
-                            <thead>
-                              <tr className="border-b border-border/60">
-                                <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap min-w-[160px]">Inscrit(e)</th>
-                                <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Discipline(s)</th>
-                                {isMultiEcheanceMode && (
-                                  <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Chèque</th>
-                                )}
-                                {isMultiEcheanceMode && (
-                                  <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Échéance</th>
-                                )}
-                                {isMontantReglementMode && (
-                                  <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Règlement à encaisser</th>
-                                )}
-                                <th className="text-left pb-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Saison</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border/30">
-                              {reglementRows.map((row, idx) => {
-                                const evt = row.representative;
-                                const isCurrentMonth = reglementMode === "cheque_4x" && evt.dueMonth === new Date().getMonth() && evt.dueYear === new Date().getFullYear();
-                                const discs = Array.from(new Set(row.events.flatMap((e) => resolveDiscNoms(e.insc.disciplines))));
-                                const cheque = row.chequeId ? chequeById.get(row.chequeId) : null;
-                                return (
-                                  <tr key={row.key}
-                                    className={`transition-colors ${isCurrentMonth ? "bg-blue-50/60 hover:bg-blue-100/60" : idx % 2 === 0 ? "hover:bg-primary/[0.03]" : "bg-secondary/20 hover:bg-secondary/40"}`}>
-                                    <td className="py-3 pr-4">
-                                      <div className="flex flex-col gap-1">
-                                        {row.events.map((e) => (
-                                          <button key={e.insc.id}
-                                            onClick={() => { setModalTab("adhesions"); setSelectedKey(`i-${e.insc.id}`); }}
-                                            className="text-left font-semibold text-sm leading-tight hover:text-primary hover:underline">
-                                            {[e.insc.nom, e.insc.prenom].filter(Boolean).join(" ") || <span className="italic text-muted-foreground font-normal text-xs">Sans nom</span>}
-                                          </button>
-                                        ))}
-                                      </div>
-                                      {row.events.length === 1 && row.events[0].insc.email && (
-                                        <p className="text-[11px] text-muted-foreground truncate max-w-[160px]">{row.events[0].insc.email}</p>
-                                      )}
-                                    </td>
-                                    <td className="py-3 pr-4">
-                                      <div className="flex flex-wrap gap-1">
-                                        {discs.length === 0
-                                          ? <span className="text-xs text-muted-foreground">—</span>
-                                          : discs.map(d => <span key={d} className="inline-block rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">{d}</span>)
-                                        }
-                                      </div>
-                                    </td>
-                                    {isMultiEcheanceMode && (
-                                      <td className="py-3 pr-4">
-                                        <span className="text-xs font-semibold text-orange-700">{evt.installment}/{evt.total}</span>
+                        <>
+                          {selectedChequeIds.size > 0 && (
+                            <div className="flex flex-wrap items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
+                              <span className="font-medium">{selectedChequeIds.size} sélectionné{selectedChequeIds.size > 1 ? "s" : ""}</span>
+                              <Button size="sm" variant="outline" onClick={() => handleMarquerStatutLot("recu")} className="h-7 text-xs">Marquer "Reçu"</Button>
+                              <Button size="sm" onClick={() => handleMarquerStatutLot("depose")} className="h-7 text-xs bg-sky-600 hover:bg-sky-700 text-white">Marquer "Remis en banque"</Button>
+                              <button onClick={() => setSelectedChequeIds(new Set())} className="ml-auto text-muted-foreground underline">tout désélectionner</button>
+                            </div>
+                          )}
+                          <div className="overflow-x-auto -mx-5 px-5">
+                            <table className="w-full text-sm border-collapse">
+                              <thead>
+                                <tr className="border-b border-border/60">
+                                  <th className="w-8 pb-3"></th>
+                                  <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap min-w-[160px]">Inscrit(e)</th>
+                                  <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Discipline(s)</th>
+                                  <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Règlement</th>
+                                  <th className="text-left pb-3 pr-4 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Statut</th>
+                                  <th className="text-left pb-3 font-semibold text-xs text-muted-foreground uppercase tracking-wide whitespace-nowrap">Saison</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-border/30">
+                                {reglementRows.map((row, idx) => {
+                                  const evt = row.representative;
+                                  const discs = Array.from(new Set(row.events.flatMap((e) => resolveDiscNoms(e.insc.disciplines))));
+                                  const cheque = row.chequeId ? chequeById.get(row.chequeId) : null;
+                                  const estPassee = new Date(evt.dueYear, evt.dueMonth + 1, 0) < new Date();
+                                  const estOublie = !cheque && estPassee;
+                                  return (
+                                    <tr key={row.key}
+                                      className={`transition-colors ${estOublie ? "bg-amber-50/60 hover:bg-amber-100/60" : idx % 2 === 0 ? "hover:bg-primary/[0.03]" : "bg-secondary/20 hover:bg-secondary/40"}`}>
+                                      <td className="py-3">
+                                        {cheque && (
+                                          <Checkbox
+                                            checked={selectedChequeIds.has(cheque.id)}
+                                            onCheckedChange={(v) => setSelectedChequeIds(prev => {
+                                              const next = new Set(prev);
+                                              if (v) next.add(cheque.id); else next.delete(cheque.id);
+                                              return next;
+                                            })}
+                                          />
+                                        )}
                                       </td>
-                                    )}
-                                    {isMultiEcheanceMode && (
                                       <td className="py-3 pr-4">
-                                        <span className={`text-xs font-medium ${isCurrentMonth ? "text-blue-700" : "text-foreground"}`}>{evt.dueDateLabel}</span>
-                                        {isCurrentMonth && <span className="ml-1.5 inline-block rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">Ce mois</span>}
+                                        <div className="flex flex-col gap-1">
+                                          {row.events.map((e) => (
+                                            <button key={e.insc.id}
+                                              onClick={() => { setModalTab("adhesions"); setSelectedKey(`i-${e.insc.id}`); }}
+                                              className="text-left font-semibold text-sm leading-tight hover:text-primary hover:underline">
+                                              {[e.insc.nom, e.insc.prenom].filter(Boolean).join(" ") || <span className="italic text-muted-foreground font-normal text-xs">Sans nom</span>}
+                                            </button>
+                                          ))}
+                                        </div>
+                                        {row.events.length === 1 && row.events[0].insc.email && (
+                                          <p className="text-[11px] text-muted-foreground truncate max-w-[160px]">{row.events[0].insc.email}</p>
+                                        )}
                                       </td>
-                                    )}
-                                    {isMontantReglementMode && (
+                                      <td className="py-3 pr-4">
+                                        <div className="flex flex-wrap gap-1">
+                                          {discs.length === 0
+                                            ? <span className="text-xs text-muted-foreground">—</span>
+                                            : discs.map(d => <span key={d} className="inline-block rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">{d}</span>)
+                                          }
+                                        </div>
+                                      </td>
                                       <td className="py-3 pr-4">
                                         {cheque ? (
                                           <button onClick={() => openReglementsPanel(evt.insc.id, evt.installment)}
@@ -2367,23 +2353,36 @@ const AdminMembres = () => {
                                             <span className="text-[10px] text-muted-foreground">
                                               {formatMontant(cheque.montant)}
                                               {row.events.length > 1 ? ` · ${row.events.length} pers.` : ""}
-                                              {(cheque.statut ?? "recu") === "attendu" ? " · en attente" : ""}
                                             </span>
                                           </button>
                                         ) : (
-                                          <Button size="sm" variant="outline" onClick={() => openReglementsPanel(evt.insc.id, evt.installment)} className="h-7 px-2 text-xs gap-1 text-muted-foreground">
-                                            <Plus size={11} /> Renseigner
-                                          </Button>
+                                          <div className="flex items-center gap-1.5">
+                                            {estOublie && <AlertTriangle size={13} className="text-amber-500 shrink-0" />}
+                                            <Button size="sm" variant="outline" onClick={() => openReglementsPanel(evt.insc.id, evt.installment)} className="h-7 px-2 text-xs gap-1 text-muted-foreground">
+                                              <Plus size={11} /> Renseigner
+                                            </Button>
+                                          </div>
                                         )}
                                       </td>
-                                    )}
-                                    <td className="py-3 text-xs text-muted-foreground">{evt.insc.saison || "—"}</td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
+                                      <td className="py-3 pr-4">
+                                        {cheque && (
+                                          <button
+                                            onClick={() => handleCycleStatutOverview(cheque)}
+                                            title="Cliquer pour passer à l'état suivant"
+                                            className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUT_REGLEMENT_CLS[cheque.statut ?? "recu"]}`}
+                                          >
+                                            {STATUT_REGLEMENT_LABELS[cheque.statut ?? "recu"]}
+                                          </button>
+                                        )}
+                                      </td>
+                                      <td className="py-3 text-xs text-muted-foreground">{evt.insc.saison || "—"}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </>
                       )}
                     </div>
                   ) : activeTab === "refusees" ? (

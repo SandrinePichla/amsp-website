@@ -155,7 +155,7 @@ export const calculerEncaisseFoyer = (
   const comptes = new Set<string>();
   for (const c of cheques) {
     if (!chequeIdsLies.has(c.id) || c.saison !== saison) continue;
-    if ((c.statut ?? "recu") !== "recu") continue;
+    if ((c.statut ?? "recu") === "attendu") continue;
     if (comptes.has(c.id)) continue;
     comptes.add(c.id);
     total += c.montant || 0;

@@ -52,6 +52,15 @@ interface ChequeEcheanceLite {
 
 const TYPE_LABELS: Record<string, string> = { cheque: "Chèque", especes: "Espèces", virement: "Virement" };
 
+/** Les 3 états d'un règlement, dans l'ordre de progression réelle : annoncé → en main → porté à la banque. */
+const STATUT_ORDRE: ("attendu" | "recu" | "depose")[] = ["attendu", "recu", "depose"];
+const STATUT_LABELS: Record<string, string> = { attendu: "En attente", recu: "Reçu", depose: "Remis en banque" };
+const STATUT_CLS: Record<string, string> = {
+  attendu: "bg-amber-500/10 text-amber-700",
+  recu: "bg-emerald-500/10 text-emerald-700",
+  depose: "bg-sky-500/10 text-sky-700",
+};
+
 export const ReglementsPanel = ({
   inscriptionId,
   initialEcheance,
@@ -86,14 +95,14 @@ export const ReglementsPanel = ({
   const [formType, setFormType] = useState<"cheque" | "especes" | "virement">("cheque");
   const [formNumero, setFormNumero] = useState("");
   const [formMontant, setFormMontant] = useState("");
-  const [formStatut, setFormStatut] = useState<"attendu" | "recu">("recu");
+  const [formStatut, setFormStatut] = useState<"attendu" | "recu" | "depose">("recu");
   const [formPartages, setFormPartages] = useState<string[]>([]);
 
   const [editingChequeId, setEditingChequeId] = useState<string | null>(null);
   const [editType, setEditType] = useState<"cheque" | "especes" | "virement">("cheque");
   const [editNumero, setEditNumero] = useState("");
   const [editMontant, setEditMontant] = useState("");
-  const [editStatut, setEditStatut] = useState<"attendu" | "recu">("recu");
+  const [editStatut, setEditStatut] = useState<"attendu" | "recu" | "depose">("recu");
 
   useEffect(() => { fetchGrilleTarifs().then(setGrille); }, []);
   const premierRenduRef = useRef(true);
@@ -191,8 +200,9 @@ export const ReglementsPanel = ({
     toast.success("Règlement retiré.");
   };
 
-  const handleToggleStatut = async (cheque: ChequeLite) => {
-    const nouveau = (cheque.statut ?? "recu") === "recu" ? "attendu" : "recu";
+  const handleCycleStatut = async (cheque: ChequeLite) => {
+    const actuel = cheque.statut ?? "recu";
+    const nouveau = STATUT_ORDRE[(STATUT_ORDRE.indexOf(actuel as "attendu" | "recu" | "depose") + 1) % STATUT_ORDRE.length];
     const { error } = await supabase.from("cheques").update({ statut: nouveau }).eq("id", cheque.id);
     if (error) { toast.error("Erreur : " + error.message); return; }
     setCheques((prev) => prev.map((c) => (c.id === cheque.id ? { ...c, statut: nouveau } : c)));
@@ -203,7 +213,7 @@ export const ReglementsPanel = ({
     setEditType(cheque.type);
     setEditNumero(cheque.numero || "");
     setEditMontant(cheque.montant != null ? String(cheque.montant) : "");
-    setEditStatut((cheque.statut ?? "recu") as "attendu" | "recu");
+    setEditStatut((cheque.statut ?? "recu") as "attendu" | "recu" | "depose");
   };
 
   const handleSaveEdit = async () => {
@@ -423,10 +433,17 @@ export const ReglementsPanel = ({
                       )}
                       <Input type="number" step="0.01" placeholder="Montant (€)" value={editMontant} onChange={(e) => setEditMontant(e.target.value)} className="h-8 text-sm" />
                     </div>
-                    <label className="flex items-center gap-2 text-xs">
-                      <Checkbox checked={editStatut === "attendu"} onCheckedChange={(v) => setEditStatut(v ? "attendu" : "recu")} />
-                      Annoncé mais pas encore reçu (« en attente »)
-                    </label>
+                    <div className="flex gap-1.5">
+                      {STATUT_ORDRE.map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => setEditStatut(s)}
+                          className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${editStatut === s ? STATUT_CLS[s] + " ring-1 ring-inset ring-current" : "bg-secondary text-muted-foreground"}`}
+                        >
+                          {STATUT_LABELS[s]}
+                        </button>
+                      ))}
+                    </div>
                     <div className="flex justify-end gap-1.5 pt-1">
                       <Button size="sm" variant="outline" onClick={() => setEditingChequeId(null)} className="h-7 text-xs">Annuler</Button>
                       <Button size="sm" onClick={handleSaveEdit} className="h-7 text-xs gap-1"><Check size={12} /> Enregistrer</Button>
@@ -444,10 +461,11 @@ export const ReglementsPanel = ({
                     </div>
                     <div className="flex items-center gap-1.5">
                       <button
-                        onClick={() => handleToggleStatut(cheque)}
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${(cheque.statut ?? "recu") === "recu" ? "bg-emerald-500/10 text-emerald-700" : "bg-amber-500/10 text-amber-700"}`}
+                        onClick={() => handleCycleStatut(cheque)}
+                        title="Cliquer pour passer à l'état suivant"
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUT_CLS[cheque.statut ?? "recu"]}`}
                       >
-                        {(cheque.statut ?? "recu") === "recu" ? "Reçu" : "En attente"}
+                        {STATUT_LABELS[cheque.statut ?? "recu"]}
                       </button>
                       <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground" onClick={() => startEdit(cheque)}>
                         <Pencil size={13} />
@@ -483,10 +501,17 @@ export const ReglementsPanel = ({
                     )}
                     <Input type="number" step="0.01" placeholder="Montant (€)" value={formMontant} onChange={(e) => setFormMontant(e.target.value)} className="h-8 text-sm" />
                   </div>
-                  <label className="flex items-center gap-2 text-xs">
-                    <Checkbox checked={formStatut === "attendu"} onCheckedChange={(v) => setFormStatut(v ? "attendu" : "recu")} />
-                    Annoncé mais pas encore reçu (« en attente »)
-                  </label>
+                  <div className="flex gap-1.5">
+                    {STATUT_ORDRE.map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => setFormStatut(s)}
+                        className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${formStatut === s ? STATUT_CLS[s] + " ring-1 ring-inset ring-current" : "bg-secondary text-muted-foreground"}`}
+                      >
+                        {STATUT_LABELS[s]}
+                      </button>
+                    ))}
+                  </div>
                   {foyerMembres.length > 1 && (
                     <div>
                       <p className="mb-1 text-xs text-muted-foreground">Partagé avec :</p>
