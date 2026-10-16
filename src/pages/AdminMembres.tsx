@@ -1222,8 +1222,19 @@ const AdminMembres = () => {
     try {
     const { data: rawData, error } = await supabase.from('inscriptions').select('*').order('created_at', { ascending: false });
     if (error || !rawData) { toast.error("Erreur lors de l'export."); return; }
-    let data = isSuperAdmin ? rawData : rawData.filter(i => disciplineMatch(i.disciplines, currentUserDisciplines));
-    if (saisonFilter) data = data.filter(i => i.saison === saisonFilter);
+    let baseData = isSuperAdmin ? rawData : rawData.filter(i => disciplineMatch(i.disciplines, currentUserDisciplines));
+    if (saisonFilter) baseData = baseData.filter(i => i.saison === saisonFilter);
+    const sortNomPrenom = (a: Inscription, b: Inscription) =>
+      (a.nom || '').localeCompare(b.nom || '', 'fr', { sensitivity: 'base' }) ||
+      (a.prenom || '').localeCompare(b.prenom || '', 'fr', { sensitivity: 'base' });
+    // Comme sur le site : seules les inscriptions validées comptent pour les règlements. Un chèque
+    // reçu pour un dossier encore "Paiement en cours" (pas encore validé) n'est pas considéré comme
+    // en banque — il n'apparaît donc pas dans la feuille "Règlements" tant que le dossier n'est pas
+    // validé. Les dossiers non validés restent toutefois exportés à part (voir plus bas), pour ne
+    // perdre aucune donnée.
+    const data = baseData.filter(i => i.statut === 'validee').sort(sortNomPrenom);
+    const dataEnAttenteReglement = baseData.filter(i => i.statut === 'acceptee').sort(sortNomPrenom);
+    const dataRefusees = baseData.filter(i => i.statut === 'refusee').sort(sortNomPrenom);
 
     const ExcelJS = (await import('exceljs')).default;
     const workbook = new ExcelJS.Workbook();
@@ -1283,58 +1294,67 @@ const AdminMembres = () => {
       });
     };
 
-    // ─── Feuille "Identité" : une ligne par personne, informations générales uniquement.
+    // ─── Feuille(s) "infos générales" : une ligne par personne, triée par nom puis prénom.
     // Le règlement n'y figure volontairement pas : un chèque peut couvrir plusieurs personnes
     // d'un même foyer, donc une colonne de montant par personne ici donnerait un total faux si on
-    // additionne la colonne (voir la feuille "Règlements", qui raisonne par foyer).
-    const sheetIdentite = creerFeuille('Identité', `${data.length} inscription(s)`, 17);
-    const headersIdentite = [
-      'Numéro', 'Nom', 'Prénom', 'Date naissance', 'Âge', 'Type',
-      'Adresse', 'Téléphone', 'Email', 'Discipline(s)', 'Niveau',
-      'Mode de paiement déclaré', 'Pass Sport', 'Saison', 'Statut', 'Source', 'Reçue le',
-    ];
-    styleEnTete(sheetIdentite.addRow(headersIdentite));
+    // additionne la colonne (voir la feuille "Règlements", qui raisonne par foyer). Réutilisée pour
+    // les 3 feuilles "infos générales" (validées, en attente de règlement, refusées) afin de ne
+    // perdre aucune donnée tout en gardant la feuille "Identité" propre (validées uniquement).
+    const construireFeuilleIdentite = (nomFeuille: string, dataset: Inscription[]) => {
+      const sheet = creerFeuille(nomFeuille, `${dataset.length} inscription(s)`, 17);
+      const headers = [
+        'Numéro', 'Nom', 'Prénom', 'Date naissance', 'Âge', 'Type',
+        'Adresse', 'Téléphone', 'Email', 'Discipline(s)', 'Niveau',
+        'Mode de paiement déclaré', 'Pass Sport', 'Saison', 'Statut', 'Source', 'Reçue le',
+      ];
+      styleEnTete(sheet.addRow(headers));
 
-    data.forEach((i, idx) => {
-      const isEven = idx % 2 === 0;
-      const rowBg = isEven ? GRIS_CLAIR : BLANC;
-      const statut = i.statut || 'en_attente';
-      const age = calcAge(i.date_naissance);
-      const row = sheetIdentite.addRow([
-        idx + 1,
-        i.nom || '',
-        i.prenom || '',
-        i.date_naissance ? new Date(i.date_naissance).toLocaleDateString('fr-FR') : '',
-        age !== null ? age : '',
-        i.type_inscription === 'mineur' ? 'Mineur' : 'Adulte',
-        i.adresse || '',
-        i.tel_mobile || '',
-        i.email || '',
-        resolveDiscNoms(i.disciplines).join(", ") || '',
-        i.niveau || '',
-        PAIEMENT_LABELS[i.moyen_paiement || ''] ?? (i.moyen_paiement || ''),
-        i.pass_sport ? 'Oui' : '',
-        i.saison || '',
-        STATUT_LABELS_EXPORT[statut] ?? statut,
-        i.source === 'papier' ? 'Papier' : 'En ligne',
-        new Date(i.created_at).toLocaleDateString('fr-FR'),
-      ]);
-      row.height = 18;
-      const sc = statutColors[statut] || { bg: rowBg, fg: '00000000' };
-      row.eachCell((cell, colNum) => {
-        if (colNum === 15) {
-          cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: sc.fg } };
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: sc.bg } };
-        } else {
-          cell.font = { name: 'Calibri', size: 9 };
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBg } };
-        }
-        cell.alignment = { vertical: 'middle', wrapText: false };
+      dataset.forEach((i, idx) => {
+        const isEven = idx % 2 === 0;
+        const rowBg = isEven ? GRIS_CLAIR : BLANC;
+        const statut = i.statut || 'en_attente';
+        const age = calcAge(i.date_naissance);
+        const row = sheet.addRow([
+          idx + 1,
+          i.nom || '',
+          i.prenom || '',
+          i.date_naissance ? new Date(i.date_naissance).toLocaleDateString('fr-FR') : '',
+          age !== null ? age : '',
+          i.type_inscription === 'mineur' ? 'Mineur' : 'Adulte',
+          i.adresse || '',
+          i.tel_mobile || '',
+          i.email || '',
+          resolveDiscNoms(i.disciplines).join(", ") || '',
+          i.niveau || '',
+          PAIEMENT_LABELS[i.moyen_paiement || ''] ?? (i.moyen_paiement || ''),
+          i.pass_sport ? 'Oui' : '',
+          i.saison || '',
+          STATUT_LABELS_EXPORT[statut] ?? statut,
+          i.source === 'papier' ? 'Papier' : 'En ligne',
+          new Date(i.created_at).toLocaleDateString('fr-FR'),
+        ]);
+        row.height = 18;
+        const sc = statutColors[statut] || { bg: rowBg, fg: '00000000' };
+        row.eachCell((cell, colNum) => {
+          if (colNum === 15) {
+            cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: sc.fg } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: sc.bg } };
+          } else {
+            cell.font = { name: 'Calibri', size: 9 };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBg } };
+          }
+          cell.alignment = { vertical: 'middle', wrapText: false };
+        });
       });
-    });
-    //                         N°  Nom  Prén DdN  Âge Type Adr  Tel  Email Disc Niv  Paiem Pass Sais Stat Src  Reçu
-    [                          7,  16,  14,  13,  7,  10,  30,  14,  28,   20,  12,  18,   9,   12,  14,  9,   12]
-      .forEach((w, i) => { sheetIdentite.getColumn(i + 1).width = w; });
+      //                         N°  Nom  Prén DdN  Âge Type Adr  Tel  Email Disc Niv  Paiem Pass Sais Stat Src  Reçu
+      [                          7,  16,  14,  13,  7,  10,  30,  14,  28,   20,  12,  18,   9,   12,  14,  9,   12]
+        .forEach((w, i) => { sheet.getColumn(i + 1).width = w; });
+      return sheet;
+    };
+
+    construireFeuilleIdentite('Identité', data);
+    construireFeuilleIdentite('En attente de règlement', dataEnAttenteReglement);
+    construireFeuilleIdentite('Refusées', dataRefusees);
 
     // ─── Feuille "Santé & urgence" : une ligne par personne.
     const sheetSante = creerFeuille('Santé & urgence', `${data.length} inscription(s)`, 6);
@@ -1396,7 +1416,6 @@ const AdminMembres = () => {
     // ET pour le tri alphabétique — trier sur la chaîne affichée revient alors à trier par nom de famille.
     const nomParInscription = new Map(data.map((i) => [i.id, `${i.nom || ''} ${i.prenom || ''}`.trim()]));
     const TYPE_LABELS_EXPORT: Record<string, string> = { cheque: 'Chèque', especes: 'Espèces', virement: 'Virement' };
-    const STATUT_REGLEMENT_LABELS_EXPORT: Record<string, string> = { attendu: 'En attente', recu: 'Reçu', depose: 'Remis en banque' };
     const TRIMESTRE_LABELS = ["T1 · À l'inscription", 'T2 · Décembre', 'T3 · Mars', 'T4 · Juin'];
 
     type LigneReglement = { echeance: number; noms: string; triNom: string; type: string; numero: string; montant: number; statut: string; saison: string };
@@ -1419,8 +1438,12 @@ const AdminMembres = () => {
     }
     lignesReglement.sort((a, b) => a.triNom.localeCompare(b.triNom, 'fr', { sensitivity: 'base' }));
 
-    const sheetReglements = creerFeuille('Règlements', `${lignesReglement.length} règlement(s)`, 7);
-    styleEnTete(sheetReglements.addRow(['Trimestre', 'Personnes concernées', 'Mode', 'N° chèque', 'Montant', 'Statut', 'Saison']));
+    const NB_COLS_REGL = 8;
+    const sheetReglements = creerFeuille('Règlements', `${lignesReglement.length} règlement(s)`, NB_COLS_REGL);
+    styleEnTete(sheetReglements.addRow(['Trimestre', 'Personnes concernées', 'Mode', 'N° chèque', 'Montant', 'Reçu', 'Remis en banque', 'Saison']));
+
+    const VERT_CLAIR_BG = 'FFe8f5e9';
+    const OUI_NON_CLS = (oui: boolean) => (oui ? { bg: VERT_CLAIR_BG, fg: VERT_FG } : { bg: GRIS_BG, fg: GRIS_FG });
 
     let totalGeneralEncaisse = 0, totalGeneralAttente = 0;
     for (let echeance = 1; echeance <= 4; echeance++) {
@@ -1428,7 +1451,7 @@ const AdminMembres = () => {
 
       // Bandeau de groupe
       const bandeauRow = sheetReglements.addRow([TRIMESTRE_LABELS[echeance - 1]]);
-      sheetReglements.mergeCells(bandeauRow.number, 1, bandeauRow.number, 7);
+      sheetReglements.mergeCells(bandeauRow.number, 1, bandeauRow.number, NB_COLS_REGL);
       const bandeauCell = sheetReglements.getCell(bandeauRow.number, 1);
       bandeauCell.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: BLANC } };
       bandeauCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLEU } };
@@ -1444,16 +1467,22 @@ const AdminMembres = () => {
       let totalTrimestreEncaisse = 0, totalTrimestreAttente = 0;
       lignesTrimestre.forEach((ligne, idx) => {
         const rowBg = idx % 2 === 0 ? GRIS_CLAIR : BLANC;
-        const sc = statutColors[ligne.statut === 'attendu' ? 'en_attente' : ligne.statut === 'depose' ? 'acceptee' : 'validee'];
+        const estRecu = ligne.statut === 'recu' || ligne.statut === 'depose';
+        const estDepose = ligne.statut === 'depose';
+        const scRecu = OUI_NON_CLS(estRecu);
+        const scDepose = OUI_NON_CLS(estDepose);
         const row = sheetReglements.addRow([
           TRIMESTRE_LABELS[echeance - 1], ligne.noms, TYPE_LABELS_EXPORT[ligne.type] ?? ligne.type,
-          ligne.numero, ligne.montant, STATUT_REGLEMENT_LABELS_EXPORT[ligne.statut] ?? ligne.statut, ligne.saison,
+          ligne.numero, ligne.montant, estRecu ? 'Oui' : 'Non', estDepose ? 'Oui' : 'Non', ligne.saison,
         ]);
         row.height = 18;
         row.eachCell((cell, colNum) => {
           if (colNum === 6) {
-            cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: sc.fg } };
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: sc.bg } };
+            cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: scRecu.fg } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: scRecu.bg } };
+          } else if (colNum === 7) {
+            cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: scDepose.fg } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: scDepose.bg } };
           } else {
             cell.font = { name: 'Calibri', size: 9 };
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBg } };
@@ -1467,8 +1496,9 @@ const AdminMembres = () => {
 
       const sousTotalRow = sheetReglements.addRow([
         '', `Sous-total ${TRIMESTRE_LABELS[echeance - 1]}`, '', '',
-        `${formatMontant(totalTrimestreEncaisse)} reçus/déposés`, `${formatMontant(totalTrimestreAttente)} en attente`, '',
+        `${formatMontant(totalTrimestreEncaisse)} reçus/déposés · ${formatMontant(totalTrimestreAttente)} en attente`,
       ]);
+      sheetReglements.mergeCells(sousTotalRow.number, 5, sousTotalRow.number, NB_COLS_REGL);
       sousTotalRow.eachCell((cell) => {
         cell.font = { name: 'Calibri', size: 9.5, bold: true };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GRIS_BG } };
@@ -1481,8 +1511,9 @@ const AdminMembres = () => {
 
     const totalRow = sheetReglements.addRow([
       '', 'TOTAL GÉNÉRAL', '', '',
-      `${formatMontant(totalGeneralEncaisse)} reçus/déposés`, `${formatMontant(totalGeneralAttente)} en attente`, '',
+      `${formatMontant(totalGeneralEncaisse)} reçus/déposés · ${formatMontant(totalGeneralAttente)} en attente`,
     ]);
+    sheetReglements.mergeCells(totalRow.number, 5, totalRow.number, NB_COLS_REGL);
     totalRow.eachCell((cell) => {
       cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: BLANC } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLEU } };
@@ -1490,7 +1521,7 @@ const AdminMembres = () => {
     });
     totalRow.height = 24;
 
-    [12, 28, 12, 16, 14, 16, 14].forEach((w, i) => { sheetReglements.getColumn(i + 1).width = w; });
+    [12, 28, 12, 16, 14, 10, 14, 14].forEach((w, i) => { sheetReglements.getColumn(i + 1).width = w; });
 
     const buf = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
