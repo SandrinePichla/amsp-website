@@ -1279,8 +1279,8 @@ const AdminMembres = () => {
     // Couleur d'onglet = regroupement visuel des feuilles (Excel n'a pas de vrai "groupe d'onglets"
     // pliable, la couleur est la convention la plus lisible) : vert = inscriptions validées (les 4
     // feuilles qui les concernent), ambre = en attente de validation, rouge = refusées/supprimées.
-    const creerFeuille = (nom: string, sousTitre: string, nbCols: number, couleurOnglet?: string) => {
-      const s = workbook.addWorksheet(nom, { views: [{ state: 'frozen', ySplit: 4 }] });
+    const creerFeuille = (nom: string, sousTitre: string, nbCols: number, couleurOnglet?: string, colonnesGelees = 0) => {
+      const s = workbook.addWorksheet(nom, { views: [{ state: 'frozen', ySplit: 4, xSplit: colonnesGelees }] });
       if (couleurOnglet) s.properties.tabColor = { argb: couleurOnglet };
       s.mergeCells(1, 1, 1, nbCols);
       const titreCell = s.getCell(1, 1);
@@ -1308,6 +1308,23 @@ const AdminMembres = () => {
         cell.border = { bottom: { style: 'thin', color: { argb: BLANC } } };
       });
     };
+    const BORDURE_LEGERE = { style: 'thin' as const, color: { argb: 'FFe5e7eb' } };
+    /** Centre/aligne chaque colonne selon le type de contenu, et ajoute une grille fine — à appeler
+     * une fois toutes les lignes de données ajoutées (de premiereLigne à derniereLigne inclus). */
+    const appliquerAlignement = (sheet: ExcelJS.Worksheet, premiereLigne: number, derniereLigne: number, alignements: ('left' | 'center' | 'right')[]) => {
+      for (let r = premiereLigne; r <= derniereLigne; r++) {
+        const row = sheet.getRow(r);
+        alignements.forEach((align, i) => {
+          const cell = row.getCell(i + 1);
+          cell.alignment = { vertical: 'middle', horizontal: align, wrapText: false };
+          cell.border = { bottom: BORDURE_LEGERE };
+        });
+      }
+    };
+    /** Active les flèches de filtre Excel sur l'en-tête (ligne 4) jusqu'à la dernière ligne de données. */
+    const activerFiltre = (sheet: ExcelJS.Worksheet, nbCols: number, derniereLigne: number) => {
+      sheet.autoFilter = { from: { row: 4, column: 1 }, to: { row: derniereLigne, column: nbCols } };
+    };
 
     // ─── Feuille(s) "infos générales" : une ligne par personne, triée par nom puis prénom.
     // Le règlement n'y figure volontairement pas : un chèque peut couvrir plusieurs personnes
@@ -1316,7 +1333,7 @@ const AdminMembres = () => {
     // les 3 feuilles "infos générales" (validées, en attente de règlement, refusées) afin de ne
     // perdre aucune donnée tout en gardant la feuille "Identité" propre (validées uniquement).
     const construireFeuilleIdentite = (nomFeuille: string, dataset: Inscription[], couleurOnglet?: string) => {
-      const sheet = creerFeuille(nomFeuille, `${dataset.length} inscription(s)`, 17, couleurOnglet);
+      const sheet = creerFeuille(nomFeuille, `${dataset.length} inscription(s)`, 17, couleurOnglet, 2);
       const headers = [
         'Numéro', 'Nom', 'Prénom', 'Date naissance', 'Âge', 'Type',
         'Adresse', 'Téléphone', 'Email', 'Discipline(s)', 'Niveau',
@@ -1364,13 +1381,21 @@ const AdminMembres = () => {
       //                         N°  Nom  Prén DdN  Âge Type Adr  Tel  Email Disc Niv  Paiem Pass Sais Stat Src  Reçu
       [                          7,  16,  14,  13,  7,  10,  30,  14,  28,   20,  12,  18,   9,   12,  14,  9,   12]
         .forEach((w, i) => { sheet.getColumn(i + 1).width = w; });
+      if (dataset.length > 0) {
+        appliquerAlignement(sheet, 5, 4 + dataset.length, [
+          'center', 'left', 'left', 'center', 'center', 'center',
+          'left', 'center', 'left', 'left', 'center',
+          'left', 'center', 'center', 'center', 'center', 'center',
+        ]);
+        activerFiltre(sheet, 17, 4 + dataset.length);
+      }
       return sheet;
     };
 
     construireFeuilleIdentite('Identité', data, VERT_FG);
 
     // ─── Feuille "Santé & urgence" : une ligne par personne.
-    const sheetSante = creerFeuille('Santé & urgence', `${data.length} inscription(s)`, 6, VERT_FG);
+    const sheetSante = creerFeuille('Santé & urgence', `${data.length} inscription(s)`, 7, VERT_FG, 2);
     styleEnTete(sheetSante.addRow(['Numéro', 'Nom', 'Prénom', 'Groupe sanguin', 'Allergie(s)', 'Contact urgence', 'Téléphone urgence']));
     data.forEach((i, idx) => {
       const rowBg = idx % 2 === 0 ? GRIS_CLAIR : BLANC;
@@ -1386,10 +1411,14 @@ const AdminMembres = () => {
       });
     });
     [7, 16, 14, 14, 30, 22, 16].forEach((w, i) => { sheetSante.getColumn(i + 1).width = w; });
+    if (data.length > 0) {
+      appliquerAlignement(sheetSante, 5, 4 + data.length, ['center', 'left', 'left', 'center', 'left', 'left', 'center']);
+      activerFiltre(sheetSante, 7, 4 + data.length);
+    }
 
     // ─── Feuille "Autorisations" : droit à l'image (tout le monde) + autorisation parentale et
     // représentants légaux (mineurs uniquement, colonnes laissées vides pour les adultes).
-    const sheetAutorisations = creerFeuille('Autorisations', `${data.length} inscription(s)`, 12, VERT_FG);
+    const sheetAutorisations = creerFeuille('Autorisations', `${data.length} inscription(s)`, 12, VERT_FG, 2);
     styleEnTete(sheetAutorisations.addRow([
       'Numéro', 'Nom', 'Prénom', 'Type', 'Droit image', 'Autorisation parentale',
       'Parent 1', 'Parent 1 email', 'Parent 1 tél', 'Parent 2', 'Parent 2 email', 'Parent 2 tél',
@@ -1417,6 +1446,13 @@ const AdminMembres = () => {
       });
     });
     [7, 16, 14, 9, 11, 16, 22, 24, 13, 22, 24, 13].forEach((w, i) => { sheetAutorisations.getColumn(i + 1).width = w; });
+    if (data.length > 0) {
+      appliquerAlignement(sheetAutorisations, 5, 4 + data.length, [
+        'center', 'left', 'left', 'center', 'center', 'center',
+        'left', 'left', 'center', 'left', 'left', 'center',
+      ]);
+      activerFiltre(sheetAutorisations, 12, 4 + data.length);
+    }
 
     // ─── Feuille "Règlements" : un journal de recettes façon logiciel de compta —
     // une ligne par règlement réellement reçu (pas par foyer ni par personne), groupée
@@ -1452,7 +1488,7 @@ const AdminMembres = () => {
     lignesReglement.sort((a, b) => a.triNom.localeCompare(b.triNom, 'fr', { sensitivity: 'base' }));
 
     const NB_COLS_REGL = 8;
-    const sheetReglements = creerFeuille('Règlements', `${lignesReglement.length} règlement(s)`, NB_COLS_REGL, VERT_FG);
+    const sheetReglements = creerFeuille('Règlements', `${lignesReglement.length} règlement(s)`, NB_COLS_REGL, VERT_FG, 2);
     styleEnTete(sheetReglements.addRow(['Trimestre', 'Personnes concernées', 'Mode', 'N° chèque', 'Montant', 'Reçu', 'Remis en banque', 'Saison']));
 
     const VERT_CLAIR_BG = 'FFe8f5e9';
@@ -1506,7 +1542,9 @@ const AdminMembres = () => {
             cell.font = { name: 'Calibri', size: 9 };
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBg } };
           }
-          cell.alignment = { vertical: 'middle', wrapText: false };
+          const alignColReglement: Record<number, 'left' | 'center' | 'right'> = { 1: 'center', 2: 'left', 3: 'center', 4: 'center', 5: 'right', 6: 'center', 7: 'center', 8: 'center' };
+          cell.alignment = { vertical: 'middle', horizontal: alignColReglement[colNum] ?? 'left', wrapText: false };
+          cell.border = { bottom: BORDURE_LEGERE };
           if (colNum === 5) cell.numFmt = '#,##0.00 "€"';
         });
         if (ligne.statut === 'attendu') totalTrimestreAttente += ligne.montant;
@@ -1620,7 +1658,7 @@ const AdminMembres = () => {
     }
     lignesBilanFoyer.sort((a, b) => a.triNom.localeCompare(b.triNom, 'fr', { sensitivity: 'base' }));
 
-    const sheetBilan = creerFeuille('Bilan par foyer', `${lignesBilanFoyer.length} foyer(s)`, 6, VERT_FG);
+    const sheetBilan = creerFeuille('Bilan par foyer', `${lignesBilanFoyer.length} foyer(s)`, 6, VERT_FG, 1);
     styleEnTete(sheetBilan.addRow(['Foyer', 'Théorique', 'Encaissé', 'Remis en banque', 'Reste dû / Trop-perçu', 'Saison']));
     let totalBilanTheorique = 0, totalBilanEncaisse = 0, totalBilanDepose = 0, totalBilanResteDu = 0;
     let bilanIncomplet = false;
@@ -1654,11 +1692,15 @@ const AdminMembres = () => {
     totalBilanRow.eachCell((cell, colNum) => {
       cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: BLANC } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLEU } };
-      cell.alignment = { vertical: 'middle' };
+      cell.alignment = { vertical: 'middle', horizontal: colNum === 1 ? 'left' : 'center' };
       if ((colNum === 2 || colNum === 3 || colNum === 4) && typeof cell.value === 'number') cell.numFmt = '#,##0.00 "€"';
     });
     totalBilanRow.height = 24;
     [32, 14, 14, 16, 18, 14].forEach((w, i) => { sheetBilan.getColumn(i + 1).width = w; });
+    if (lignesBilanFoyer.length > 0) {
+      appliquerAlignement(sheetBilan, 5, 4 + lignesBilanFoyer.length, ['left', 'right', 'right', 'right', 'center', 'center']);
+      activerFiltre(sheetBilan, 6, 4 + lignesBilanFoyer.length);
+    }
 
     construireFeuilleIdentite('En attente de règlement', dataEnAttenteReglement, AMBRE_FG);
     construireFeuilleIdentite('Refusées et supprimées', dataRefuseesEtSupprimees, ROUGE);
