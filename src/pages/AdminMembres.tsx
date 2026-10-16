@@ -185,7 +185,7 @@ const roleBadge = (role: string) => {
 
 const inscBadge = (statut: string | null) => {
   if (statut === "validee")   return { label: "Validée",                cls: "bg-green-500/10 text-green-700" };
-  if (statut === "acceptee")  return { label: "Paiement en cours", cls: "bg-violet-500/10 text-violet-700" };
+  if (statut === "acceptee")  return { label: "À valider", cls: "bg-violet-500/10 text-violet-700" };
   if (statut === "refusee")   return { label: "Refusée",                cls: "bg-red-500/10 text-red-600" };
   if (statut === "supprimee") return { label: "Supprimée",              cls: "bg-muted text-muted-foreground line-through" };
   return                             { label: "En cours d'examen",      cls: "bg-amber-500/10 text-amber-700" };
@@ -718,7 +718,18 @@ const AdminMembres = () => {
   };
 
   const chequeById = new Map(cheques.map((c) => [c.id, c]));
+  // Historique : un seul lien par inscription+échéance à l'époque de la contrainte UNIQUE stricte.
+  // Ne plus utiliser pour construire une liste de règlements (voir chequeLinksByInscEch, plurielle,
+  // ci-dessous) — une échéance peut désormais avoir plusieurs règlements, et ce Map n'en garderait
+  // qu'un seul (le dernier inséré), masquant silencieusement les autres.
   const chequeLinkByInscEch = new Map(chequeEcheances.map((l) => [`${l.inscription_id}:${l.echeance}`, l]));
+  const chequeLinksByInscEch = new Map<string, ChequeEcheance[]>();
+  chequeEcheances.forEach((l) => {
+    const key = `${l.inscription_id}:${l.echeance}`;
+    const arr = chequeLinksByInscEch.get(key) || [];
+    arr.push(l);
+    chequeLinksByInscEch.set(key, arr);
+  });
   const chequeLinksByChequeId = new Map<string, ChequeEcheance[]>();
   chequeEcheances.forEach((l) => {
     const arr = chequeLinksByChequeId.get(l.cheque_id) || [];
@@ -1228,7 +1239,7 @@ const AdminMembres = () => {
       (a.nom || '').localeCompare(b.nom || '', 'fr', { sensitivity: 'base' }) ||
       (a.prenom || '').localeCompare(b.prenom || '', 'fr', { sensitivity: 'base' });
     // Comme sur le site : seules les inscriptions validées comptent pour les règlements. Un chèque
-    // reçu pour un dossier encore "Paiement en cours" (pas encore validé) n'est pas considéré comme
+    // reçu pour un dossier encore "À valider" (pas encore validé) n'est pas considéré comme
     // en banque — il n'apparaît donc pas dans la feuille "Règlements" tant que le dossier n'est pas
     // validé. Les dossiers non validés restent toutefois exportés à part (voir plus bas), pour ne
     // perdre aucune donnée.
@@ -1262,11 +1273,15 @@ const AdminMembres = () => {
       en_attente: { bg: AMBRE_BG,   fg: AMBRE_FG },
       supprimee:  { bg: GRIS_BG,    fg: GRIS_FG },
     };
-    const STATUT_LABELS_EXPORT: Record<string, string> = { validee: 'Validée', refusee: 'Refusée', en_attente: "En cours d'examen", acceptee: 'Paiement en cours', supprimee: 'Supprimée' };
+    const STATUT_LABELS_EXPORT: Record<string, string> = { validee: 'Validée', refusee: 'Refusée', en_attente: "En cours d'examen", acceptee: 'À valider', supprimee: 'Supprimée' };
 
     /** Crée une feuille avec le même bandeau titre (ligne 1-2) que toutes les feuilles de cet export. */
-    const creerFeuille = (nom: string, sousTitre: string, nbCols: number) => {
+    // Couleur d'onglet = regroupement visuel des feuilles (Excel n'a pas de vrai "groupe d'onglets"
+    // pliable, la couleur est la convention la plus lisible) : vert = inscriptions validées (les 4
+    // feuilles qui les concernent), ambre = en attente de validation, rouge = refusées/supprimées.
+    const creerFeuille = (nom: string, sousTitre: string, nbCols: number, couleurOnglet?: string) => {
       const s = workbook.addWorksheet(nom, { views: [{ state: 'frozen', ySplit: 4 }] });
+      if (couleurOnglet) s.properties.tabColor = { argb: couleurOnglet };
       s.mergeCells(1, 1, 1, nbCols);
       const titreCell = s.getCell(1, 1);
       titreCell.value = `AMSP — ${nom}`;
@@ -1300,8 +1315,8 @@ const AdminMembres = () => {
     // additionne la colonne (voir la feuille "Règlements", qui raisonne par foyer). Réutilisée pour
     // les 3 feuilles "infos générales" (validées, en attente de règlement, refusées) afin de ne
     // perdre aucune donnée tout en gardant la feuille "Identité" propre (validées uniquement).
-    const construireFeuilleIdentite = (nomFeuille: string, dataset: Inscription[]) => {
-      const sheet = creerFeuille(nomFeuille, `${dataset.length} inscription(s)`, 17);
+    const construireFeuilleIdentite = (nomFeuille: string, dataset: Inscription[], couleurOnglet?: string) => {
+      const sheet = creerFeuille(nomFeuille, `${dataset.length} inscription(s)`, 17, couleurOnglet);
       const headers = [
         'Numéro', 'Nom', 'Prénom', 'Date naissance', 'Âge', 'Type',
         'Adresse', 'Téléphone', 'Email', 'Discipline(s)', 'Niveau',
@@ -1352,10 +1367,10 @@ const AdminMembres = () => {
       return sheet;
     };
 
-    construireFeuilleIdentite('Identité', data);
+    construireFeuilleIdentite('Identité', data, VERT_FG);
 
     // ─── Feuille "Santé & urgence" : une ligne par personne.
-    const sheetSante = creerFeuille('Santé & urgence', `${data.length} inscription(s)`, 6);
+    const sheetSante = creerFeuille('Santé & urgence', `${data.length} inscription(s)`, 6, VERT_FG);
     styleEnTete(sheetSante.addRow(['Numéro', 'Nom', 'Prénom', 'Groupe sanguin', 'Allergie(s)', 'Contact urgence', 'Téléphone urgence']));
     data.forEach((i, idx) => {
       const rowBg = idx % 2 === 0 ? GRIS_CLAIR : BLANC;
@@ -1374,7 +1389,7 @@ const AdminMembres = () => {
 
     // ─── Feuille "Autorisations" : droit à l'image (tout le monde) + autorisation parentale et
     // représentants légaux (mineurs uniquement, colonnes laissées vides pour les adultes).
-    const sheetAutorisations = creerFeuille('Autorisations', `${data.length} inscription(s)`, 12);
+    const sheetAutorisations = creerFeuille('Autorisations', `${data.length} inscription(s)`, 12, VERT_FG);
     styleEnTete(sheetAutorisations.addRow([
       'Numéro', 'Nom', 'Prénom', 'Type', 'Droit image', 'Autorisation parentale',
       'Parent 1', 'Parent 1 email', 'Parent 1 tél', 'Parent 2', 'Parent 2 email', 'Parent 2 tél',
@@ -1437,7 +1452,7 @@ const AdminMembres = () => {
     lignesReglement.sort((a, b) => a.triNom.localeCompare(b.triNom, 'fr', { sensitivity: 'base' }));
 
     const NB_COLS_REGL = 8;
-    const sheetReglements = creerFeuille('Règlements', `${lignesReglement.length} règlement(s)`, NB_COLS_REGL);
+    const sheetReglements = creerFeuille('Règlements', `${lignesReglement.length} règlement(s)`, NB_COLS_REGL, VERT_FG);
     styleEnTete(sheetReglements.addRow(['Trimestre', 'Personnes concernées', 'Mode', 'N° chèque', 'Montant', 'Reçu', 'Remis en banque', 'Saison']));
 
     const VERT_CLAIR_BG = 'FFe8f5e9';
@@ -1449,7 +1464,7 @@ const AdminMembres = () => {
     //  - Remis banque : déposé à la banque (bordereau de remise)
     let totalGeneralAttente = 0, totalGeneralRecu = 0, totalGeneralDepose = 0;
     const formatSynthese = (attente: number, recu: number, depose: number) =>
-      `En attente : ${formatMontant(attente)}  ·  Reçu (non déposé) : ${formatMontant(recu)}  ·  Remis en banque : ${formatMontant(depose)}`;
+      `Total encaissé : ${formatMontant(recu + depose)} (dont reçu non déposé : ${formatMontant(recu)} · remis en banque : ${formatMontant(depose)})  ·  En attente : ${formatMontant(attente)}`;
     for (let echeance = 1; echeance <= 4; echeance++) {
       const lignesTrimestre = lignesReglement.filter((l) => l.echeance === echeance);
 
@@ -1559,8 +1574,94 @@ const AdminMembres = () => {
 
     [12, 28, 12, 16, 14, 10, 14, 14].forEach((w, i) => { sheetReglements.getColumn(i + 1).width = w; });
 
-    construireFeuilleIdentite('En attente de règlement', dataEnAttenteReglement);
-    construireFeuilleIdentite('Refusées et supprimées', dataRefuseesEtSupprimees);
+    // ─── Feuille "Bilan par foyer" : le même calcul que le tableau "Validés" du site (théorique
+    // depuis la grille tarifaire, encaissé, reste dû), une ligne par foyer — pour ne plus avoir à
+    // refaire le calcul à la main. Déduplication par foyer, comme partout ailleurs dans cet export.
+    const calculerDeposeFoyer = (foyerIds: string[], saison: string | null): number => {
+      const foyerSet = new Set(foyerIds);
+      const chequeIdsLies = new Set(chequeEcheances.filter((l) => foyerSet.has(l.inscription_id)).map((l) => l.cheque_id));
+      let total = 0;
+      const vus = new Set<string>();
+      for (const c of cheques) {
+        if (!chequeIdsLies.has(c.id) || c.saison !== saison || vus.has(c.id)) continue;
+        if ((c.statut ?? 'recu') !== 'depose') continue;
+        vus.add(c.id);
+        total += c.montant || 0;
+      }
+      return total;
+    };
+
+    type LigneBilanFoyer = { noms: string; triNom: string; theorique: number | null; encaisse: number; depose: number; resteDu: number | null; tropPercu: boolean; saison: string };
+    const foyersVusBilan = new Set<string>();
+    const lignesBilanFoyer: LigneBilanFoyer[] = [];
+    for (const insc of data) {
+      const foyerIds = getFoyerIds(insc.id, insc.saison, cheques, chequeEcheances);
+      const foyerKey = Array.from(foyerIds).sort().join(',');
+      if (foyersVusBilan.has(foyerKey)) continue;
+      foyersVusBilan.add(foyerKey);
+      const bilan = resteDuInscription(insc);
+      // Au cas où un membre du foyer n'est pas (encore) validé : le calcul financier porte sur le
+      // foyer entier (voir resteDuInscription, basé sur l'état complet des inscriptions), mais le nom
+      // doit aussi pouvoir venir de là plutôt que de rester vide.
+      const noms = Array.from(new Set(foyerIds.map((id) => {
+        const ref = nomParInscription.get(id) || inscriptions.find((i) => i.id === id);
+        return typeof ref === 'string' ? ref : ref ? `${ref.nom || ''} ${ref.prenom || ''}`.trim() : '';
+      }))).filter(Boolean).sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+      lignesBilanFoyer.push({
+        noms: noms.join(', '),
+        triNom: noms[0] || '',
+        theorique: bilan?.theorique ?? null,
+        encaisse: bilan?.encaisse ?? 0,
+        depose: calculerDeposeFoyer(foyerIds, insc.saison),
+        resteDu: bilan?.resteDu ?? null,
+        tropPercu: bilan?.tropPercu ?? false,
+        saison: insc.saison || '',
+      });
+    }
+    lignesBilanFoyer.sort((a, b) => a.triNom.localeCompare(b.triNom, 'fr', { sensitivity: 'base' }));
+
+    const sheetBilan = creerFeuille('Bilan par foyer', `${lignesBilanFoyer.length} foyer(s)`, 6, VERT_FG);
+    styleEnTete(sheetBilan.addRow(['Foyer', 'Théorique', 'Encaissé', 'Remis en banque', 'Reste dû / Trop-perçu', 'Saison']));
+    let totalBilanTheorique = 0, totalBilanEncaisse = 0, totalBilanDepose = 0, totalBilanResteDu = 0;
+    let bilanIncomplet = false;
+    lignesBilanFoyer.forEach((l, idx) => {
+      const rowBg = idx % 2 === 0 ? GRIS_CLAIR : BLANC;
+      const resteDuTexte = l.resteDu == null ? 'à préciser (Karaté)' : `${l.tropPercu ? '+' : ''}${formatMontant(l.resteDu)}`;
+      const row = sheetBilan.addRow([l.noms, l.theorique ?? '', l.encaisse, l.depose, resteDuTexte, l.saison]);
+      row.height = 18;
+      row.eachCell((cell, colNum) => {
+        cell.font = { name: 'Calibri', size: 9 };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBg } };
+        cell.alignment = { vertical: 'middle', wrapText: false };
+        if (colNum === 2 || colNum === 3 || colNum === 4) cell.numFmt = '#,##0.00 "€"';
+      });
+      if (l.theorique == null || l.resteDu == null) bilanIncomplet = true;
+      else {
+        totalBilanTheorique += l.theorique;
+        totalBilanResteDu += l.tropPercu ? -l.resteDu : l.resteDu;
+      }
+      totalBilanEncaisse += l.encaisse;
+      totalBilanDepose += l.depose;
+    });
+    const totalBilanRow = sheetBilan.addRow([
+      'TOTAL GÉNÉRAL',
+      bilanIncomplet ? 'partiel' : totalBilanTheorique,
+      totalBilanEncaisse,
+      totalBilanDepose,
+      bilanIncomplet ? 'partiel' : `${totalBilanResteDu < 0 ? '+' : ''}${formatMontant(Math.abs(totalBilanResteDu))}`,
+      '',
+    ]);
+    totalBilanRow.eachCell((cell, colNum) => {
+      cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: BLANC } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLEU } };
+      cell.alignment = { vertical: 'middle' };
+      if ((colNum === 2 || colNum === 3 || colNum === 4) && typeof cell.value === 'number') cell.numFmt = '#,##0.00 "€"';
+    });
+    totalBilanRow.height = 24;
+    [32, 14, 14, 16, 18, 14].forEach((w, i) => { sheetBilan.getColumn(i + 1).width = w; });
+
+    construireFeuilleIdentite('En attente de règlement', dataEnAttenteReglement, AMBRE_FG);
+    construireFeuilleIdentite('Refusées et supprimées', dataRefuseesEtSupprimees, ROUGE);
 
     const buf = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -1688,7 +1789,7 @@ const AdminMembres = () => {
       if (ligne.type === "inscription_seule" && ligne.inscription.statut !== "en_attente") return false;
     }
 
-    // Onglet "Paiement en cours"
+    // Onglet "À valider"
     if (activeTab === "reglement") {
       if (ligne.type === "profil") return false;
       if (ligne.type === "inscription_seule" && ligne.inscription.statut !== "acceptee") return false;
@@ -1785,6 +1886,7 @@ const AdminMembres = () => {
    */
   const totauxValides = activeTab === "tous" ? (() => {
     const foyersVus = new Set<string>();
+    let theorique = 0;
     let encaisse = 0;
     let resteDu = 0;
     let theoriqueConnu = true;
@@ -1800,11 +1902,14 @@ const AdminMembres = () => {
       const bilan = resteDuInscription(inscRef);
       if (bilan) {
         encaisse += bilan.encaisse;
-        if (bilan.resteDu == null) theoriqueConnu = false;
-        else resteDu += bilan.tropPercu ? -bilan.resteDu : bilan.resteDu;
+        if (bilan.resteDu == null || bilan.theorique == null) theoriqueConnu = false;
+        else {
+          theorique += bilan.theorique;
+          resteDu += bilan.tropPercu ? -bilan.resteDu : bilan.resteDu;
+        }
       }
     }
-    return { encaisse, resteDu, theoriqueConnu, nbFoyers: foyersVus.size };
+    return { theorique, encaisse, resteDu, theoriqueConnu, nbFoyers: foyersVus.size };
   })() : null;
 
   type FamilleGroupe = { key: string; profil: Membre | null; lignes: Ligne[] };
@@ -1864,8 +1969,12 @@ const AdminMembres = () => {
   // avoir qu'une seule échéance.
   const allPaymentEvents: PaymentEvent[] = (() => {
     const evts: PaymentEvent[] = [];
+    // Uniquement les inscriptions validées : le tableau d'ensemble des règlements est la vue de
+    // référence du trésorier sur la base d'adhérents officielle. Un dossier "À valider" peut déjà
+    // avoir des règlements saisis (bouton "Règlements" sur sa carte dans le bloc "À valider"), mais
+    // il reste volontairement absent de cette vue d'ensemble tant qu'il n'est pas validé.
     const relevant = inscriptions.filter(i =>
-      (i.statut === "validee" || i.statut === "acceptee") &&
+      i.statut === "validee" &&
       (isSuperAdmin || disciplineMatch(i.disciplines, currentUserDisciplines)) &&
       (!saisonFilter || i.saison === saisonFilter)
     );
@@ -1906,18 +2015,22 @@ const AdminMembres = () => {
     const seen = new Set<string>();
     const rows: ReglementRow[] = [];
     for (const evt of reglementEvents) {
-      const link = chequeLinkByInscEch.get(`${evt.insc.id}:${evt.installment}`);
-      if (!link) {
+      // Une échéance peut désormais porter plusieurs règlements (chèque + espèces, par exemple) :
+      // chacun doit donner sa propre ligne, pas seulement le dernier de la liste.
+      const links = chequeLinksByInscEch.get(`${evt.insc.id}:${evt.installment}`) || [];
+      if (links.length === 0) {
         rows.push({ key: `solo-${evt.insc.id}-${evt.installment}`, chequeId: null, events: [evt], representative: evt });
         continue;
       }
-      if (seen.has(link.cheque_id)) continue;
-      seen.add(link.cheque_id);
-      const links = chequeLinksByChequeId.get(link.cheque_id) || [];
-      const groupEvents = links
-        .map((l) => allPaymentEvents.find((e) => e.insc.id === l.inscription_id && e.installment === l.echeance))
-        .filter((e): e is PaymentEvent => !!e);
-      rows.push({ key: link.cheque_id, chequeId: link.cheque_id, events: groupEvents.length ? groupEvents : [evt], representative: evt });
+      for (const link of links) {
+        if (seen.has(link.cheque_id)) continue;
+        seen.add(link.cheque_id);
+        const linksDuCheque = chequeLinksByChequeId.get(link.cheque_id) || [];
+        const groupEvents = linksDuCheque
+          .map((l) => allPaymentEvents.find((e) => e.insc.id === l.inscription_id && e.installment === l.echeance))
+          .filter((e): e is PaymentEvent => !!e);
+        rows.push({ key: link.cheque_id, chequeId: link.cheque_id, events: groupEvents.length ? groupEvents : [evt], representative: evt });
+      }
     }
     return rows.filter((row) => {
       if (reglementModeFiltre === "tous") return true;
@@ -2119,13 +2232,13 @@ const AdminMembres = () => {
                   </div>
                 )}
 
-                {/* Bloc 2 — Paiement en cours */}
+                {/* Bloc 2 — À valider */}
                 {accepteeInscription.length > 0 && (
                   <div className="rounded-lg border border-violet-200/60 bg-violet-50/30 dark:bg-violet-950/10 p-5">
                     <div className="flex items-center gap-2 mb-4">
                       <ClipboardList size={16} className="text-violet-600" />
                       <h2 className="font-serif font-bold text-sm text-violet-800 dark:text-violet-400">
-                        Paiement en cours
+                        À valider
                         <span className="ml-2 rounded-full bg-violet-500 px-2 py-0.5 text-xs text-white">{accepteeInscription.length}</span>
                       </h2>
                     </div>
@@ -2203,7 +2316,7 @@ const AdminMembres = () => {
                         Dossiers à examiner {countEnAttente > 0 && <span className="ml-1.5 rounded-full bg-amber-500 text-white text-[10px] px-1.5 py-0.5 leading-none">{countEnAttente}</span>}
                       </TabsTrigger>
                       <TabsTrigger value="reglement" className="text-xs px-3 h-7">
-                        Paiement en cours {countReglement > 0 && <span className="ml-1.5 rounded-full bg-violet-500 text-white text-[10px] px-1.5 py-0.5 leading-none">{countReglement}</span>}
+                        À valider {countReglement > 0 && <span className="ml-1.5 rounded-full bg-violet-500 text-white text-[10px] px-1.5 py-0.5 leading-none">{countReglement}</span>}
                       </TabsTrigger>
                       <TabsTrigger value="reglements" className="text-xs px-3 h-7">
                         Règlements {countReglementsMois > 0 && <span className="ml-1.5 rounded-full bg-blue-500 text-white text-[10px] px-1.5 py-0.5 leading-none">{countReglementsMois}</span>}
@@ -2765,7 +2878,7 @@ const AdminMembres = () => {
                           <tfoot>
                             <tr className="border-t-2 border-border/60 bg-secondary/40 font-semibold">
                               <td colSpan={activeTab !== "tous" ? 7 : 6} className="py-2.5 pr-4 text-xs text-muted-foreground text-right">
-                                Total ({totauxValides.nbFoyers} foyer{totauxValides.nbFoyers > 1 ? "s" : ""}, chèques partagés comptés une seule fois) :
+                                Total ({totauxValides.nbFoyers} foyer{totauxValides.nbFoyers > 1 ? "s" : ""}, théorique {totauxValides.theoriqueConnu ? formatMontant(totauxValides.theorique) : "partiel"}, règlements partagés comptés une seule fois) :
                               </td>
                               <td className="py-2.5 pr-4 text-sm text-emerald-700">{formatMontant(totauxValides.encaisse)}</td>
                               <td className="py-2.5 text-sm">
@@ -3420,7 +3533,7 @@ const AdminMembres = () => {
                       {/* ——— Adhésions ——— */}
                       <TabsContent value="adhesions" className="m-0 p-6 space-y-5">
                         {(() => {
-                          const sectionLabel = insc.statut === "validee" ? "Validées" : insc.statut === "en_attente" ? "En attente" : insc.statut === "acceptee" ? "Paiement en cours" : "Refusées / supprimées";
+                          const sectionLabel = insc.statut === "validee" ? "Validées" : insc.statut === "en_attente" ? "En attente" : insc.statut === "acceptee" ? "À valider" : "Refusées / supprimées";
                           const sectionCls = insc.statut === "validee" ? "text-emerald-700" : insc.statut === "en_attente" || insc.statut === "acceptee" ? "text-amber-700" : "text-muted-foreground";
                           const isExpanded = expandedInscIds.has(insc.id);
                           return (
