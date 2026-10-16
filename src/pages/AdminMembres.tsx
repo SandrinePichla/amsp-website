@@ -1492,7 +1492,9 @@ const AdminMembres = () => {
     styleEnTete(sheetReglements.addRow(['Trimestre', 'Personnes concernées', 'Mode', 'N° chèque', 'Montant', 'Reçu', 'Remis en banque', 'Saison']));
 
     const VERT_CLAIR_BG = 'FFe8f5e9';
-    const OUI_NON_CLS = (oui: boolean) => (oui ? { bg: VERT_CLAIR_BG, fg: VERT_FG } : { bg: GRIS_BG, fg: GRIS_FG });
+    // Même code couleur que "Bilan par foyer" : vert = fait, rouge = pas encore — pour repérer aussi
+    // vite ici qu'en un coup d'œil sur cette feuille-là.
+    const OUI_NON_CLS = (oui: boolean) => (oui ? { bg: VERT_CLAIR_BG, fg: VERT_FG } : { bg: ROUGE_BG, fg: ROUGE_FG });
 
     // 3 états bien distincts, jamais fusionnés dans les totaux pour éviter toute ambiguïté :
     //  - En attente   : annoncé par la famille, chèque pas encore en main
@@ -1670,22 +1672,22 @@ const AdminMembres = () => {
     const FMT_EUR = '#,##0.00" €"';
 
     const sheetBilan = creerFeuille('Bilan par foyer', `${lignesBilanFoyer.length} foyer(s)`, 6, VERT_FG, 1);
-    styleEnTete(sheetBilan.addRow(['Foyer', 'Théorique', 'Encaissé', 'Remis en banque', 'Reste dû (-) / Trop-perçu (+)', 'Saison']));
+    styleEnTete(sheetBilan.addRow(['Foyer', 'Théorique', 'Encaissé', 'Reste dû (-) / Trop-perçu (+)', 'Remis en banque', 'Saison']));
     let totalBilanTheorique = 0, totalBilanEncaisse = 0, totalBilanDepose = 0, totalBilanResteDu = 0;
     let bilanIncomplet = false;
     lignesBilanFoyer.forEach((l, idx) => {
       const rowBg = idx % 2 === 0 ? GRIS_CLAIR : BLANC;
       const resteDuNet = l.resteDu == null ? null : (l.tropPercu ? l.resteDu : -l.resteDu);
-      const row = sheetBilan.addRow([l.noms, l.theorique ?? '', l.encaisse, l.depose, resteDuNet ?? "à préciser (Karaté)", l.saison]);
+      const row = sheetBilan.addRow([l.noms, l.theorique ?? '', l.encaisse, resteDuNet ?? "à préciser (Karaté)", l.depose, l.saison]);
       row.height = 18;
       row.eachCell((cell, colNum) => {
-        cell.font = { name: 'Calibri', size: 9, bold: colNum === 5 };
+        cell.font = { name: 'Calibri', size: 9, bold: colNum === 4 };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBg } };
         cell.alignment = { vertical: 'middle', wrapText: false };
         if (colNum === 2) cell.numFmt = FMT_EUR;
         if (colNum === 3) cell.numFmt = FMT_EUR;
-        if (colNum === 4) cell.numFmt = FMT_DEPOSE;
-        if (colNum === 5 && typeof cell.value === 'number') cell.numFmt = FMT_RESTE_DU;
+        if (colNum === 4 && typeof cell.value === 'number') cell.numFmt = FMT_RESTE_DU;
+        if (colNum === 5) cell.numFmt = FMT_DEPOSE;
       });
       if (l.theorique == null || l.resteDu == null) bilanIncomplet = true;
       else {
@@ -1699,24 +1701,24 @@ const AdminMembres = () => {
       'TOTAL GÉNÉRAL',
       bilanIncomplet ? 'partiel' : totalBilanTheorique,
       totalBilanEncaisse,
-      totalBilanDepose,
       bilanIncomplet ? 'partiel' : -totalBilanResteDu,
+      totalBilanDepose,
       '',
     ]);
     totalBilanRow.eachCell((cell, colNum) => {
       // La colonne "Reste dû/Trop-perçu" reste sur fond clair pour que le vert/rouge du format
       // numérique (appliqué par Excel selon la valeur) reste lisible — sur fond bleu foncé comme le
       // reste de la ligne, ces couleurs deviendraient invisibles.
-      const estColonneResteDu = colNum === 5 && typeof cell.value === 'number';
+      const estColonneResteDu = colNum === 4 && typeof cell.value === 'number';
       cell.font = estColonneResteDu ? { name: 'Calibri', size: 11, bold: true } : { name: 'Calibri', size: 11, bold: true, color: { argb: BLANC } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: estColonneResteDu ? BLANC : BLEU } };
       cell.alignment = { vertical: 'middle', horizontal: colNum === 1 ? 'left' : 'center' };
       if ((colNum === 2 || colNum === 3) && typeof cell.value === 'number') cell.numFmt = FMT_EUR;
-      if (colNum === 4 && typeof cell.value === 'number') cell.numFmt = FMT_DEPOSE;
+      if (colNum === 5 && typeof cell.value === 'number') cell.numFmt = FMT_DEPOSE;
       if (estColonneResteDu) cell.numFmt = FMT_RESTE_DU;
     });
     totalBilanRow.height = 24;
-    [32, 14, 14, 16, 22, 14].forEach((w, i) => { sheetBilan.getColumn(i + 1).width = w; });
+    [32, 14, 14, 22, 16, 14].forEach((w, i) => { sheetBilan.getColumn(i + 1).width = w; });
     if (lignesBilanFoyer.length > 0) {
       appliquerAlignement(sheetBilan, 5, 4 + lignesBilanFoyer.length, ['left', 'right', 'right', 'right', 'right', 'center']);
       activerFiltre(sheetBilan, 6, 4 + lignesBilanFoyer.length);
