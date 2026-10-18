@@ -92,6 +92,18 @@ Deno.serve(async (req) => {
       return repondre({ error: "Cette adresse est déjà utilisée par un autre compte membre." }, 409);
     }
 
+    // Adresse déjà DEMANDÉE par un autre compte (changement pas encore confirmé) : sinon deux comptes
+    // attendent la même adresse et le premier lien cliqué l'emporte, l'autre échouant.
+    for (let page = 1; ; page++) {
+      const { data: lot, error: errLot } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+      if (errLot) break;
+      const enConcurrence = lot.users.find((u) => u.id !== profilId && (u.new_email ?? "").toLowerCase() === nouveau);
+      if (enConcurrence) {
+        return repondre({ error: "Un changement vers cette adresse est déjà en attente de confirmation pour un autre compte." }, 409);
+      }
+      if (lot.users.length < 1000) break;
+    }
+
     if (verifierSeulement) {
       // Inscriptions (non refusées) qui portent déjà la nouvelle adresse sans être liées à ce compte
       const portees = (await Promise.all(["email", "parent1_email", "parent2_email"].map((col) =>
@@ -155,7 +167,7 @@ Deno.serve(async (req) => {
       nouvelle_valeur: nouveau,
     });
 
-    return repondre({ ok: true, ancien, nouveau, envois: [envoiNouveau, envoiAncien], version: 4 });
+    return repondre({ ok: true, ancien, nouveau, envois: [envoiNouveau, envoiAncien], version: 5 });
   } catch (e) {
     return repondre({ error: e instanceof Error ? e.message : String(e) }, 500);
   }
