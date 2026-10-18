@@ -490,10 +490,29 @@ const AdminMembres = () => {
       parent2Tel: insc.parent2_tel || "",
     });
     setShowPapierModal(true);
-    // Historique des corrections de cette inscription (vide si la table n'existe pas encore)
     setJournalInsc([]);
-    supabase.from("journal_modifications").select("*").eq("ligne_id", insc.id).order("created_at", { ascending: false })
-      .then(({ data }) => setJournalInsc((data as JournalModification[]) || []));
+    chargerJournal(insc);
+  };
+
+  /**
+   * Historique des corrections d'une inscription et des comptes membres qui y sont liés
+   * (titulaire, parent 2) : les demandes de changement d'email sont tracées sur le compte.
+   * Vide si la table n'existe pas encore.
+   */
+  const chargerJournal = async (insc: Inscription) => {
+    const ids = [insc.id, trouverCompteTitulaire(insc)?.id, compteAvecEmail(insc.parent2_email)?.id].filter(Boolean) as string[];
+    const { data } = await supabase.from("journal_modifications").select("*").in("ligne_id", ids).order("created_at", { ascending: false });
+    setJournalInsc((data as JournalModification[]) || []);
+  };
+
+  /** Dernière demande de changement d'email d'un compte, si elle n'a pas encore été confirmée. */
+  const demandeEmailEnAttente = (compte: Membre | undefined): JournalModification | null => {
+    if (!compte) return null;
+    const derniere = journalInsc.find((j) => j.ligne_id === compte.id && j.champ.startsWith("Email de connexion (demande"));
+    if (!derniere) return null;
+    // Confirmée : l'email du compte est devenu la nouvelle adresse demandée
+    if ((derniere.nouvelle_valeur || "").toLowerCase() === (compte.email || "").toLowerCase()) return null;
+    return derniere;
   };
 
   /**
@@ -519,7 +538,7 @@ const AdminMembres = () => {
 
   // Changement de l'email de connexion d'un compte : passe par la fonction serveur "changer-email"
   // (lien de confirmation envoyé à la nouvelle adresse, ancienne adresse prévenue).
-  const [changementEmail, setChangementEmail] = useState<{ compte: Membre; nouvelEmail: string; erreur?: string } | null>(null);
+  const [changementEmail, setChangementEmail] = useState<{ compte: Membre; nouvelEmail: string; erreur?: string; envoye?: boolean } | null>(null);
   const [envoiChangementEmail, setEnvoiChangementEmail] = useState(false);
 
   const handleDemanderChangementEmail = async () => {
@@ -545,11 +564,10 @@ const AdminMembres = () => {
       message = `${detail || error.message}${contexte?.status ? ` (code ${contexte.status})` : ""}`;
     }
     if (message) { console.error("changer-email :", message, error); afficherErreur(message); return; }
-    toast.success("Demande envoyée", {
-      description: `Un lien de confirmation a été envoyé à ${nouvelEmail}, et l'ancienne adresse a été prévenue. Le changement sera effectif dès que la personne aura cliqué sur le lien.`,
-      duration: 10000,
-    });
-    setChangementEmail(null);
+    // La fenêtre reste ouverte avec une confirmation visible ; l'historique est rechargé pour
+    // afficher la demande en attente sous le champ email.
+    setChangementEmail((c) => c && { ...c, nouvelEmail, envoye: true });
+    if (editingInsc) chargerJournal(editingInsc);
   };
 
   /**
@@ -879,14 +897,28 @@ const AdminMembres = () => {
   const compteEmailInsc = editingInsc ? compteAvecEmail(editingInsc.email) : undefined;
   const compteEmailParent1 = editingInsc ? compteAvecEmail(editingInsc.parent1_email) : undefined;
   const compteEmailParent2 = editingInsc ? compteAvecEmail(editingInsc.parent2_email) : undefined;
-  const lienChangerEmail = (compte: Membre | undefined) => compte && (
-    <p className="text-xs text-muted-foreground">
-      Email de connexion d'un espace membre.{" "}
-      <button type="button" className="text-primary underline hover:no-underline" onClick={() => setChangementEmail({ compte, nouvelEmail: "" })}>
-        Changer l'email de connexion…
-      </button>
-    </p>
-  );
+  const lienChangerEmail = (compte: Membre | undefined) => {
+    if (!compte) return null;
+    const enAttente = demandeEmailEnAttente(compte);
+    return (
+      <>
+        <p className="text-xs text-muted-foreground">
+          Email de connexion d'un espace membre.{" "}
+          <button type="button" className="text-primary underline hover:no-underline" onClick={() => setChangementEmail({ compte, nouvelEmail: "" })}>
+            {enAttente ? "Refaire une demande…" : "Changer l'email de connexion…"}
+          </button>
+        </p>
+        {enAttente && (
+          <p className="rounded-md border border-amber-200/60 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/20 dark:text-amber-300">
+            ⏳ Changement en attente de confirmation : <strong>{enAttente.ancienne_valeur}</strong> → <strong>{enAttente.nouvelle_valeur}</strong>
+            <br />
+            Demandé le {new Date(enAttente.created_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}
+            {enAttente.admin_nom ? ` par ${enAttente.admin_nom}` : ""}. Effectif dès que la personne clique sur le lien reçu à la nouvelle adresse.
+          </p>
+        )}
+      </>
+    );
+  };
 
   /** Reste dû (ou trop-perçu) du foyer d'une inscription, pour affichage rapide dans le tableau. */
   const resteDuInscription = (insc: Inscription | null | undefined) => {
@@ -4670,7 +4702,22 @@ const AdminMembres = () => {
           <DialogHeader>
             <DialogTitle className="font-serif">Changer l'email de connexion</DialogTitle>
           </DialogHeader>
-          {changementEmail && (
+          {changementEmail?.envoye && (
+            <div className="space-y-4 text-sm">
+              <p className="rounded-md border border-green-200 bg-green-50 px-3 py-3 text-green-800 dark:bg-green-950/20 dark:text-green-300">
+                ✅ Demande enregistrée.
+                <br />
+                Un lien de confirmation a été envoyé à <strong>{changementEmail.nouvelEmail}</strong>, et l'ancienne adresse <strong>{changementEmail.compte.email}</strong> a été prévenue.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Le changement sera effectif dès que la personne aura cliqué sur le lien. D'ici là, la demande reste affichée sous le champ email.
+              </p>
+              <div className="flex justify-end border-t border-border/50 pt-3">
+                <Button onClick={() => setChangementEmail(null)}>Fermer</Button>
+              </div>
+            </div>
+          )}
+          {changementEmail && !changementEmail.envoye && (
             <div className="space-y-4 text-sm">
               <p>
                 Compte de <strong>{[changementEmail.compte.prenom, changementEmail.compte.nom].filter(Boolean).join(" ") || changementEmail.compte.email}</strong>
