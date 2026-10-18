@@ -289,11 +289,8 @@ const AdminMembres = () => {
   const [confirmModifierInsc, setConfirmModifierInsc] = useState<Inscription | null>(null);
   const [reglementsPanelInscId, setReglementsPanelInscId] = useState<string | null>(null);
   const [reglementsPanelEcheance, setReglementsPanelEcheance] = useState<number | undefined>(undefined);
-  // Ouvrir directement la recherche "Rattacher à un foyer…" (bouton des cartes de la vue Foyer)
-  const [reglementsPanelRattacher, setReglementsPanelRattacher] = useState(false);
-  const openReglementsPanel = (inscId: string, echeance?: number, rattacher = false) => {
+  const openReglementsPanel = (inscId: string, echeance?: number) => {
     setReglementsPanelEcheance(echeance);
-    setReglementsPanelRattacher(rattacher);
     setReglementsPanelInscId(inscId);
   };
   const [grilleTarifs, setGrilleTarifs] = useState<GrilleTarifs | null>(null);
@@ -2919,9 +2916,6 @@ const AdminMembres = () => {
                                     <span className={bilan.resteDu == null ? "" : bilan.tropPercu ? "text-sky-700" : bilan.resteDu > 0 ? "text-amber-700" : "text-emerald-700"}>{formatMontant(bilan.resteDu)}</span>
                                   </span>
                                 )}
-                                <button type="button" onClick={() => openReglementsPanel(premiere.id, undefined, true)} className="ml-auto text-[11px] text-primary underline hover:no-underline">
-                                  Rattacher à un foyer…
-                                </button>
                               </div>
                             )}
                             {lignesSorted.map(ligne => {
@@ -4226,7 +4220,6 @@ const AdminMembres = () => {
               setChequeEcheances={setChequeEcheances}
               setInscriptions={setInscriptions}
               journaliser={journaliserModifications}
-              ouvrirRattachement={reglementsPanelRattacher}
               onClose={() => { setReglementsPanelInscId(null); setReglementsPanelEcheance(undefined); }}
             />
           )}
