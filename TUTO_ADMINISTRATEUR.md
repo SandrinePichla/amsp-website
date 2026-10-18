@@ -384,6 +384,8 @@ Si vous dépassez 200 emails/mois, il faudra passer à un abonnement payant sur 
 | Saisir une inscription papier | Site AMSP | Aucune |
 | Modifier une inscription (papier ou en ligne) | Site AMSP | Aucune |
 | Saisir et suivre les règlements par trimestre | Site AMSP | Aucune |
+| Changer l'email de connexion d'un adhérent | Site AMSP | Aucune |
+| Rattacher une personne à un foyer (ou l'en détacher) | Site AMSP | Aucune |
 | Créer un espace membre (adulte ou parent) | Site AMSP | Aucune |
 | Promouvoir un admin ou admin de discipline | Site AMSP | Aucune |
 | Exporter les inscriptions en Excel | Site AMSP | Aucune |
