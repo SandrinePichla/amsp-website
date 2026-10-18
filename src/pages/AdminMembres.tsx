@@ -497,6 +497,55 @@ const AdminMembres = () => {
   };
 
   /**
+   * Compte membre du titulaire d'une inscription (la personne si adulte, le parent 1 si mineur).
+   * Même logique de rattachement que matchInscToProfilFull : identifiant, puis email, puis
+   * nom + prénom pour une inscription papier sans email.
+   */
+  const trouverCompteTitulaire = (insc: Inscription): Membre | undefined => {
+    const memeTexte = (a: string | null | undefined, b: string | null | undefined) =>
+      (a || "").trim().toLowerCase() === (b || "").trim().toLowerCase();
+    const estMineur = insc.type_inscription === "mineur";
+    const nom = estMineur ? insc.parent1_nom : insc.nom;
+    const prenom = estMineur ? insc.parent1_prenom : insc.prenom;
+    const email = estMineur ? insc.parent1_email : insc.email;
+    return (insc.user_id ? membres.find((m) => m.id === insc.user_id) : undefined) ??
+      (email ? membres.find((m) => memeTexte(m.email, email)) : undefined) ??
+      (!email && nom && prenom ? membres.find((m) => memeTexte(m.nom, nom) && memeTexte(m.prenom, prenom)) : undefined);
+  };
+
+  /** Compte membre dont l'email de connexion est exactement cet email (sinon l'email n'est qu'une coordonnée). */
+  const compteAvecEmail = (email: string | null | undefined): Membre | undefined =>
+    email?.trim() ? membres.find((m) => (m.email || "").trim().toLowerCase() === email.trim().toLowerCase()) : undefined;
+
+  // Changement de l'email de connexion d'un compte : passe par la fonction serveur "changer-email"
+  // (lien de confirmation envoyé à la nouvelle adresse, ancienne adresse prévenue).
+  const [changementEmail, setChangementEmail] = useState<{ compte: Membre; nouvelEmail: string } | null>(null);
+  const [envoiChangementEmail, setEnvoiChangementEmail] = useState(false);
+
+  const handleDemanderChangementEmail = async () => {
+    if (!changementEmail) return;
+    const nouvelEmail = changementEmail.nouvelEmail.trim().toLowerCase();
+    if (!REGEX_EMAIL.test(nouvelEmail)) { toast.error("Adresse email invalide."); return; }
+    if (nouvelEmail === (changementEmail.compte.email || "").toLowerCase()) { toast.error("C'est déjà l'email de ce compte."); return; }
+    setEnvoiChangementEmail(true);
+    const { data, error } = await supabase.functions.invoke("changer-email", {
+      body: { profilId: changementEmail.compte.id, nouvelEmail, redirectTo: `${window.location.origin}/profil` },
+    });
+    setEnvoiChangementEmail(false);
+    // En cas d'erreur métier (adresse déjà prise…), la fonction renvoie { error } avec un statut 4xx
+    let message: string | null = (data as { error?: string } | null)?.error ?? null;
+    if (!message && error) {
+      try { message = (await (error as { context?: Response }).context?.json())?.error ?? error.message; } catch { message = error.message; }
+    }
+    if (message) { toast.error(message); return; }
+    toast.success("Demande envoyée", {
+      description: `Un lien de confirmation a été envoyé à ${nouvelEmail}, et l'ancienne adresse a été prévenue. Le changement sera effectif dès que la personne aura cliqué sur le lien.`,
+      duration: 10000,
+    });
+    setChangementEmail(null);
+  };
+
+  /**
    * Après la modification d'une inscription : trace les champs modifiés, répercute une
    * correction de nom/prénom sur le compte membre du titulaire (la personne si adulte, le
    * parent 1 si mineur), et signale qu'une nouvelle date de naissance peut changer le tarif Karaté.
@@ -523,11 +572,7 @@ const AdminMembres = () => {
     const ancienPrenom = estMineur ? ancienne.parent1_prenom : ancienne.prenom;
     const nouveauNom = (estMineur ? nouvelle.parent1_nom : nouvelle.nom) ?? null;
     const nouveauPrenom = (estMineur ? nouvelle.parent1_prenom : nouvelle.prenom) ?? null;
-    const emailTitulaire = estMineur ? ancienne.parent1_email : ancienne.email;
-    const profil =
-      (ancienne.user_id ? membres.find((m) => m.id === ancienne.user_id) : undefined) ??
-      (emailTitulaire ? membres.find((m) => memeTexte(m.email, emailTitulaire)) : undefined) ??
-      (!emailTitulaire && ancienNom && ancienPrenom ? membres.find((m) => memeTexte(m.nom, ancienNom) && memeTexte(m.prenom, ancienPrenom)) : undefined);
+    const profil = trouverCompteTitulaire(ancienne);
     const nomTitulaireChange = valeur(ancienNom) !== valeur(nouveauNom) || valeur(ancienPrenom) !== valeur(nouveauPrenom);
     // On ne renomme le compte que s'il portait bien l'ancien nom du titulaire : un compte au nom
     // de quelqu'un d'autre (ex : parent titulaire d'un adulte rattaché) ne doit pas être touché.
@@ -821,6 +866,20 @@ const AdminMembres = () => {
   // bord restent modifiables une fois validée.
   const editingInsc = editingInscId ? inscriptions.find(i => i.id === editingInscId) ?? null : null;
   const isLockedInscEdit = editingInsc?.statut === "validee";
+  // Un email qui sert d'identifiant de connexion à un compte ne se modifie pas dans le formulaire
+  // (le compte serait désynchronisé) : il passe par "Changer l'email de connexion". Sans compte,
+  // l'email n'est qu'une coordonnée et reste modifiable, même après validation.
+  const compteEmailInsc = editingInsc ? compteAvecEmail(editingInsc.email) : undefined;
+  const compteEmailParent1 = editingInsc ? compteAvecEmail(editingInsc.parent1_email) : undefined;
+  const compteEmailParent2 = editingInsc ? compteAvecEmail(editingInsc.parent2_email) : undefined;
+  const lienChangerEmail = (compte: Membre | undefined) => compte && (
+    <p className="text-xs text-muted-foreground">
+      Email de connexion d'un espace membre.{" "}
+      <button type="button" className="text-primary underline hover:no-underline" onClick={() => setChangementEmail({ compte, nouvelEmail: "" })}>
+        Changer l'email de connexion…
+      </button>
+    </p>
+  );
 
   /** Reste dû (ou trop-perçu) du foyer d'une inscription, pour affichage rapide dans le tableau. */
   const resteDuInscription = (insc: Inscription | null | undefined) => {
@@ -4280,7 +4339,7 @@ const AdminMembres = () => {
           </DialogHeader>
           {isLockedInscEdit && (
             <p className="rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-200/60 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
-              Inscription déjà validée : le nom, le prénom et la date de naissance peuvent être corrigés (le compte membre est renommé en même temps et chaque correction est tracée). L'email, les disciplines, la saison, le type et le mode de règlement restent verrouillés, car le compte et les accès en dépendent.
+              Inscription déjà validée : le nom, le prénom et la date de naissance peuvent être corrigés (le compte membre est renommé en même temps et chaque correction est tracée). L'email de connexion se change avec le lien prévu sous le champ. Les disciplines, la saison, le type et le mode de règlement restent verrouillés, car le compte et les accès en dépendent.
             </p>
           )}
           <div className="space-y-6 pt-2">
@@ -4376,8 +4435,9 @@ const AdminMembres = () => {
                       </div>
                       <div className="space-y-1.5">
                         <Label htmlFor="p-email">Email</Label>
-                        <Input id="p-email" type="email" placeholder="email@exemple.com" disabled={isLockedInscEdit} value={papierForm.email} onChange={e => { setPapierForm(f => ({ ...f, email: e.target.value })); clearPapierFieldError('email'); }} onBlur={() => validatePapierEmail('email', papierForm.email)} className={papierErrors.email ? 'border-destructive' : ''} />
+                        <Input id="p-email" type="email" placeholder="email@exemple.com" disabled={!!compteEmailInsc} value={papierForm.email} onChange={e => { setPapierForm(f => ({ ...f, email: e.target.value })); clearPapierFieldError('email'); }} onBlur={() => validatePapierEmail('email', papierForm.email)} className={papierErrors.email ? 'border-destructive' : ''} />
                         {papierErrors.email && <p className="text-xs text-destructive">{papierErrors.email}</p>}
+                        {lienChangerEmail(compteEmailInsc)}
                       </div>
                     </div>
                   </div>
@@ -4395,7 +4455,7 @@ const AdminMembres = () => {
                             <div className="space-y-1.5"><Label>Prénom *</Label><Input placeholder="Prénom" value={papierForm.parent1Prenom} onChange={e => setPapierForm(f => ({ ...f, parent1Prenom: e.target.value }))} /></div>
                           </div>
                           <div className="grid gap-3 sm:grid-cols-2">
-                            <div className="space-y-1.5"><Label>Email</Label><Input type="email" placeholder="email@exemple.com" disabled={isLockedInscEdit} value={papierForm.parent1Email} onChange={e => { setPapierForm(f => ({ ...f, parent1Email: e.target.value })); clearPapierFieldError('parent1Email'); }} onBlur={() => validatePapierEmail('parent1Email', papierForm.parent1Email)} className={papierErrors.parent1Email ? 'border-destructive' : ''} />{papierErrors.parent1Email && <p className="text-xs text-destructive">{papierErrors.parent1Email}</p>}</div>
+                            <div className="space-y-1.5"><Label>Email</Label><Input type="email" placeholder="email@exemple.com" disabled={!!compteEmailParent1} value={papierForm.parent1Email} onChange={e => { setPapierForm(f => ({ ...f, parent1Email: e.target.value })); clearPapierFieldError('parent1Email'); }} onBlur={() => validatePapierEmail('parent1Email', papierForm.parent1Email)} className={papierErrors.parent1Email ? 'border-destructive' : ''} />{papierErrors.parent1Email && <p className="text-xs text-destructive">{papierErrors.parent1Email}</p>}{lienChangerEmail(compteEmailParent1)}</div>
                             <div className="space-y-1.5"><Label>Téléphone</Label><Input type="tel" maxLength={14} placeholder="06 00 00 00 00" value={papierForm.parent1Tel} onChange={e => { setPapierForm(f => ({ ...f, parent1Tel: formatTelephone(e.target.value) })); clearPapierFieldError('parent1Tel'); }} onBlur={() => validatePapierTel('parent1Tel', papierForm.parent1Tel)} className={papierErrors.parent1Tel ? 'border-destructive' : ''} />{papierErrors.parent1Tel && <p className="text-xs text-destructive">{papierErrors.parent1Tel}</p>}</div>
                           </div>
                         </div>
@@ -4406,7 +4466,7 @@ const AdminMembres = () => {
                             <div className="space-y-1.5"><Label>Prénom</Label><Input placeholder="Prénom" value={papierForm.parent2Prenom} onChange={e => setPapierForm(f => ({ ...f, parent2Prenom: e.target.value }))} /></div>
                           </div>
                           <div className="grid gap-3 sm:grid-cols-2">
-                            <div className="space-y-1.5"><Label>Email</Label><Input type="email" placeholder="email@exemple.com" value={papierForm.parent2Email} onChange={e => { setPapierForm(f => ({ ...f, parent2Email: e.target.value })); clearPapierFieldError('parent2Email'); }} onBlur={() => validatePapierEmail('parent2Email', papierForm.parent2Email)} className={papierErrors.parent2Email ? 'border-destructive' : ''} />{papierErrors.parent2Email && <p className="text-xs text-destructive">{papierErrors.parent2Email}</p>}</div>
+                            <div className="space-y-1.5"><Label>Email</Label><Input type="email" placeholder="email@exemple.com" disabled={!!compteEmailParent2} value={papierForm.parent2Email} onChange={e => { setPapierForm(f => ({ ...f, parent2Email: e.target.value })); clearPapierFieldError('parent2Email'); }} onBlur={() => validatePapierEmail('parent2Email', papierForm.parent2Email)} className={papierErrors.parent2Email ? 'border-destructive' : ''} />{papierErrors.parent2Email && <p className="text-xs text-destructive">{papierErrors.parent2Email}</p>}{lienChangerEmail(compteEmailParent2)}</div>
                             <div className="space-y-1.5"><Label>Téléphone</Label><Input type="tel" maxLength={14} placeholder="06 00 00 00 00" value={papierForm.parent2Tel} onChange={e => { setPapierForm(f => ({ ...f, parent2Tel: formatTelephone(e.target.value) })); clearPapierFieldError('parent2Tel'); }} onBlur={() => validatePapierTel('parent2Tel', papierForm.parent2Tel)} className={papierErrors.parent2Tel ? 'border-destructive' : ''} />{papierErrors.parent2Tel && <p className="text-xs text-destructive">{papierErrors.parent2Tel}</p>}</div>
                           </div>
                         </div>
@@ -4597,6 +4657,40 @@ const AdminMembres = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Changement de l'email de connexion d'un compte (confirmation par la nouvelle adresse) */}
+      <Dialog open={!!changementEmail} onOpenChange={(open) => { if (!open && !envoiChangementEmail) setChangementEmail(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-serif">Changer l'email de connexion</DialogTitle>
+          </DialogHeader>
+          {changementEmail && (
+            <div className="space-y-4 text-sm">
+              <p>
+                Compte de <strong>{[changementEmail.compte.prenom, changementEmail.compte.nom].filter(Boolean).join(" ") || changementEmail.compte.email}</strong>
+                <br />
+                <span className="text-muted-foreground">Email actuel : {changementEmail.compte.email}</span>
+              </p>
+              <div className="space-y-1.5">
+                <Label htmlFor="nouvel-email">Nouvel email</Label>
+                <Input id="nouvel-email" type="email" autoFocus placeholder="nouvelle@adresse.fr" value={changementEmail.nouvelEmail}
+                  onChange={(e) => setChangementEmail((c) => c && { ...c, nouvelEmail: e.target.value })} />
+              </div>
+              <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
+                <li>Un lien de confirmation est envoyé à la nouvelle adresse, et l'ancienne adresse est prévenue.</li>
+                <li>Le changement n'est effectif qu'après le clic sur le lien. D'ici là, l'ancien email reste valable.</li>
+                <li>Le mot de passe ne change pas. Le compte, les inscriptions de toutes les saisons et le journal sont mis à jour automatiquement.</li>
+              </ul>
+              <div className="flex justify-end gap-2 border-t border-border/50 pt-3">
+                <Button variant="outline" onClick={() => setChangementEmail(null)} disabled={envoiChangementEmail}>Annuler</Button>
+                <Button onClick={handleDemanderChangementEmail} disabled={envoiChangementEmail || !changementEmail.nouvelEmail.trim()}>
+                  {envoiChangementEmail ? "Envoi…" : "Envoyer le lien de confirmation"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={!!confirmAccepter} onOpenChange={(open) => { if (!open) setConfirmAccepter(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -4647,7 +4741,7 @@ const AdminMembres = () => {
               {confirmModifierInsc?.statut === "validee" && (
                 <>
                   <br /><br />
-                  Cette inscription est déjà validée : le nom, le prénom et la date de naissance restent corrigeables, et chaque correction sera tracée. L'email, les disciplines, la saison, le type et le mode de règlement resteront verrouillés pour ne pas désynchroniser le compte membre et les accès déjà créés.
+                  Cette inscription est déjà validée : le nom, le prénom et la date de naissance restent corrigeables, et chaque correction sera tracée. L'email de connexion se change via un lien dédié. Les disciplines, la saison, le type et le mode de règlement resteront verrouillés pour ne pas désynchroniser le compte membre et les accès déjà créés.
                 </>
               )}
             </AlertDialogDescription>

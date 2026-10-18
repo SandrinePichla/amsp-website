@@ -456,7 +456,7 @@
   </div>
 
   <div class="attention">
-    ⚠️ Une fois l'inscription <strong>validée</strong>, certains champs sont grisés (non modifiables) car le compte membre et les accès en dépendent déjà : type Adulte/Mineur, email, email du parent 1, disciplines, saison, mode de règlement. Pour changer l'un de ces champs sur une inscription déjà validée, contactez le développeur.
+    ⚠️ Une fois l'inscription <strong>validée</strong>, certains champs sont grisés (non modifiables) car le compte membre et les accès en dépendent déjà : type Adulte/Mineur, disciplines, saison, mode de règlement. Pour changer l'un de ces champs sur une inscription déjà validée, contactez le développeur. L'email suit une règle à part (voir ci-dessous).
   </div>
 
   <div class="conseil">
@@ -473,6 +473,17 @@
 
   <div class="conseil">
     💡 <strong>Toutes les corrections sont tracées</strong> : date, admin, champ, ancienne et nouvelle valeur. L'historique s'affiche en bas de la fenêtre « Modifier ». Une correction faite par erreur peut donc toujours être rattrapée.
+  </div>
+
+  <h3>Changer une adresse email</h3>
+  <ul>
+    <li><strong>Si l'adresse ne sert à aucun espace membre</strong>, le champ est modifiable directement, comme les autres.</li>
+    <li><strong>Si c'est l'email de connexion d'un espace membre</strong> (adhérent, parent 1 ou parent 2), le champ est grisé. Cliquer sur <strong>« Changer l'email de connexion… »</strong> sous le champ, saisir la nouvelle adresse, puis <strong>« Envoyer le lien de confirmation »</strong>.</li>
+    <li>La personne reçoit un lien sur sa nouvelle adresse, et l'ancienne adresse est prévenue. <strong>Le changement n'est effectif qu'après son clic</strong> ; d'ici là, elle se connecte avec l'ancien email. Son mot de passe ne change pas.</li>
+    <li>Au clic, le compte, les inscriptions de toutes les saisons et le journal sont mis à jour automatiquement.</li>
+  </ul>
+  <div class="attention">
+    ⚠️ Le site refuse une adresse déjà utilisée par un autre compte. Si la personne ne reçoit pas le lien (faute de frappe), il suffit de refaire la demande avec la bonne adresse : tant que personne n'a cliqué, rien n'a changé.
   </div>
 
   <div class="conseil">

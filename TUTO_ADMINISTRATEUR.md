@@ -216,7 +216,7 @@ Une erreur de saisie, une adresse qui change, un numéro de téléphone à jour.
 3. Une fenêtre de confirmation s'affiche → cliquer sur **"Modifier"** pour continuer (cela évite les modifications faites par erreur)
 4. Corriger les champs souhaités, puis cliquer sur **"Enregistrer les modifications"**
 
-> ⚠️ **Une fois l'inscription validée**, certains champs sont grisés (non modifiables) car le compte membre et les accès en dépendent déjà : **type Adulte/Mineur, email, email du parent 1, disciplines, saison, mode de règlement**. Pour changer l'un de ces champs sur une inscription déjà validée, contactez le développeur.
+> ⚠️ **Une fois l'inscription validée**, certains champs sont grisés (non modifiables) car le compte membre et les accès en dépendent déjà : **type Adulte/Mineur, disciplines, saison, mode de règlement**. Pour changer l'un de ces champs sur une inscription déjà validée, contactez le développeur. L'email suit une règle à part (voir ci-dessous).
 >
 > Restent toujours modifiables, même après validation : **nom, prénom, date de naissance, nom et prénom du parent 1, adresse, téléphone (mobile, contact d'urgence, et téléphone du parent 1), groupe sanguin, allergies, niveau, informations du parent 2, droit à l'image, autorisation parentale, Pass Sport, document scanné**.
 >
@@ -230,6 +230,15 @@ Une erreur de saisie, une adresse qui change, un numéro de téléphone à jour.
 - Pour un karatéka, une nouvelle date de naissance peut changer la **tranche d'âge** : un message rappelle de vérifier le montant théorique dans le panneau de règlement.
 
 > 💡 **Toutes les corrections sont tracées** : date, admin, champ, ancienne et nouvelle valeur. L'historique s'affiche en bas de la fenêtre "Modifier". Une correction faite par erreur peut donc toujours être rattrapée.
+
+### Changer une adresse email
+
+- **Si l'adresse ne sert à aucun espace membre**, le champ est modifiable directement, comme les autres.
+- **Si c'est l'email de connexion d'un espace membre** (adhérent, parent 1 ou parent 2), le champ est grisé. Cliquer sur **"Changer l'email de connexion…"** sous le champ, saisir la nouvelle adresse, puis **"Envoyer le lien de confirmation"**.
+- La personne reçoit un lien sur sa nouvelle adresse, et l'ancienne adresse est prévenue. **Le changement n'est effectif qu'après son clic** ; d'ici là, elle se connecte avec l'ancien email. Son mot de passe ne change pas.
+- Au clic, le compte, les inscriptions de toutes les saisons et le journal sont mis à jour automatiquement.
+
+> ⚠️ Le site refuse une adresse déjà utilisée par un autre compte. Si la personne ne reçoit pas le lien (faute de frappe), il suffit de refaire la demande avec la bonne adresse : tant que personne n'a cliqué, rien n'a changé.
 
 ---
 
