@@ -216,11 +216,20 @@ Une erreur de saisie, une adresse qui change, un numéro de téléphone à jour.
 3. Une fenêtre de confirmation s'affiche → cliquer sur **"Modifier"** pour continuer (cela évite les modifications faites par erreur)
 4. Corriger les champs souhaités, puis cliquer sur **"Enregistrer les modifications"**
 
-> ⚠️ **Une fois l'inscription validée**, certains champs sont grisés (non modifiables) car un compte membre et des accès en dépendent déjà : **nom, prénom, date de naissance, type Adulte/Mineur, email, nom/prénom/email du parent 1, disciplines, saison, mode de règlement**. Pour changer l'un de ces champs sur une inscription déjà validée, contactez le développeur.
+> ⚠️ **Une fois l'inscription validée**, certains champs sont grisés (non modifiables) car le compte membre et les accès en dépendent déjà : **type Adulte/Mineur, email, email du parent 1, disciplines, saison, mode de règlement**. Pour changer l'un de ces champs sur une inscription déjà validée, contactez le développeur.
 >
-> Restent toujours modifiables, même après validation : **adresse, téléphone (mobile, contact d'urgence, et téléphone du parent 1), groupe sanguin, allergies, niveau, informations du parent 2, droit à l'image, autorisation parentale, Pass Sport, document scanné**.
+> Restent toujours modifiables, même après validation : **nom, prénom, date de naissance, nom et prénom du parent 1, adresse, téléphone (mobile, contact d'urgence, et téléphone du parent 1), groupe sanguin, allergies, niveau, informations du parent 2, droit à l'image, autorisation parentale, Pass Sport, document scanné**.
 >
 > 💡 Le mode de règlement coché sur la fiche est verrouillé, mais la saisie des règlements reste libre : les 4 trimestres sont toujours proposés dans le panneau de règlement (voir section 5).
+
+### Corriger le nom, le prénom ou la date de naissance
+
+- Le **compte membre** est renommé automatiquement : celui de la personne pour un adulte, celui du parent 1 pour un mineur.
+- Le site vérifie qu'une **autre inscription** ne porte pas déjà ce nom, ce prénom et cette date de naissance sur la saison.
+- Une date de naissance qui ferait passer la personne d'**adulte à mineur** (ou l'inverse) est refusée : le titulaire du compte changerait. Dans ce cas, contactez le développeur.
+- Pour un karatéka, une nouvelle date de naissance peut changer la **tranche d'âge** : un message rappelle de vérifier le montant théorique dans le panneau de règlement.
+
+> 💡 **Toutes les corrections sont tracées** : date, admin, champ, ancienne et nouvelle valeur. L'historique s'affiche en bas de la fenêtre "Modifier". Une correction faite par erreur peut donc toujours être rattrapée.
 
 ---
 

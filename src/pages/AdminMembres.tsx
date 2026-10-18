@@ -42,6 +42,30 @@ interface Membre {
   created_at: string;
 }
 
+/** Ligne de la table journal_modifications : une correction d'un champ, par qui et quand. */
+interface JournalModification {
+  id: string;
+  created_at: string;
+  admin_nom: string | null;
+  table_cible: "inscriptions" | "profils";
+  ligne_id: string;
+  personne: string | null;
+  champ: string;
+  ancienne_valeur: string | null;
+  nouvelle_valeur: string | null;
+}
+
+/** Libellés lisibles des champs d'inscription, pour le journal des modifications. */
+const LIBELLES_CHAMPS_INSCRIPTION: Record<string, string> = {
+  nom: "Nom", prenom: "Prénom", adresse: "Adresse", date_naissance: "Date de naissance",
+  groupe_sanguin: "Groupe sanguin", allergie: "Allergie(s)", tel_mobile: "Tél. mobile", email: "Email",
+  urgence_contact: "Contact d'urgence", disciplines: "Disciplines", niveau: "Niveau",
+  autorisation_parentale: "Autorisation parentale", droit_image: "Droit à l'image", pass_sport: "Pass Sport",
+  moyen_paiement: "Mode de règlement", saison: "Saison", type_inscription: "Type d'inscription",
+  parent1_nom: "Parent 1 — nom", parent1_prenom: "Parent 1 — prénom", parent1_email: "Parent 1 — email", parent1_tel: "Parent 1 — téléphone",
+  parent2_nom: "Parent 2 — nom", parent2_prenom: "Parent 2 — prénom", parent2_email: "Parent 2 — email", parent2_tel: "Parent 2 — téléphone",
+};
+
 interface Inscription {
   id: string;
   nom: string | null;
@@ -363,6 +387,7 @@ const AdminMembres = () => {
   const [editingInscId, setEditingInscId] = useState<string | null>(null);
   const [scanFile, setScanFile] = useState<File | null>(null);
   const [savingPapier, setSavingPapier] = useState(false);
+  const [journalInsc, setJournalInsc] = useState<JournalModification[]>([]);
   const papierDirRef = useRef(1);
   const [papierForm, setPapierForm] = useState({
     nom: "", prenom: "", adresse: "", telMobile: "", email: "",
@@ -465,6 +490,82 @@ const AdminMembres = () => {
       parent2Tel: insc.parent2_tel || "",
     });
     setShowPapierModal(true);
+    // Historique des corrections de cette inscription (vide si la table n'existe pas encore)
+    setJournalInsc([]);
+    supabase.from("journal_modifications").select("*").eq("ligne_id", insc.id).order("created_at", { ascending: false })
+      .then(({ data }) => setJournalInsc((data as JournalModification[]) || []));
+  };
+
+  /**
+   * Après la modification d'une inscription : trace les champs modifiés, répercute une
+   * correction de nom/prénom sur le compte membre du titulaire (la personne si adulte, le
+   * parent 1 si mineur), et signale qu'une nouvelle date de naissance peut changer le tarif Karaté.
+   */
+  const apresModificationInscription = async (ancienne: Inscription, nouvelle: Partial<Inscription>) => {
+    const valeur = (v: unknown) => (v == null || v === "" ? null : typeof v === "boolean" ? (v ? "Oui" : "Non") : String(v));
+    const memeTexte = (a: string | null | undefined, b: string | null | undefined) =>
+      (a || "").trim().toLowerCase() === (b || "").trim().toLowerCase();
+    const personne = [nouvelle.prenom, nouvelle.nom].filter(Boolean).join(" ");
+
+    const entrees: Parameters<typeof journaliserModifications>[0] = [];
+    for (const [champ, nouvelleValeur] of Object.entries(nouvelle)) {
+      const avant = typeof nouvelleValeur === "boolean" ? valeur(!!ancienne[champ as keyof Inscription]) : valeur(ancienne[champ as keyof Inscription]);
+      const apres = valeur(nouvelleValeur);
+      if (avant !== apres) {
+        entrees.push({ table_cible: "inscriptions", ligne_id: ancienne.id, personne, champ: LIBELLES_CHAMPS_INSCRIPTION[champ] || champ, ancienne_valeur: avant, nouvelle_valeur: apres });
+      }
+    }
+
+    // Compte membre du titulaire : même logique de rattachement que matchInscToProfilFull
+    // (identifiant, puis email, puis nom + prénom pour une inscription papier sans email).
+    const estMineur = ancienne.type_inscription === "mineur";
+    const ancienNom = estMineur ? ancienne.parent1_nom : ancienne.nom;
+    const ancienPrenom = estMineur ? ancienne.parent1_prenom : ancienne.prenom;
+    const nouveauNom = (estMineur ? nouvelle.parent1_nom : nouvelle.nom) ?? null;
+    const nouveauPrenom = (estMineur ? nouvelle.parent1_prenom : nouvelle.prenom) ?? null;
+    const emailTitulaire = estMineur ? ancienne.parent1_email : ancienne.email;
+    const profil =
+      (ancienne.user_id ? membres.find((m) => m.id === ancienne.user_id) : undefined) ??
+      (emailTitulaire ? membres.find((m) => memeTexte(m.email, emailTitulaire)) : undefined) ??
+      (!emailTitulaire && ancienNom && ancienPrenom ? membres.find((m) => memeTexte(m.nom, ancienNom) && memeTexte(m.prenom, ancienPrenom)) : undefined);
+    const nomTitulaireChange = valeur(ancienNom) !== valeur(nouveauNom) || valeur(ancienPrenom) !== valeur(nouveauPrenom);
+    // On ne renomme le compte que s'il portait bien l'ancien nom du titulaire : un compte au nom
+    // de quelqu'un d'autre (ex : parent titulaire d'un adulte rattaché) ne doit pas être touché.
+    if (profil && nomTitulaireChange && memeTexte(profil.nom, ancienNom) && memeTexte(profil.prenom, ancienPrenom) && nouveauNom && nouveauPrenom) {
+      const { error } = await supabase.from("profils").update({ nom: nouveauNom, prenom: nouveauPrenom }).eq("id", profil.id);
+      if (error) {
+        toast.warning("Inscription modifiée, mais le compte membre n'a pas pu être renommé : " + error.message);
+      } else {
+        const personneCompte = `${nouveauPrenom} ${nouveauNom} (compte ${profil.email})`;
+        if (valeur(profil.nom) !== valeur(nouveauNom)) entrees.push({ table_cible: "profils", ligne_id: profil.id, personne: personneCompte, champ: "Nom du compte", ancienne_valeur: valeur(profil.nom), nouvelle_valeur: nouveauNom });
+        if (valeur(profil.prenom) !== valeur(nouveauPrenom)) entrees.push({ table_cible: "profils", ligne_id: profil.id, personne: personneCompte, champ: "Prénom du compte", ancienne_valeur: valeur(profil.prenom), nouvelle_valeur: nouveauPrenom });
+        toast.info(`Le compte membre ${profil.email} a aussi été renommé.`);
+      }
+    }
+
+    await journaliserModifications(entrees);
+
+    const karateId = grilleTarifs?.disciplineKarate?._id;
+    const faitDuKarate = !!karateId && (ancienne.disciplines || "").split(",").map((s) => s.trim()).includes(karateId);
+    if (faitDuKarate && (ancienne.date_naissance || "") !== (nouvelle.date_naissance || "")) {
+      toast.warning("Date de naissance modifiée : vérifiez la tranche d'âge Karaté et le montant théorique dans le panneau Règlements.", { duration: 8000 });
+    }
+  };
+
+  /**
+   * Trace dans journal_modifications chaque champ réellement modifié. Un échec n'annule pas
+   * la modification déjà enregistrée : on prévient simplement l'admin.
+   */
+  const journaliserModifications = async (
+    entrees: { table_cible: "inscriptions" | "profils"; ligne_id: string; personne: string; champ: string; ancienne_valeur: string | null; nouvelle_valeur: string | null }[]
+  ) => {
+    if (entrees.length === 0 || !user) return;
+    const moi = membres.find((m) => m.id === user.id);
+    const adminNom = [moi?.prenom, moi?.nom].filter(Boolean).join(" ") || user.email || null;
+    const { error } = await supabase.from("journal_modifications").insert(
+      entrees.map((e) => ({ ...e, admin_id: user.id, admin_nom: adminNom }))
+    );
+    if (error) toast.warning("Modification enregistrée, mais non tracée dans le journal : " + error.message);
   };
 
   const setPapierFieldError = (key: string, msg: string) => setPapierErrors(e => ({ ...e, [key]: msg }));
@@ -504,12 +605,18 @@ const AdminMembres = () => {
       const today = new Date();
       let age = today.getFullYear() - birth.getFullYear();
       if (today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) age--;
+      // Sur une inscription validée, le type est verrouillé : une date de naissance qui ferait
+      // basculer adulte ↔ mineur changerait le titulaire du compte (la personne ou son parent).
       if (papierForm.typeInscription === "adulte" && age < 18) {
-        toast.error("Cette personne est mineure. Veuillez utiliser le formulaire Mineur.");
+        toast.error(isLockedInscEdit
+          ? "Avec cette date de naissance, la personne serait mineure. Une inscription validée ne peut pas passer d'adulte à mineur : contactez le développeur."
+          : "Cette personne est mineure. Veuillez utiliser le formulaire Mineur.");
         return;
       }
       if (papierForm.typeInscription === "mineur" && age >= 18) {
-        toast.error("Cette personne est majeure. Veuillez utiliser le formulaire Adulte.");
+        toast.error(isLockedInscEdit
+          ? "Avec cette date de naissance, la personne serait majeure. Une inscription validée ne peut pas passer de mineur à adulte : contactez le développeur."
+          : "Cette personne est majeure. Veuillez utiliser le formulaire Adulte.");
         return;
       }
     }
@@ -545,8 +652,18 @@ const AdminMembres = () => {
       return;
     }
 
-    // Vérification doublon (uniquement pour les nouvelles inscriptions)
-    if (!editingInscId) {
+    // Vérification doublon : à la création, et en modification seulement si l'identité change
+    // vraiment (sinon la fonction, insensible à la casse, retrouverait l'inscription elle-même
+    // lors d'une simple correction de majuscule).
+    const ancienneInsc = editingInscId ? inscriptions.find((i) => i.id === editingInscId) ?? null : null;
+    const memeTexte = (a: string | null | undefined, b: string | null | undefined) =>
+      (a || "").trim().toLowerCase() === (b || "").trim().toLowerCase();
+    const identiteModifiee = !!ancienneInsc && (
+      !memeTexte(ancienneInsc.nom, papierForm.nom) ||
+      !memeTexte(ancienneInsc.prenom, papierForm.prenom) ||
+      (ancienneInsc.date_naissance || "") !== (papierForm.dateNaissance || "")
+    );
+    if (!editingInscId || identiteModifiee) {
       try {
         const { data: isDoublon, error: doublonError } = await supabase.rpc("check_inscription_doublon", {
           p_nom:            papierForm.nom.trim(),
@@ -601,6 +718,7 @@ const AdminMembres = () => {
     if (editingInscId) {
       const { error } = await supabase.from("inscriptions").update(inscData).eq("id", editingInscId);
       if (error) saveError = error.message;
+      else if (ancienneInsc) await apresModificationInscription(ancienneInsc, inscData);
     } else {
       const { data: inserted, error } = await supabase.from("inscriptions").insert({
         ...inscData, statut: "en_attente", source: "papier", user_id: null,
@@ -4162,7 +4280,7 @@ const AdminMembres = () => {
           </DialogHeader>
           {isLockedInscEdit && (
             <p className="rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-200/60 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
-              Inscription déjà validée : l'identité, les disciplines, la saison, le type et le mode de règlement ne sont plus modifiables ici (un compte et des accès en dépendent déjà). Seuls les champs sans impact restent éditables.
+              Inscription déjà validée : le nom, le prénom et la date de naissance peuvent être corrigés (le compte membre est renommé en même temps et chaque correction est tracée). L'email, les disciplines, la saison, le type et le mode de règlement restent verrouillés, car le compte et les accès en dépendent.
             </p>
           )}
           <div className="space-y-6 pt-2">
@@ -4203,11 +4321,11 @@ const AdminMembres = () => {
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1.5">
                         <Label htmlFor="p-nom">Nom *</Label>
-                        <Input id="p-nom" placeholder="Nom" value={papierForm.nom} onChange={e => setPapierForm(f => ({ ...f, nom: e.target.value }))} disabled={isLockedInscEdit} />
+                        <Input id="p-nom" placeholder="Nom" value={papierForm.nom} onChange={e => setPapierForm(f => ({ ...f, nom: e.target.value }))} />
                       </div>
                       <div className="space-y-1.5">
                         <Label htmlFor="p-prenom">Prénom *</Label>
-                        <Input id="p-prenom" placeholder="Prénom" value={papierForm.prenom} onChange={e => setPapierForm(f => ({ ...f, prenom: e.target.value }))} disabled={isLockedInscEdit} />
+                        <Input id="p-prenom" placeholder="Prénom" value={papierForm.prenom} onChange={e => setPapierForm(f => ({ ...f, prenom: e.target.value }))} />
                       </div>
                     </div>
                     <div className="space-y-1.5">
@@ -4217,12 +4335,14 @@ const AdminMembres = () => {
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1.5">
                         <Label htmlFor="p-ddn">Date de naissance *</Label>
-                        <Input id="p-ddn" type="date" disabled={isLockedInscEdit} value={papierForm.dateNaissance} onChange={e => {
+                        <Input id="p-ddn" type="date" value={papierForm.dateNaissance} onChange={e => {
                           const ddn = e.target.value;
                           const year = Number(ddn.slice(0, 4));
                           const isPlausible = year >= 1900 && year <= new Date().getFullYear();
                           const age = isPlausible ? calcAge(ddn) : null;
-                          if (age !== null) {
+                          // Inscription validée : pas de bascule automatique adulte ↔ mineur (type verrouillé,
+                          // le passage est refusé à l'enregistrement avec un message explicite).
+                          if (age !== null && !isLockedInscEdit) {
                             const newType = age < 18 ? "mineur" : "adulte";
                             if (newType !== papierForm.typeInscription) {
                               papierDirRef.current = newType === "mineur" ? 1 : -1;
@@ -4271,8 +4391,8 @@ const AdminMembres = () => {
                         <div className="rounded-md border border-border/50 p-3 space-y-3">
                           <p className="text-xs font-semibold">Parent 1 <span className="font-normal text-muted-foreground">(contact principal)</span> *</p>
                           <div className="grid gap-3 sm:grid-cols-2">
-                            <div className="space-y-1.5"><Label>Nom *</Label><Input placeholder="Nom" disabled={isLockedInscEdit} value={papierForm.parent1Nom} onChange={e => setPapierForm(f => ({ ...f, parent1Nom: e.target.value }))} /></div>
-                            <div className="space-y-1.5"><Label>Prénom *</Label><Input placeholder="Prénom" disabled={isLockedInscEdit} value={papierForm.parent1Prenom} onChange={e => setPapierForm(f => ({ ...f, parent1Prenom: e.target.value }))} /></div>
+                            <div className="space-y-1.5"><Label>Nom *</Label><Input placeholder="Nom" value={papierForm.parent1Nom} onChange={e => setPapierForm(f => ({ ...f, parent1Nom: e.target.value }))} /></div>
+                            <div className="space-y-1.5"><Label>Prénom *</Label><Input placeholder="Prénom" value={papierForm.parent1Prenom} onChange={e => setPapierForm(f => ({ ...f, parent1Prenom: e.target.value }))} /></div>
                           </div>
                           <div className="grid gap-3 sm:grid-cols-2">
                             <div className="space-y-1.5"><Label>Email</Label><Input type="email" placeholder="email@exemple.com" disabled={isLockedInscEdit} value={papierForm.parent1Email} onChange={e => { setPapierForm(f => ({ ...f, parent1Email: e.target.value })); clearPapierFieldError('parent1Email'); }} onBlur={() => validatePapierEmail('parent1Email', papierForm.parent1Email)} className={papierErrors.parent1Email ? 'border-destructive' : ''} />{papierErrors.parent1Email && <p className="text-xs text-destructive">{papierErrors.parent1Email}</p>}</div>
@@ -4451,6 +4571,22 @@ const AdminMembres = () => {
               )}
             </div>
 
+            {editingInscId && journalInsc.length > 0 && (
+              <div>
+                <h3 className="mb-2 text-sm font-semibold border-b border-border/50 pb-1.5">Historique des corrections</h3>
+                <ul className="max-h-48 space-y-1.5 overflow-y-auto text-xs">
+                  {journalInsc.map((j) => (
+                    <li key={j.id} className="rounded-md bg-secondary/40 px-3 py-1.5">
+                      <span className="text-muted-foreground">
+                        {new Date(j.created_at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })} · {j.admin_nom || "Admin"} —{" "}
+                      </span>
+                      <strong>{j.champ}</strong> : <span className="line-through text-muted-foreground">{j.ancienne_valeur ?? "(vide)"}</span> → {j.nouvelle_valeur ?? "(vide)"}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <div className="flex justify-end gap-2 pt-2 border-t border-border/50">
               <Button variant="outline" onClick={() => { setShowPapierModal(false); setEditingInscId(null); setScanFile(null); }} disabled={savingPapier}>Annuler</Button>
               <Button onClick={handleSaisirPapier} disabled={savingPapier} className="gap-2">
@@ -4511,7 +4647,7 @@ const AdminMembres = () => {
               {confirmModifierInsc?.statut === "validee" && (
                 <>
                   <br /><br />
-                  Cette inscription est déjà validée : l'identité, les disciplines, la saison, le type et le mode de règlement resteront verrouillés pour ne pas désynchroniser le compte membre et les accès déjà créés.
+                  Cette inscription est déjà validée : le nom, le prénom et la date de naissance restent corrigeables, et chaque correction sera tracée. L'email, les disciplines, la saison, le type et le mode de règlement resteront verrouillés pour ne pas désynchroniser le compte membre et les accès déjà créés.
                 </>
               )}
             </AlertDialogDescription>

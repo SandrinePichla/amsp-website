@@ -456,11 +456,23 @@
   </div>
 
   <div class="attention">
-    ⚠️ Une fois l'inscription <strong>validée</strong>, certains champs sont grisés (non modifiables) car un compte membre et des accès en dépendent déjà : nom, prénom, date de naissance, type Adulte/Mineur, email, nom/prénom/email du parent 1, disciplines, saison, mode de règlement. Pour changer l'un de ces champs sur une inscription déjà validée, contactez le développeur.
+    ⚠️ Une fois l'inscription <strong>validée</strong>, certains champs sont grisés (non modifiables) car le compte membre et les accès en dépendent déjà : type Adulte/Mineur, email, email du parent 1, disciplines, saison, mode de règlement. Pour changer l'un de ces champs sur une inscription déjà validée, contactez le développeur.
   </div>
 
   <div class="conseil">
-    💡 Restent toujours modifiables, même après validation : adresse, téléphone (mobile, contact d'urgence, et téléphone du parent 1), groupe sanguin, allergies, niveau, informations du parent 2, droit à l'image, autorisation parentale, Pass Sport, document scanné.
+    💡 Restent toujours modifiables, même après validation : <strong>nom, prénom, date de naissance, nom et prénom du parent 1</strong>, adresse, téléphone (mobile, contact d'urgence, et téléphone du parent 1), groupe sanguin, allergies, niveau, informations du parent 2, droit à l'image, autorisation parentale, Pass Sport, document scanné.
+  </div>
+
+  <h3>Corriger le nom, le prénom ou la date de naissance</h3>
+  <ul>
+    <li>Le <strong>compte membre</strong> est renommé automatiquement : celui de la personne pour un adulte, celui du parent 1 pour un mineur.</li>
+    <li>Le site vérifie qu'une <strong>autre inscription</strong> ne porte pas déjà ce nom, ce prénom et cette date de naissance sur la saison.</li>
+    <li>Une date de naissance qui ferait passer la personne d'<strong>adulte à mineur</strong> (ou l'inverse) est refusée : le titulaire du compte changerait. Dans ce cas, contactez le développeur.</li>
+    <li>Pour un karatéka, une nouvelle date de naissance peut changer la <strong>tranche d'âge</strong> : un message rappelle de vérifier le montant théorique dans le panneau de règlement.</li>
+  </ul>
+
+  <div class="conseil">
+    💡 <strong>Toutes les corrections sont tracées</strong> : date, admin, champ, ancienne et nouvelle valeur. L'historique s'affiche en bas de la fenêtre « Modifier ». Une correction faite par erreur peut donc toujours être rattrapée.
   </div>
 
   <div class="conseil">
