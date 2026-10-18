@@ -11,37 +11,54 @@ import {
 export const formatMontant = (n: number | null | undefined): string =>
   n == null ? "—" : `${n.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 
+/** Inscription vue par le calcul du foyer : seul le rattachement explicite (foyer_id) compte ici. */
+export interface InscriptionFoyer {
+  id: string;
+  saison: string | null;
+  statut?: string | null;
+  foyer_id?: string | null;
+}
+
 /**
- * Regroupe les inscriptions d'un même foyer : celles qui partagent au moins un
- * règlement (cheque_id) en commun pour la saison donnée, de proche en proche
- * (si A partage avec B, et B avec C, les trois forment un seul foyer).
- * Réutilise le mécanisme existant de "chèque partagé" plutôt que d'inventer un
- * nouveau système de liens familiaux — voir cheque_echeances/cheques.
+ * Regroupe les inscriptions d'un même foyer pour la saison donnée, de proche en proche
+ * (si A est lié à B, et B à C, les trois forment un seul foyer). Deux sortes de liens :
+ *  - un règlement partagé (même cheque_id dans cheque_echeances) — le mécanisme historique ;
+ *  - un rattachement explicite (même inscriptions.foyer_id), posé par l'admin, indispensable
+ *    pour une personne qui rejoint sa famille en payant ses propres règlements.
+ * Les inscriptions refusées ou supprimées ne sont jamais rattachées par foyer_id.
  */
 export const getFoyerIds = (
   inscriptionId: string,
   saison: string | null,
   cheques: { id: string; saison: string | null }[],
-  chequeEcheances: { cheque_id: string; inscription_id: string }[]
+  chequeEcheances: { cheque_id: string; inscription_id: string }[],
+  inscriptions: InscriptionFoyer[] = []
 ): string[] => {
   const chequeIdsSaison = new Set(cheques.filter((c) => c.saison === saison).map((c) => c.id));
   const linksSaison = chequeEcheances.filter((l) => chequeIdsSaison.has(l.cheque_id));
 
-  const inscToCheques = new Map<string, Set<string>>();
-  const chequeToInscs = new Map<string, Set<string>>();
-  for (const l of linksSaison) {
-    if (!inscToCheques.has(l.inscription_id)) inscToCheques.set(l.inscription_id, new Set());
-    inscToCheques.get(l.inscription_id)!.add(l.cheque_id);
-    if (!chequeToInscs.has(l.cheque_id)) chequeToInscs.set(l.cheque_id, new Set());
-    chequeToInscs.get(l.cheque_id)!.add(l.inscription_id);
+  // Graphe biparti inscription ↔ "groupe" (un chèque, ou un foyer explicite)
+  const inscToGroupes = new Map<string, Set<string>>();
+  const groupeToInscs = new Map<string, Set<string>>();
+  const lier = (inscId: string, groupe: string) => {
+    if (!inscToGroupes.has(inscId)) inscToGroupes.set(inscId, new Set());
+    inscToGroupes.get(inscId)!.add(groupe);
+    if (!groupeToInscs.has(groupe)) groupeToInscs.set(groupe, new Set());
+    groupeToInscs.get(groupe)!.add(inscId);
+  };
+  for (const l of linksSaison) lier(l.inscription_id, `cheque:${l.cheque_id}`);
+  for (const i of inscriptions) {
+    if (i.foyer_id && i.saison === saison && i.statut !== "refusee" && i.statut !== "supprimee") {
+      lier(i.id, `foyer:${i.foyer_id}`);
+    }
   }
 
   const visited = new Set<string>([inscriptionId]);
   const queue = [inscriptionId];
   while (queue.length > 0) {
     const current = queue.shift()!;
-    for (const chequeId of inscToCheques.get(current) || []) {
-      for (const other of chequeToInscs.get(chequeId) || []) {
+    for (const groupe of inscToGroupes.get(current) || []) {
+      for (const other of groupeToInscs.get(groupe) || []) {
         if (!visited.has(other)) {
           visited.add(other);
           queue.push(other);

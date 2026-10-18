@@ -30,6 +30,18 @@ interface InscriptionLite {
   moyen_paiement: string | null;
   created_at: string;
   montant_attendu: number | null;
+  statut?: string | null;
+  foyer_id?: string | null;
+}
+
+/** Une ligne pour le journal des modifications (voir journaliserModifications dans AdminMembres). */
+interface EntreeJournal {
+  table_cible: "inscriptions" | "profils";
+  ligne_id: string;
+  personne: string;
+  champ: string;
+  ancienne_valeur: string | null;
+  nouvelle_valeur: string | null;
 }
 
 interface ChequeLite {
@@ -70,6 +82,7 @@ export const ReglementsPanel = ({
   setCheques,
   setChequeEcheances,
   setInscriptions,
+  journaliser,
   onClose,
 }: {
   inscriptionId: string;
@@ -80,6 +93,7 @@ export const ReglementsPanel = ({
   setCheques: (updater: (prev: ChequeLite[]) => ChequeLite[]) => void;
   setChequeEcheances: (updater: (prev: ChequeEcheanceLite[]) => ChequeEcheanceLite[]) => void;
   setInscriptions: (updater: (prev: InscriptionLite[]) => InscriptionLite[]) => void;
+  journaliser?: (entrees: EntreeJournal[]) => Promise<void>;
   onClose: () => void;
 }) => {
   const [currentId, setCurrentId] = useState(inscriptionId);
@@ -114,9 +128,9 @@ export const ReglementsPanel = ({
   const insc = inscriptions.find((i) => i.id === currentId);
 
   const foyerIds = useMemo(
-    () => (insc ? getFoyerIds(insc.id, insc.saison, cheques, chequeEcheances) : [insc]),
+    () => (insc ? getFoyerIds(insc.id, insc.saison, cheques, chequeEcheances, inscriptions) : [insc]),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [insc?.id, insc?.saison, cheques, chequeEcheances]
+    [insc?.id, insc?.saison, cheques, chequeEcheances, inscriptions]
   );
   const foyerMembres = useMemo(
     () => inscriptions.filter((i) => foyerIds.includes(i.id)),
@@ -140,6 +154,132 @@ export const ReglementsPanel = ({
       (i) => i.id !== currentId && `${i.nom} ${i.prenom}`.toLowerCase().includes(q)
     );
   }, [search, foyerMembres, inscriptions, currentId]);
+
+  // ── Rattachement explicite à un foyer ──────────────────────────────────────
+  // La personne affichée (et son foyer actuel éventuel) rejoint le foyer d'un autre adhérent.
+  // Avant de confirmer, l'admin voit l'effet sur les montants théoriques et peut figer ceux des
+  // personnes déjà dans le foyer d'accueil (la remise famille ne profite alors qu'aux arrivants).
+  const [showRattacher, setShowRattacher] = useState(false);
+  const [rattachSearch, setRattachSearch] = useState("");
+  const [rattachCibleId, setRattachCibleId] = useState<string | null>(null);
+  const [figerMontants, setFigerMontants] = useState(true);
+  const [rattachEnCours, setRattachEnCours] = useState(false);
+  const [confirmDetacher, setConfirmDetacher] = useState(false);
+
+  const nomComplet = (i: InscriptionLite) => [i.prenom, i.nom].filter(Boolean).join(" ");
+
+  // Changer d'adhérent referme un rattachement ou un détachement en cours
+  useEffect(() => {
+    setShowRattacher(false); setRattachSearch(""); setRattachCibleId(null); setFigerMontants(true); setConfirmDetacher(false);
+  }, [currentId]);
+
+  const candidatsRattachement = useMemo(() => {
+    const q = rattachSearch.trim().toLowerCase();
+    if (!insc || !q) return [];
+    return inscriptions.filter((i) =>
+      i.saison === insc.saison && !foyerIds.includes(i.id) &&
+      i.statut !== "refusee" && i.statut !== "supprimee" &&
+      `${i.nom} ${i.prenom}`.toLowerCase().includes(q)
+    );
+  }, [rattachSearch, inscriptions, insc, foyerIds]);
+
+  /** Aperçu du rattachement : membres du foyer d'accueil et des arrivants, montants avant / après. */
+  const apercuRattachement = useMemo(() => {
+    const cible = rattachCibleId ? inscriptions.find((i) => i.id === rattachCibleId) : null;
+    if (!insc || !cible || !grille) return null;
+    const idsAccueil = getFoyerIds(cible.id, cible.saison, cheques, chequeEcheances, inscriptions);
+    const accueil = inscriptions.filter((i) => idsAccueil.includes(i.id));
+    const arrivants = foyerMembres;
+    const avantAccueil = calculerMontantsFoyer(grille, accueil, tranchesKarate);
+    const avantArrivants = calculerMontantsFoyer(grille, arrivants, tranchesKarate);
+    const avant = new Map([...avantAccueil, ...avantArrivants].map((c) => [c.inscriptionId, c.montant]));
+    // Si on fige, chaque membre du foyer d'accueil garde son montant actuel (surcharge manuelle)
+    const accueilApres = accueil.map((m) =>
+      figerMontants && m.montant_attendu == null && avant.get(m.id) != null ? { ...m, montant_attendu: avant.get(m.id)! } : m
+    );
+    const apres = new Map(calculerMontantsFoyer(grille, [...accueilApres, ...arrivants], tranchesKarate).map((c) => [c.inscriptionId, c.montant]));
+    const lignes = [...accueil.map((m) => ({ m, role: "accueil" as const })), ...arrivants.map((m) => ({ m, role: "arrivant" as const }))]
+      .map(({ m, role }) => ({ m, role, avant: avant.get(m.id) ?? null, apres: apres.get(m.id) ?? null }));
+    // Karaté sans tranche : montant non calculable, donc impossible à figer automatiquement
+    const nonFigeables = figerMontants ? accueil.filter((m) => m.montant_attendu == null && avant.get(m.id) == null) : [];
+    return { cible, accueil, arrivants, lignes, nonFigeables };
+  }, [rattachCibleId, inscriptions, insc, grille, cheques, chequeEcheances, foyerMembres, tranchesKarate, figerMontants]);
+
+  const fermerRattachement = () => { setShowRattacher(false); setRattachSearch(""); setRattachCibleId(null); setFigerMontants(true); };
+
+  const handleRattacher = async () => {
+    if (!apercuRattachement) return;
+    const { accueil, arrivants, lignes } = apercuRattachement;
+    const tous = [...accueil, ...arrivants];
+    const foyerId = tous.find((m) => m.foyer_id)?.foyer_id ?? crypto.randomUUID();
+    const aMettreAJour = tous.filter((m) => m.foyer_id !== foyerId);
+    setRattachEnCours(true);
+
+    if (aMettreAJour.length > 0) {
+      const { error } = await supabase.from("inscriptions").update({ foyer_id: foyerId }).in("id", aMettreAJour.map((m) => m.id));
+      if (error) { setRattachEnCours(false); toast.error("Erreur : " + error.message); return; }
+    }
+    const montantsFiges: { m: InscriptionLite; montant: number }[] = [];
+    if (figerMontants) {
+      for (const m of accueil) {
+        const montant = lignes.find((l) => l.m.id === m.id)?.avant;
+        if (m.montant_attendu != null || montant == null) continue;
+        const { error } = await supabase.from("inscriptions").update({ montant_attendu: montant }).eq("id", m.id);
+        if (error) toast.warning(`Montant de ${nomComplet(m)} non figé : ${error.message}`);
+        else montantsFiges.push({ m, montant });
+      }
+    }
+
+    setInscriptions((prev) => prev.map((i) => {
+      const fige = montantsFiges.find((f) => f.m.id === i.id);
+      const rattache = tous.some((m) => m.id === i.id);
+      return rattache || fige ? { ...i, ...(rattache ? { foyer_id: foyerId } : {}), ...(fige ? { montant_attendu: fige.montant } : {}) } : i;
+    }));
+
+    const avecQui = (m: InscriptionLite) => tous.filter((o) => o.id !== m.id).map(nomComplet).join(", ");
+    const ancienFoyer = (m: InscriptionLite) => {
+      const groupe = accueil.some((a) => a.id === m.id) ? accueil : arrivants;
+      const autres = groupe.filter((o) => o.id !== m.id).map(nomComplet);
+      return autres.length ? `Foyer avec ${autres.join(", ")}` : "Seul(e)";
+    };
+    await journaliser?.([
+      ...tous.map((m) => ({
+        table_cible: "inscriptions" as const, ligne_id: m.id, personne: nomComplet(m), champ: "Foyer",
+        ancienne_valeur: ancienFoyer(m), nouvelle_valeur: `Foyer avec ${avecQui(m)}`,
+      })),
+      ...montantsFiges.map(({ m, montant }) => ({
+        table_cible: "inscriptions" as const, ligne_id: m.id, personne: nomComplet(m), champ: "Montant théorique",
+        ancienne_valeur: "Calcul automatique", nouvelle_valeur: `${formatMontant(montant)} (figé lors d'un rattachement au foyer)`,
+      })),
+    ]);
+
+    setRattachEnCours(false);
+    toast.success(`${arrivants.map(nomComplet).join(", ")} rattaché(e) au foyer de ${nomComplet(apercuRattachement.cible)}.`);
+    fermerRattachement();
+  };
+
+  const handleDetacher = async () => {
+    if (!insc) return;
+    const autresAvant = foyerMembres.filter((m) => m.id !== insc.id).map(nomComplet);
+    const { error } = await supabase.from("inscriptions").update({ foyer_id: null }).eq("id", insc.id);
+    setConfirmDetacher(false);
+    if (error) { toast.error("Erreur : " + error.message); return; }
+    const inscriptionsApres = inscriptions.map((i) => (i.id === insc.id ? { ...i, foyer_id: null } : i));
+    setInscriptions((prev) => prev.map((i) => (i.id === insc.id ? { ...i, foyer_id: null } : i)));
+    // Un règlement encore partagé maintient le lien : on le signale plutôt que de le cacher
+    const resteApres = getFoyerIds(insc.id, insc.saison, cheques, chequeEcheances, inscriptionsApres).filter((id) => id !== insc.id);
+    const resteNoms = inscriptions.filter((i) => resteApres.includes(i.id)).map(nomComplet);
+    await journaliser?.([{
+      table_cible: "inscriptions", ligne_id: insc.id, personne: nomComplet(insc), champ: "Foyer",
+      ancienne_valeur: autresAvant.length ? `Foyer avec ${autresAvant.join(", ")}` : "Seul(e)",
+      nouvelle_valeur: resteNoms.length ? `Foyer avec ${resteNoms.join(", ")} (règlements partagés)` : "Seul(e)",
+    }]);
+    if (resteNoms.length) {
+      toast.warning(`${nomComplet(insc)} partage encore des règlements avec ${resteNoms.join(", ")} : le lien reste tant que ces règlements sont partagés.`, { duration: 8000 });
+    } else {
+      toast.success(`${nomComplet(insc)} a été détaché(e) du foyer.`);
+    }
+  };
 
   const resetForm = () => {
     setFormType("cheque");
@@ -269,6 +409,23 @@ export const ReglementsPanel = ({
                 Avec {foyerMembres.filter((m) => m.id !== currentId).map((m) => `${m.prenom} ${m.nom}`).join(", ")}
               </p>
             )}
+            <p className="mt-1 flex flex-wrap gap-x-3 text-xs">
+              <button onClick={() => { setShowRattacher((v) => !v); setShowSwitch(false); }} className="text-primary underline hover:no-underline">
+                Rattacher à un foyer…
+              </button>
+              {insc.foyer_id && !confirmDetacher && (
+                <button onClick={() => setConfirmDetacher(true)} className="text-muted-foreground underline hover:text-destructive">
+                  Détacher du foyer
+                </button>
+              )}
+              {confirmDetacher && (
+                <span className="text-muted-foreground">
+                  Détacher {insc.prenom} {insc.nom} ?{" "}
+                  <button onClick={handleDetacher} className="font-medium text-destructive underline">Oui</button>{" "}
+                  <button onClick={() => setConfirmDetacher(false)} className="underline">Non</button>
+                </span>
+              )}
+            </p>
           </div>
           <div className="flex items-center gap-1.5">
             <Button size="sm" variant="outline" onClick={() => setShowSwitch((v) => !v)} className="h-8 gap-1.5 text-xs mr-6">
@@ -293,6 +450,78 @@ export const ReglementsPanel = ({
               ))}
               {candidatsSwitch.length === 0 && <p className="px-2 py-1.5 text-xs text-muted-foreground italic">Aucun résultat</p>}
             </div>
+          </div>
+        )}
+
+        {showRattacher && (
+          <div className="mt-3 space-y-2 rounded-md border border-violet-200 bg-card p-3 text-xs">
+            {!apercuRattachement ? (
+              <>
+                <p className="font-medium">
+                  Rattacher {foyerMembres.map(nomComplet).join(", ")} au foyer de :
+                </p>
+                <Input autoFocus placeholder="Rechercher un adhérent de la même saison…" value={rattachSearch} onChange={(e) => setRattachSearch(e.target.value)} className="h-8 text-sm" />
+                <div className="max-h-40 overflow-y-auto">
+                  {candidatsRattachement.slice(0, 20).map((m) => (
+                    <button key={m.id} onClick={() => setRattachCibleId(m.id)} className="flex w-full rounded px-2 py-1.5 text-left text-sm hover:bg-secondary/50">
+                      {m.prenom} {m.nom}
+                    </button>
+                  ))}
+                  {rattachSearch.trim() && candidatsRattachement.length === 0 && (
+                    <p className="px-2 py-1.5 italic text-muted-foreground">Aucun résultat</p>
+                  )}
+                </div>
+                <div className="flex justify-end">
+                  <Button size="sm" variant="outline" onClick={fermerRattachement} className="h-7 text-xs">Annuler</Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="font-medium">Effet sur les montants théoriques</p>
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-left text-muted-foreground">
+                      <th className="py-1 font-normal">Personne</th>
+                      <th className="py-1 text-right font-normal">Avant</th>
+                      <th className="py-1 text-right font-normal">Après</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {apercuRattachement.lignes.map(({ m, role, avant, apres }) => (
+                      <tr key={m.id} className="border-t border-border/40">
+                        <td className="py-1">
+                          {nomComplet(m)}{" "}
+                          <span className="text-[10px] text-muted-foreground">{role === "accueil" ? "(déjà dans le foyer)" : "(arrive)"}</span>
+                        </td>
+                        <td className="py-1 text-right">{formatMontant(avant)}</td>
+                        <td className={`py-1 text-right font-medium ${avant != null && apres != null && apres !== avant ? "text-violet-700" : ""}`}>{formatMontant(apres)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <label className="flex items-start gap-2">
+                  <Checkbox checked={figerMontants} onCheckedChange={(v) => setFigerMontants(!!v)} className="mt-0.5" />
+                  <span>
+                    Garder les montants actuels des personnes déjà dans le foyer
+                    <span className="block text-[10px] text-muted-foreground">
+                      Décoché : la remise famille est recalculée pour tout le foyer (un trop-perçu peut apparaître). Coché : seul l'arrivant en profite. Le crayon du montant théorique reste disponible pour ajuster ensuite.
+                    </span>
+                  </span>
+                </label>
+                {apercuRattachement.nonFigeables.length > 0 && (
+                  <p className="rounded bg-amber-500/10 px-2 py-1 text-amber-700">
+                    Montant non calculable, donc non figé : {apercuRattachement.nonFigeables.map(nomComplet).join(", ")} (tranche d'âge Karaté à choisir).
+                  </p>
+                )}
+                <p className="text-[10px] text-muted-foreground">Les montants « — » ne sont pas calculables (tranche Karaté manquante) : ils restent à compléter.</p>
+                <div className="flex justify-end gap-1.5">
+                  <Button size="sm" variant="outline" onClick={() => setRattachCibleId(null)} className="h-7 text-xs" disabled={rattachEnCours}>Retour</Button>
+                  <Button size="sm" onClick={handleRattacher} className="h-7 gap-1 text-xs" disabled={rattachEnCours}>
+                    <Users size={12} /> {rattachEnCours ? "Rattachement…" : "Confirmer le rattachement"}
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         )}
 

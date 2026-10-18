@@ -162,6 +162,17 @@ On l'ouvre avec le bouton **"Règlements"** (disponible dès l'onglet **"À vali
 
 - Le montant théorique est calculé à partir de la grille tarifaire Sanity, remise famille comprise. Il est indicatif : le crayon à côté permet de le remplacer à la main (ex : arrivée en cours d'année), et un lien permet de revenir au calcul automatique.
 
+### Rattacher une personne à un foyer
+
+Un foyer regroupe les personnes dont la remise famille, l'encaissé et le reste dû sont calculés ensemble. Deux personnes forment un foyer dès qu'elles partagent un règlement, ou quand un admin les rattache. Le rattachement sert notamment pour un membre de la famille inscrit quelques mois plus tard, qui paie ses propres règlements.
+
+1. Ouvrir le panneau de règlement de la personne → **"Rattacher à un foyer…"**.
+2. Rechercher un membre du foyer (même saison) et le choisir.
+3. Vérifier le tableau **Avant / Après** des montants théoriques. La case **"Garder les montants actuels des personnes déjà dans le foyer"** (cochée par défaut) réserve la remise famille à l'arrivant ; décochée, la remise est recalculée pour tout le foyer, et un trop-perçu peut apparaître.
+4. **"Confirmer le rattachement"**.
+
+Le lien **"Détacher du foyer"** corrige une erreur. Une personne qui partage encore un règlement avec le foyer y reste liée tant que ce règlement est partagé. Rattachements et détachements sont tracés dans le journal.
+
 ### L'onglet "Règlements" (vue d'ensemble)
 
 | Pour… | Faire… |

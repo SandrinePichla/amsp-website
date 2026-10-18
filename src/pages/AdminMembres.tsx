@@ -102,6 +102,8 @@ interface Inscription {
   numeros_cheques: ChequeNumero[] | null;
   pass_sport_code: string | null;
   montant_attendu: number | null;
+  /** Rattachement explicite à un foyer (même valeur pour tout le foyer) — voir getFoyerIds. */
+  foyer_id?: string | null;
 }
 
 /** Un chèque reçu pour une échéance donnée d'une inscription (1 pour cheque_1x, jusqu'à 4 pour cheque_4x…). */
@@ -923,7 +925,7 @@ const AdminMembres = () => {
   /** Reste dû (ou trop-perçu) du foyer d'une inscription, pour affichage rapide dans le tableau. */
   const resteDuInscription = (insc: Inscription | null | undefined) => {
     if (!insc) return null;
-    const foyerIds = getFoyerIds(insc.id, insc.saison, cheques, chequeEcheances);
+    const foyerIds = getFoyerIds(insc.id, insc.saison, cheques, chequeEcheances, inscriptions);
     const foyerMembres = inscriptions.filter((i) => foyerIds.includes(i.id));
     const calculs = grilleTarifs ? calculerMontantsFoyer(grilleTarifs, foyerMembres, {}) : [];
     const theorique = calculs.length > 0 && !calculs.some((c) => c.montant == null)
@@ -1816,7 +1818,7 @@ const AdminMembres = () => {
     let totalResteDuTheorique = 0;
     let resteDuIncomplet = false;
     for (const insc of data) {
-      const foyerIds = getFoyerIds(insc.id, insc.saison, cheques, chequeEcheances);
+      const foyerIds = getFoyerIds(insc.id, insc.saison, cheques, chequeEcheances, inscriptions);
       const foyerKey = Array.from(foyerIds).sort().join(',');
       if (foyersVusExport.has(foyerKey)) continue;
       foyersVusExport.add(foyerKey);
@@ -1859,7 +1861,7 @@ const AdminMembres = () => {
     const foyersVusBilan = new Set<string>();
     const lignesBilanFoyer: LigneBilanFoyer[] = [];
     for (const insc of data) {
-      const foyerIds = getFoyerIds(insc.id, insc.saison, cheques, chequeEcheances);
+      const foyerIds = getFoyerIds(insc.id, insc.saison, cheques, chequeEcheances, inscriptions);
       const foyerKey = Array.from(foyerIds).sort().join(',');
       if (foyersVusBilan.has(foyerKey)) continue;
       foyersVusBilan.add(foyerKey);
@@ -2174,7 +2176,7 @@ const AdminMembres = () => {
         ? (ligne.inscriptions.find(i => i.statut === "validee") ?? ligne.inscriptions[0] ?? null)
         : ligne.inscription;
       if (!inscRef) continue;
-      const foyerIds = getFoyerIds(inscRef.id, inscRef.saison, cheques, chequeEcheances);
+      const foyerIds = getFoyerIds(inscRef.id, inscRef.saison, cheques, chequeEcheances, inscriptions);
       const foyerKey = [...foyerIds].sort().join(",");
       if (foyersVus.has(foyerKey)) continue;
       foyersVus.add(foyerKey);
@@ -4170,6 +4172,7 @@ const AdminMembres = () => {
               setCheques={setCheques}
               setChequeEcheances={setChequeEcheances}
               setInscriptions={setInscriptions}
+              journaliser={journaliserModifications}
               onClose={() => { setReglementsPanelInscId(null); setReglementsPanelEcheance(undefined); }}
             />
           )}
