@@ -171,17 +171,28 @@ Deno.serve(async (req) => {
       nouvelle_valeur: nouveau,
     });
 
-    // 6. Demande faite par l'adhérent lui-même : alerte à chaque admin (un email chacun, pour ne pas
-    // exposer les adresses), afin qu'un fichier Excel déjà téléchargé ne reste pas faux à son insu.
+    // 6. Demande faite par l'adhérent lui-même : alerte à la messagerie du club (adresse de Sanity →
+    // Paramètres, la même que le formulaire de contact) et à chaque admin (un email chacun, pour ne
+    // pas exposer les adresses), afin qu'un fichier Excel déjà téléchargé ne reste pas faux à son insu.
     // Un échec ici n'annule pas la demande, déjà envoyée.
     if (parLuiMeme) {
       const personne = [profilCible?.prenom, profilCible?.nom].filter(Boolean).join(" ") || ancien;
+      const destinataires = new Set<string>();
+      try {
+        const requete = encodeURIComponent('*[_type == "parametres"][0].email');
+        const res = await fetch(`https://t7u49x1d.api.sanity.io/v2024-01-01/data/query/production?query=${requete}`);
+        const emailClub = (await res.json())?.result;
+        if (typeof emailClub === "string" && emailClub.includes("@")) destinataires.add(emailClub.trim().toLowerCase());
+      } catch (e) {
+        console.log(`Adresse du club introuvable dans Sanity : ${e instanceof Error ? e.message : e}`);
+      }
       const { data: admins } = await admin.from("profils").select("email").eq("role", "admin");
-      for (const a of admins ?? []) {
-        if (!a.email) continue;
+      for (const a of admins ?? []) if (a.email) destinataires.add(a.email.trim().toLowerCase());
+
+      for (const destinataire of destinataires) {
         try {
           await envoyerEmail(
-            a.email,
+            destinataire,
             `AMSP — ${personne} a demandé à changer son adresse email`,
             `<p>Bonjour,</p>
              <p><strong>${personne}</strong> a demandé, depuis son espace membre, à changer l'adresse email de son compte :</p>
@@ -190,12 +201,12 @@ Deno.serve(async (req) => {
              <p>Pensez à refaire l'export Excel si vous travaillez sur un fichier déjà téléchargé.</p>`,
           );
         } catch (e) {
-          console.log(`Alerte admin non envoyée à ${a.email} : ${e instanceof Error ? e.message : e}`);
+          console.log(`Alerte non envoyée à ${destinataire} : ${e instanceof Error ? e.message : e}`);
         }
       }
     }
 
-    return repondre({ ok: true, ancien, nouveau, envois: [envoiNouveau, envoiAncien], version: 7 });
+    return repondre({ ok: true, ancien, nouveau, envois: [envoiNouveau, envoiAncien], version: 8 });
   } catch (e) {
     return repondre({ error: e instanceof Error ? e.message : String(e) }, 500);
   }
