@@ -171,7 +171,31 @@ Deno.serve(async (req) => {
       nouvelle_valeur: nouveau,
     });
 
-    return repondre({ ok: true, ancien, nouveau, envois: [envoiNouveau, envoiAncien], version: 6 });
+    // 6. Demande faite par l'adhérent lui-même : alerte à chaque admin (un email chacun, pour ne pas
+    // exposer les adresses), afin qu'un fichier Excel déjà téléchargé ne reste pas faux à son insu.
+    // Un échec ici n'annule pas la demande, déjà envoyée.
+    if (parLuiMeme) {
+      const personne = [profilCible?.prenom, profilCible?.nom].filter(Boolean).join(" ") || ancien;
+      const { data: admins } = await admin.from("profils").select("email").eq("role", "admin");
+      for (const a of admins ?? []) {
+        if (!a.email) continue;
+        try {
+          await envoyerEmail(
+            a.email,
+            `AMSP — ${personne} a demandé à changer son adresse email`,
+            `<p>Bonjour,</p>
+             <p><strong>${personne}</strong> a demandé, depuis son espace membre, à changer l'adresse email de son compte :</p>
+             <p>${ancien} → <strong>${nouveau}</strong></p>
+             <p>Le changement sera effectif dès que l'adhérent aura cliqué sur le lien de confirmation reçu à la nouvelle adresse. Son compte et toutes ses inscriptions seront alors mis à jour automatiquement, et l'opération apparaîtra dans l'historique de la fiche (bouton « Modifier »).</p>
+             <p>Pensez à refaire l'export Excel si vous travaillez sur un fichier déjà téléchargé.</p>`,
+          );
+        } catch (e) {
+          console.log(`Alerte admin non envoyée à ${a.email} : ${e instanceof Error ? e.message : e}`);
+        }
+      }
+    }
+
+    return repondre({ ok: true, ancien, nouveau, envois: [envoiNouveau, envoiAncien], version: 7 });
   } catch (e) {
     return repondre({ error: e instanceof Error ? e.message : String(e) }, 500);
   }

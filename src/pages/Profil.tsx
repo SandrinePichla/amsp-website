@@ -47,11 +47,12 @@ const Profil = () => {
   const navigate = useNavigate();
   const [profil, setProfil] = useState<Profil | null>(null);
   const [loading, setLoading] = useState(true);
-  const [savingInfo, setSavingInfo] = useState(false);
   const [savingEmail, setSavingEmail] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
 
-  const [formInfo, setFormInfo] = useState({ nom: "", adresse: "", telephone: "" });
+  // Pas de modification du nom, de l'adresse ni du téléphone ici : ces champs ne vivent que sur le
+  // compte (profils), pas sur les inscriptions que lisent l'Excel et la gestion des membres — la
+  // correction passerait inaperçue. Seuls les admins corrigent ces données, depuis "Modifier".
   const [formEmail, setFormEmail] = useState({ email: "", motDePasse: "" });
   // Changement d'email en attente de confirmation (adresse demandée), et message de l'envoi
   const [emailEnAttente, setEmailEnAttente] = useState<string | null>(null);
@@ -105,31 +106,10 @@ const Profil = () => {
           toast.error("Erreur lors du chargement du profil.");
         } else {
           setProfil(data);
-          setFormInfo({
-            nom: data.nom || "",
-            adresse: data.adresse || "",
-            telephone: data.telephone || "",
-          });
         }
         setLoading(false);
       });
   }, [user, navigate]);
-
-  const handleSaveInfo = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setSavingInfo(true);
-    const { error } = await supabase
-      .from("profils")
-      .update({ nom: formInfo.nom, adresse: formInfo.adresse, telephone: formInfo.telephone })
-      .eq("id", user!.id);
-    if (error) {
-      toast.error("Erreur lors de la sauvegarde.");
-    } else {
-      toast.success("Informations mises à jour !");
-      setProfil((prev) => prev ? { ...prev, ...formInfo } : prev);
-    }
-    setSavingInfo(false);
-  };
 
   /**
    * Demande de changement de l'email de connexion. Passe par la même fonction serveur que les
@@ -263,50 +243,9 @@ const Profil = () => {
                       </ul>
                     </div>
                   )}
-                </div>
-
-                {/* Informations personnelles */}
-                <div className="rounded-lg border border-border/50 bg-card p-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <User size={18} className="text-primary" />
-                    <h2 className="font-serif font-bold">Informations personnelles</h2>
-                  </div>
-                  <form onSubmit={handleSaveInfo} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="nom">Nom</Label>
-                      <Input
-                        id="nom"
-                        maxLength={100}
-                        placeholder="Votre nom"
-                        value={formInfo.nom}
-                        onChange={(e) => setFormInfo({ ...formInfo, nom: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="adresse">Adresse postale</Label>
-                      <Input
-                        id="adresse"
-                        maxLength={255}
-                        placeholder="Votre adresse complète"
-                        value={formInfo.adresse}
-                        onChange={(e) => setFormInfo({ ...formInfo, adresse: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="telephone">Téléphone portable</Label>
-                      <Input
-                        id="telephone"
-                        type="tel"
-                        maxLength={20}
-                        placeholder="06 00 00 00 00"
-                        value={formInfo.telephone}
-                        onChange={(e) => setFormInfo({ ...formInfo, telephone: e.target.value })}
-                      />
-                    </div>
-                    <Button type="submit" className="w-full" disabled={savingInfo}>
-                      {savingInfo ? "Sauvegarde..." : "Enregistrer"}
-                    </Button>
-                  </form>
+                  <p className="mt-4 text-xs text-muted-foreground">
+                    Pour corriger un nom, une adresse postale ou un téléphone, contactez l'association.
+                  </p>
                 </div>
 
                 {/* Changer l'adresse mail */}
