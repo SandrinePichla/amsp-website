@@ -519,25 +519,32 @@ const AdminMembres = () => {
 
   // Changement de l'email de connexion d'un compte : passe par la fonction serveur "changer-email"
   // (lien de confirmation envoyé à la nouvelle adresse, ancienne adresse prévenue).
-  const [changementEmail, setChangementEmail] = useState<{ compte: Membre; nouvelEmail: string } | null>(null);
+  const [changementEmail, setChangementEmail] = useState<{ compte: Membre; nouvelEmail: string; erreur?: string } | null>(null);
   const [envoiChangementEmail, setEnvoiChangementEmail] = useState(false);
 
   const handleDemanderChangementEmail = async () => {
     if (!changementEmail) return;
+    const afficherErreur = (erreur: string) => setChangementEmail((c) => c && { ...c, erreur });
     const nouvelEmail = changementEmail.nouvelEmail.trim().toLowerCase();
-    if (!REGEX_EMAIL.test(nouvelEmail)) { toast.error("Adresse email invalide."); return; }
-    if (nouvelEmail === (changementEmail.compte.email || "").toLowerCase()) { toast.error("C'est déjà l'email de ce compte."); return; }
+    if (!REGEX_EMAIL.test(nouvelEmail)) { afficherErreur("Adresse email invalide."); return; }
+    if (nouvelEmail === (changementEmail.compte.email || "").toLowerCase()) { afficherErreur("C'est déjà l'email de ce compte."); return; }
     setEnvoiChangementEmail(true);
+    afficherErreur("");
     const { data, error } = await supabase.functions.invoke("changer-email", {
       body: { profilId: changementEmail.compte.id, nouvelEmail, redirectTo: `${window.location.origin}/profil` },
     });
     setEnvoiChangementEmail(false);
-    // En cas d'erreur métier (adresse déjà prise…), la fonction renvoie { error } avec un statut 4xx
+    // En cas d'erreur (adresse déjà prise, droits…), la réponse contient { error } ou { message } avec un statut 4xx/5xx
     let message: string | null = (data as { error?: string } | null)?.error ?? null;
     if (!message && error) {
-      try { message = (await (error as { context?: Response }).context?.json())?.error ?? error.message; } catch { message = error.message; }
+      const contexte = (error as { context?: Response }).context;
+      let corps = "";
+      try { corps = contexte ? await contexte.text() : ""; } catch { /* corps illisible */ }
+      let detail = corps;
+      try { const json = JSON.parse(corps); detail = json.error ?? json.message ?? json.code ?? corps; } catch { /* pas du JSON */ }
+      message = `${detail || error.message}${contexte?.status ? ` (code ${contexte.status})` : ""}`;
     }
-    if (message) { toast.error(message); return; }
+    if (message) { console.error("changer-email :", message, error); afficherErreur(message); return; }
     toast.success("Demande envoyée", {
       description: `Un lien de confirmation a été envoyé à ${nouvelEmail}, et l'ancienne adresse a été prévenue. Le changement sera effectif dès que la personne aura cliqué sur le lien.`,
       duration: 10000,
@@ -4673,8 +4680,13 @@ const AdminMembres = () => {
               <div className="space-y-1.5">
                 <Label htmlFor="nouvel-email">Nouvel email</Label>
                 <Input id="nouvel-email" type="email" autoFocus placeholder="nouvelle@adresse.fr" value={changementEmail.nouvelEmail}
-                  onChange={(e) => setChangementEmail((c) => c && { ...c, nouvelEmail: e.target.value })} />
+                  onChange={(e) => setChangementEmail((c) => c && { ...c, nouvelEmail: e.target.value, erreur: "" })} />
               </div>
+              {changementEmail.erreur && (
+                <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                  {changementEmail.erreur}
+                </p>
+              )}
               <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
                 <li>Un lien de confirmation est envoyé à la nouvelle adresse, et l'ancienne adresse est prévenue.</li>
                 <li>Le changement n'est effectif qu'après le clic sur le lien. D'ici là, l'ancien email reste valable.</li>
