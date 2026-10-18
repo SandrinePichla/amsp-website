@@ -171,25 +171,23 @@ Deno.serve(async (req) => {
       nouvelle_valeur: nouveau,
     });
 
-    // 6. Demande faite par l'adhérent lui-même : alerte à la messagerie du club (adresse de Sanity →
-    // Paramètres, la même que le formulaire de contact) et à chaque admin (un email chacun, pour ne
-    // pas exposer les adresses), afin qu'un fichier Excel déjà téléchargé ne reste pas faux à son insu.
-    // Un échec ici n'annule pas la demande, déjà envoyée.
+    // 6. Demande faite par l'adhérent lui-même : alerte à la SEULE messagerie du club (adresse de
+    // Sanity → Paramètres, la même que le formulaire de contact), afin qu'un fichier Excel déjà
+    // téléchargé ne reste pas faux à son insu. Les adresses personnelles des admins ne sont jamais
+    // utilisées (décision de l'association). Un échec ici n'annule pas la demande, déjà envoyée.
     if (parLuiMeme) {
       const personne = [profilCible?.prenom, profilCible?.nom].filter(Boolean).join(" ") || ancien;
-      const destinataires = new Set<string>();
+      let emailClub = "contact@clubamsp.fr"; // repli si Sanity ne répond pas
       try {
         const requete = encodeURIComponent('*[_type == "parametres"][0].email');
         const res = await fetch(`https://t7u49x1d.api.sanity.io/v2024-01-01/data/query/production?query=${requete}`);
-        const emailClub = (await res.json())?.result;
-        if (typeof emailClub === "string" && emailClub.includes("@")) destinataires.add(emailClub.trim().toLowerCase());
+        const lu = (await res.json())?.result;
+        if (typeof lu === "string" && lu.includes("@")) emailClub = lu.trim().toLowerCase();
       } catch (e) {
-        console.log(`Adresse du club introuvable dans Sanity : ${e instanceof Error ? e.message : e}`);
+        console.log(`Adresse du club introuvable dans Sanity, repli sur ${emailClub} : ${e instanceof Error ? e.message : e}`);
       }
-      const { data: admins } = await admin.from("profils").select("email").eq("role", "admin");
-      for (const a of admins ?? []) if (a.email) destinataires.add(a.email.trim().toLowerCase());
 
-      for (const destinataire of destinataires) {
+      for (const destinataire of [emailClub]) {
         try {
           await envoyerEmail(
             destinataire,
@@ -206,7 +204,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    return repondre({ ok: true, ancien, nouveau, envois: [envoiNouveau, envoiAncien], version: 8 });
+    return repondre({ ok: true, ancien, nouveau, envois: [envoiNouveau, envoiAncien], version: 9 });
   } catch (e) {
     return repondre({ error: e instanceof Error ? e.message : String(e) }, 500);
   }
