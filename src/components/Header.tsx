@@ -163,6 +163,16 @@ const UserMenu = ({
             )}
             */}
 
+            {/* Mon profil : coordonnées, email de connexion, mot de passe */}
+            <Link
+              to="/profil"
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <User size={14} />
+              Mon profil
+            </Link>
+
             {/* Galerie membres */}
             <Link
               to="/galerie"
@@ -374,6 +384,14 @@ const Header = () => {
         </Link>
       )}
       */}
+      <Link
+        to="/profil"
+        onClick={() => setMobileOpen(false)}
+        className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary"
+      >
+        <User size={14} />
+        Mon profil
+      </Link>
       <Link
         to="/galerie"
         onClick={() => setMobileOpen(false)}
