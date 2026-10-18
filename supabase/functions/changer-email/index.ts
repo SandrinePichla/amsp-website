@@ -33,6 +33,7 @@ const cleService = (): string => {
   }
 };
 
+/** Envoie un email via Brevo et renvoie sa réponse (statut + messageId), aussi écrite dans les logs de la fonction. */
 const envoyerEmail = async (to: string, subject: string, htmlContent: string) => {
   const res = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
@@ -44,7 +45,12 @@ const envoyerEmail = async (to: string, subject: string, htmlContent: string) =>
       htmlContent,
     }),
   });
-  if (!res.ok) throw new Error(`Envoi de l'email à ${to} impossible (${res.status})`);
+  const corps = await res.text();
+  console.log(`Brevo → ${to} : ${res.status} ${corps}`);
+  if (!res.ok) throw new Error(`Envoi de l'email à ${to} impossible (${res.status}) : ${corps}`);
+  let messageId: string | null = null;
+  try { messageId = JSON.parse(corps).messageId ?? null; } catch { /* réponse non JSON */ }
+  return { to, statut: res.status, messageId };
 };
 
 Deno.serve(async (req) => {
@@ -94,7 +100,7 @@ Deno.serve(async (req) => {
     const prenom = profilCible?.prenom ?? "";
 
     // 4. Emails : confirmation à la nouvelle adresse, information à l'ancienne
-    await envoyerEmail(
+    const envoiNouveau = await envoyerEmail(
       nouveau,
       "AMSP — Confirmez votre nouvelle adresse email",
       `<p>Bonjour ${prenom},</p>
@@ -104,7 +110,7 @@ Deno.serve(async (req) => {
        <p>Tant que vous n'avez pas confirmé, vous continuez à vous connecter avec votre ancienne adresse. Votre mot de passe ne change pas.</p>
        <p>Si vous n'êtes pas à l'origine de cette demande, ignorez cet email et contactez l'association.</p>`,
     );
-    await envoyerEmail(
+    const envoiAncien = await envoyerEmail(
       ancien,
       "AMSP — Demande de changement de votre adresse email",
       `<p>Bonjour ${prenom},</p>
@@ -125,7 +131,7 @@ Deno.serve(async (req) => {
       nouvelle_valeur: nouveau,
     });
 
-    return repondre({ ok: true, ancien, nouveau });
+    return repondre({ ok: true, ancien, nouveau, envois: [envoiNouveau, envoiAncien], version: 2 });
   } catch (e) {
     return repondre({ error: e instanceof Error ? e.message : String(e) }, 500);
   }
