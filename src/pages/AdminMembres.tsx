@@ -28,7 +28,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PrintableInscription, type RecapData } from "@/components/PrintableInscription";
 import { ReglementsPanel } from "@/components/ReglementsPanel";
 import { fetchGrilleTarifs, type GrilleTarifs } from "@/lib/tarifs";
-import { appelerChangerEmail, texteAvertissementEmail } from "@/lib/changerEmail";
+import { appelerChangerEmail } from "@/lib/changerEmail";
 import { getFoyerIds, calculerMontantsFoyer, calculerEncaisseFoyer, bilanFoyer, formatMontant, echeancesDuMoyenPaiement } from "@/lib/reglements";
 
 interface Membre {
@@ -457,6 +457,29 @@ const AdminMembres = () => {
     });
   }, [user, navigate]);
 
+  /** Formulaire vierge de saisie papier (sans aucune donnée d'une inscription ouverte auparavant). */
+  const formulairePapierVide = () => ({
+    nom: "", prenom: "", adresse: "", telMobile: "", email: "",
+    dateNaissance: "", groupeSanguin: "", allergie: "", niveau: "",
+    urgencePrenom: "", urgenceNom: "", urgenceTel: "", disciplines: "", saison: saisonCourante || defaultSaison,
+    autorisationParentale: false, droitImage: false, passSport: false,
+    moyenPaiement: "",
+    typeInscription: "adulte" as "adulte" | "mineur",
+    parent1Nom: "", parent1Prenom: "", parent1Email: "", parent1Tel: "",
+    parent2Nom: "", parent2Prenom: "", parent2Email: "", parent2Tel: "",
+  });
+
+  // Nouvelle saisie papier : toujours repartir d'un formulaire vierge, hors mode modification —
+  // sinon la fiche modifiée juste avant réapparaît, et l'enregistrer l'écraserait.
+  const ouvrirSaisiePapier = () => {
+    setEditingInscId(null);
+    setScanFile(null);
+    setPapierErrors({});
+    setJournalInsc([]);
+    setPapierForm(formulairePapierVide());
+    setShowPapierModal(true);
+  };
+
   const openPapierEdit = (insc: Inscription) => {
     const urgenceParts = (insc.urgence_contact || "").split(" — ");
     const urgenceTel = urgenceParts.length > 1 ? urgenceParts[urgenceParts.length - 1] : "";
@@ -541,11 +564,9 @@ const AdminMembres = () => {
 
   // Changement de l'email de connexion d'un compte : passe par la fonction serveur "changer-email"
   // (lien de confirmation envoyé à la nouvelle adresse, ancienne adresse prévenue).
-  // avertissement : la nouvelle adresse est déjà portée par d'autres inscriptions (elles seraient
-  // rattachées au compte) — affiché avant l'envoi, l'admin confirme en connaissance de cause.
-  const [changementEmail, setChangementEmail] = useState<{
-    compte: Membre; nouvelEmail: string; erreur?: string; envoye?: boolean; avertissement?: string;
-  } | null>(null);
+  // Seule une adresse inconnue du site est acceptée (ni compte, ni inscription) : la fonction refuse
+  // tout le reste, pour qu'un changement d'email ne fusionne jamais deux personnes.
+  const [changementEmail, setChangementEmail] = useState<{ compte: Membre; nouvelEmail: string; erreur?: string; envoye?: boolean } | null>(null);
   const [envoiChangementEmail, setEnvoiChangementEmail] = useState(false);
 
   const handleDemanderChangementEmail = async () => {
@@ -556,22 +577,9 @@ const AdminMembres = () => {
     if (nouvelEmail === (changementEmail.compte.email || "").toLowerCase()) { afficherErreur("C'est déjà l'email de ce compte."); return; }
     setEnvoiChangementEmail(true);
     afficherErreur("");
-    const corps = { profilId: changementEmail.compte.id, nouvelEmail, redirectTo: `${window.location.origin}/profil` };
-
-    // 1er clic : vérification seulement. Si l'adresse est déjà utilisée, on avertit et on s'arrête ;
-    // le clic suivant ("Confirmer quand même") envoie la demande.
-    if (!changementEmail.avertissement) {
-      const verif = await appelerChangerEmail({ ...corps, verifierSeulement: true });
-      if (verif.erreur) { setEnvoiChangementEmail(false); afficherErreur(verif.erreur); return; }
-      if (verif.data?.nombre) {
-        setEnvoiChangementEmail(false);
-        const avertissement = texteAvertissementEmail(verif.data.nombre, verif.data.noms ?? [], true);
-        setChangementEmail((c) => c && { ...c, avertissement });
-        return;
-      }
-    }
-
-    const { erreur: message } = await appelerChangerEmail(corps);
+    const { erreur: message } = await appelerChangerEmail({
+      profilId: changementEmail.compte.id, nouvelEmail, redirectTo: `${window.location.origin}/profil`,
+    });
     setEnvoiChangementEmail(false);
     if (message) { console.error("changer-email :", message); afficherErreur(message); return; }
     // La fenêtre reste ouverte avec une confirmation visible ; l'historique est rechargé pour
@@ -825,16 +833,7 @@ const AdminMembres = () => {
       setShowPapierModal(false);
       setEditingInscId(null);
       setScanFile(null);
-      setPapierForm({
-        nom: "", prenom: "", adresse: "", telMobile: "", email: "",
-        dateNaissance: "", groupeSanguin: "", allergie: "", niveau: "",
-        urgencePrenom: "", urgenceNom: "", urgenceTel: "", disciplines: "", saison: saisonCourante || defaultSaison,
-        autorisationParentale: false, droitImage: false, passSport: false,
-        moyenPaiement: "",
-        typeInscription: "adulte",
-        parent1Nom: "", parent1Prenom: "", parent1Email: "", parent1Tel: "",
-        parent2Nom: "", parent2Prenom: "", parent2Email: "", parent2Tel: "",
-      });
+      setPapierForm(formulairePapierVide());
       await loadData();
     }
     setSavingPapier(false);
@@ -2458,7 +2457,7 @@ const AdminMembres = () => {
                     </div>
                   )}
                   <div className="flex gap-2 flex-wrap justify-end">
-                    <Button size="sm" onClick={() => setShowPapierModal(true)} className="gap-2 shrink-0">
+                    <Button size="sm" onClick={ouvrirSaisiePapier} className="gap-2 shrink-0">
                       <Plus size={14} /> Saisir inscription papier
                     </Button>
                     <Button variant="outline" size="sm" onClick={handleExportCSV} className="gap-2 shrink-0">
@@ -4785,16 +4784,11 @@ const AdminMembres = () => {
               <div className="space-y-1.5">
                 <Label htmlFor="nouvel-email">Nouvel email</Label>
                 <Input id="nouvel-email" type="email" autoFocus placeholder="nouvelle@adresse.fr" value={changementEmail.nouvelEmail}
-                  onChange={(e) => setChangementEmail((c) => c && { ...c, nouvelEmail: e.target.value, erreur: "", avertissement: undefined })} />
+                  onChange={(e) => setChangementEmail((c) => c && { ...c, nouvelEmail: e.target.value, erreur: "" })} />
               </div>
               {changementEmail.erreur && (
                 <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                   {changementEmail.erreur}
-                </p>
-              )}
-              {changementEmail.avertissement && (
-                <p className="rounded-md border border-amber-200/60 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/20 dark:text-amber-300">
-                  ⚠️ {changementEmail.avertissement}
                 </p>
               )}
               <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
@@ -4805,7 +4799,7 @@ const AdminMembres = () => {
               <div className="flex justify-end gap-2 border-t border-border/50 pt-3">
                 <Button variant="outline" onClick={() => setChangementEmail(null)} disabled={envoiChangementEmail}>Annuler</Button>
                 <Button onClick={handleDemanderChangementEmail} disabled={envoiChangementEmail || !changementEmail.nouvelEmail.trim()}>
-                  {envoiChangementEmail ? "Envoi…" : changementEmail.avertissement ? "Confirmer quand même" : "Envoyer le lien de confirmation"}
+                  {envoiChangementEmail ? "Envoi…" : "Envoyer le lien de confirmation"}
                 </Button>
               </div>
             </div>

@@ -67,9 +67,7 @@ Deno.serve(async (req) => {
     const { data: appelant, error: errAppelant } = await admin.auth.getUser(jwt);
     if (errAppelant || !appelant?.user) return repondre({ error: "Vous devez être connecté." }, 401);
     const { data: profilAppelant } = await admin.from("profils").select("role, prenom, nom").eq("id", appelant.user.id).single();
-    // verifierSeulement : ne rien envoyer, seulement dire si l'adresse est déjà portée par des
-    // inscriptions d'autres personnes (elles seraient rattachées au compte après le changement)
-    const { profilId, nouvelEmail, redirectTo, verifierSeulement } = await req.json();
+    const { profilId, nouvelEmail, redirectTo } = await req.json();
     const estAdmin = !!profilAppelant && ["admin", "admin_discipline"].includes(profilAppelant.role);
     const estTitulaire = appelant.user.id === profilId;
     if (!estAdmin && !estTitulaire) {
@@ -104,16 +102,22 @@ Deno.serve(async (req) => {
       if (lot.users.length < 1000) break;
     }
 
-    if (verifierSeulement) {
-      // Inscriptions (non refusées) qui portent déjà la nouvelle adresse sans être liées à ce compte
-      const portees = (await Promise.all(["email", "parent1_email", "parent2_email"].map((col) =>
-        admin.from("inscriptions").select("prenom, nom, user_id, statut").ilike(col, motif)
-      ))).flatMap((r) => r.data ?? []);
-      const autres = portees.filter((i) =>
-        i.user_id !== profilId && i.statut !== "refusee" && i.statut !== "supprimee");
+    // Adresse déjà portée par l'inscription d'une autre personne (sans compte) : refus ferme. Après le
+    // changement, cette inscription serait rattachée au compte (accès à ses données) — c'est une
+    // fusion, que l'association a choisi d'interdire. Seule une adresse inconnue du site est acceptée.
+    const portees = (await Promise.all(["email", "parent1_email", "parent2_email"].map((col) =>
+      admin.from("inscriptions").select("prenom, nom, user_id, statut").ilike(col, motif)
+    ))).flatMap((r) => r.data ?? []);
+    const autres = portees.filter((i) =>
+      i.user_id !== profilId && i.statut !== "refusee" && i.statut !== "supprimee");
+    if (autres.length > 0) {
       const noms = [...new Set(autres.map((i) => [i.prenom, i.nom].filter(Boolean).join(" ")).filter(Boolean))];
       // Un adhérent ne voit pas les noms : ne pas révéler qui se cache derrière une adresse
-      return repondre({ ok: true, verification: true, nombre: noms.length, noms: estAdmin ? noms : [] });
+      return repondre({
+        error: estAdmin && noms.length
+          ? `Cette adresse est déjà utilisée par l'inscription de ${noms.join(", ")}. Choisissez une adresse qui n'est utilisée nulle part sur le site.`
+          : "Cette adresse est déjà utilisée par une inscription de l'association. Choisissez une autre adresse.",
+      }, 409);
     }
 
     // 3. Lien de confirmation (n'envoie rien par lui-même et ne change encore rien)
@@ -167,7 +171,7 @@ Deno.serve(async (req) => {
       nouvelle_valeur: nouveau,
     });
 
-    return repondre({ ok: true, ancien, nouveau, envois: [envoiNouveau, envoiAncien], version: 5 });
+    return repondre({ ok: true, ancien, nouveau, envois: [envoiNouveau, envoiAncien], version: 6 });
   } catch (e) {
     return repondre({ error: e instanceof Error ? e.message : String(e) }, 500);
   }

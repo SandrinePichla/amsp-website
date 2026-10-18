@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { User, Shield, Mail, Lock } from "lucide-react";
 import { client } from "@/sanityClient";
-import { appelerChangerEmail, texteAvertissementEmail } from "@/lib/changerEmail";
+import { appelerChangerEmail } from "@/lib/changerEmail";
 
 /** Inscription rattachée au compte, telle qu'affichée dans "Personnes inscrites avec ce compte". */
 interface InscriptionCompte {
@@ -56,8 +56,6 @@ const Profil = () => {
   // Changement d'email en attente de confirmation (adresse demandée), et message de l'envoi
   const [emailEnAttente, setEmailEnAttente] = useState<string | null>(null);
   const [retourEmail, setRetourEmail] = useState<{ ok: boolean; texte: string } | null>(null);
-  // Nouvelle adresse déjà portée par d'autres inscriptions : l'adhérent confirme en connaissance de cause
-  const [avertissementEmail, setAvertissementEmail] = useState<string | null>(null);
   const [formPassword, setFormPassword] = useState({ password: "", confirm: "" });
 
   // Personnes inscrites avec ce compte (saison la plus récente) : même règle de rattachement que
@@ -162,26 +160,16 @@ const Profil = () => {
       return;
     }
 
-    const corps = { profilId: user.id, nouvelEmail, redirectTo: `${window.location.origin}/profil` };
-    // 1er clic : vérification seulement. Si l'adresse est déjà utilisée par d'autres inscriptions,
-    // on avertit et on s'arrête ; le clic suivant ("Confirmer quand même") envoie la demande.
-    if (!avertissementEmail) {
-      const verif = await appelerChangerEmail({ ...corps, verifierSeulement: true });
-      if (verif.erreur) { setSavingEmail(false); setRetourEmail({ ok: false, texte: verif.erreur }); return; }
-      if (verif.data?.nombre) {
-        setSavingEmail(false);
-        setAvertissementEmail(texteAvertissementEmail(verif.data.nombre, verif.data.noms ?? [], false));
-        return;
-      }
-    }
-
-    const { erreur: message } = await appelerChangerEmail(corps);
+    // Seule une adresse inconnue du site est acceptée : la fonction refuse une adresse déjà portée
+    // par un compte ou par une inscription (pas de fusion de deux personnes)
+    const { erreur: message } = await appelerChangerEmail({
+      profilId: user.id, nouvelEmail, redirectTo: `${window.location.origin}/profil`,
+    });
     setSavingEmail(false);
     if (message) {
       setRetourEmail({ ok: false, texte: message });
       return;
     }
-    setAvertissementEmail(null);
     setEmailEnAttente(nouvelEmail);
     setFormEmail({ email: "", motDePasse: "" });
     setRetourEmail({
@@ -347,7 +335,7 @@ const Profil = () => {
                         maxLength={255}
                         placeholder="nouvelle@adresse.fr"
                         value={formEmail.email}
-                        onChange={(e) => { setFormEmail({ ...formEmail, email: e.target.value }); setRetourEmail(null); setAvertissementEmail(null); }}
+                        onChange={(e) => { setFormEmail({ ...formEmail, email: e.target.value }); setRetourEmail(null); }}
                       />
                     </div>
                     <div className="space-y-2">
@@ -366,11 +354,6 @@ const Profil = () => {
                         Votre mot de passe ne change pas.
                       </p>
                     </div>
-                    {avertissementEmail && (
-                      <p className="rounded-md border border-amber-200/60 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/20 dark:text-amber-300">
-                        ⚠️ {avertissementEmail}
-                      </p>
-                    )}
                     {retourEmail && (
                       <p className={`rounded-md border px-3 py-2 text-xs ${retourEmail.ok
                         ? "border-green-200 bg-green-50 text-green-800 dark:bg-green-950/20 dark:text-green-300"
@@ -379,7 +362,7 @@ const Profil = () => {
                       </p>
                     )}
                     <Button type="submit" className="w-full" disabled={savingEmail}>
-                      {savingEmail ? "Envoi..." : avertissementEmail ? "Confirmer quand même" : "Changer l'adresse mail"}
+                      {savingEmail ? "Envoi..." : "Changer l'adresse mail"}
                     </Button>
                   </form>
                 </div>
