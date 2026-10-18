@@ -632,7 +632,7 @@
     </ol>
   </div>
 
-  <p>Le fichier contient <strong>9 feuilles</strong>, regroupées par statut (validées, puis en attente de règlement, puis refusées et supprimées), toutes triées par ordre alphabétique nom puis prénom :</p>
+  <p>Le fichier contient <strong>7 feuilles</strong>, regroupées par statut (validées, puis en attente de règlement, puis refusées et supprimées), toutes triées par ordre alphabétique nom puis prénom :</p>
   <table>
     <tr>
       <th>Feuille</th>
@@ -656,15 +656,7 @@
     </tr>
     <tr>
       <td><strong>Bilan par foyer</strong></td>
-      <td>Une ligne par <strong>foyer</strong> (personnes qui partagent au moins un règlement ou rattachées par un admin) — jamais par personne, pour ne pas compter deux fois un chèque partagé par une famille. Colonnes : <em>Foyer, Activités, Théorique, Encaissé, Reste dû (-) / Trop-perçu (+), Remis en banque, Saison</em>, avec montants au format monétaire et code couleur (vert/rouge) selon le signe. La colonne <em>Activités</em> sert à <strong>filtrer</strong> ; pour des <strong>totaux par activité</strong>, utiliser la feuille « Synthèse par activité » (un foyer à plusieurs activités serait sinon compté en entier sous chacune).</td>
-    </tr>
-    <tr>
-      <td><strong>Répartition par activité</strong></td>
-      <td>Une ligne par personne et par activité (une personne qui fait 3 activités a 3 lignes) : <em>Activité, Personne, Type, Foyer, Théorique, Encaissé, Remis en banque, Reste dû / Trop-perçu</em>. Les montants sont <strong>ventilés</strong> : le théorique de chaque personne est réparti entre ses activités au prorata du prix de chacune pratiquée seule, et l'encaissé du foyer de la même façon. Idéal pour un tableau croisé dynamique.</td>
-    </tr>
-    <tr>
-      <td><strong>Synthèse par activité</strong></td>
-      <td>Une ligne par activité : <em>nombre d'adhérents (dont adultes, dont mineurs), Théorique, Encaissé, Remis en banque, Reste dû / Trop-perçu</em>, avec une ligne TOTAL. La somme des montants de toutes les activités est égale au total du Bilan par foyer.</td>
+      <td>Une ligne par <strong>foyer</strong> (personnes qui partagent au moins un règlement) — jamais par personne, pour ne pas compter deux fois un chèque partagé par une famille. Colonnes : <em>Foyer, Théorique, Encaissé, Reste dû (-) / Trop-perçu (+), Remis en banque, Saison</em>, avec montants au format monétaire et code couleur (vert/rouge) selon le signe.</td>
     </tr>
     <tr>
       <td><strong>En attente de règlement</strong></td>

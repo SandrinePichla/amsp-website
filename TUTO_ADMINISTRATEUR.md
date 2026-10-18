@@ -119,7 +119,7 @@ En bas du tableau, une ligne de **totaux** affiche le théorique, l'encaissé et
 
 ### Export Excel
 
-Le bouton **"Exporter"** en haut de page génère un fichier Excel de **9 feuilles**, regroupées par couleur d'onglet et toutes triées par nom puis prénom :
+Le bouton **"Exporter"** en haut de page génère un fichier Excel de **7 feuilles**, regroupées par couleur d'onglet et toutes triées par nom puis prénom :
 
 | Feuille | Contenu |
 |---------|---------|
@@ -127,9 +127,7 @@ Le bouton **"Exporter"** en haut de page génère un fichier Excel de **9 feuill
 | 🟢 **Santé & urgence** | Groupe sanguin, allergies, contact d'urgence |
 | 🟢 **Autorisations** | Droit à l'image, autorisation parentale, Pass Sport |
 | 🟢 **Règlements** | Une ligne par règlement, classée par trimestre : Personnes concernées, Mode, N° chèque, puis le montant dans la colonne de son statut (**Montant reçu**, **Remis en banque** ou **Montant en attente**). Sous-totaux par trimestre et total général |
-| 🟢 **Bilan par foyer** | Une ligne par foyer : Activités, Théorique, Encaissé, Reste dû (−) / Trop-perçu (+), Remis en banque. La colonne Activités sert à filtrer ; pour des totaux par activité, utiliser la Synthèse par activité |
-| 🟢 **Répartition par activité** | Une ligne par personne et par activité, avec les montants ventilés : le théorique de chaque personne est réparti entre ses activités au prorata du prix de chacune pratiquée seule, et l'encaissé du foyer de la même façon |
-| 🟢 **Synthèse par activité** | Une ligne par activité : adhérents (dont adultes, dont mineurs), Théorique, Encaissé, Remis en banque, Reste dû / Trop-perçu, et une ligne TOTAL égale au total du Bilan par foyer |
+| 🟢 **Bilan par foyer** | Une ligne par foyer : Théorique, Encaissé, Reste dû (−) / Trop-perçu (+), Remis en banque |
 | 🟠 **En attente de règlement** | Identité des dossiers "À valider" |
 | 🔴 **Refusées et supprimées** | Identité des dossiers refusés ou supprimés, pour garder un historique complet |
 

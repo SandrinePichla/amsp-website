@@ -1,6 +1,5 @@
 import {
   GrilleTarifs,
-  TarifKarateTranche,
   tarifPourActivites,
   remiseFamille,
   REMISE_KARATE_COMBO,
@@ -149,101 +148,6 @@ export const calculerMontantsFoyer = (
     const suffixeRemise = remise > 0 ? ` (dont −${Math.round(remise * 100)}% remise famille)` : "";
     return { inscriptionId: m.id, montant, manuel: false, detail: `${brut.detail}${suffixeRemise}` };
   });
-};
-
-// ─── Répartition par activité (export Excel) ────────────────────────────────────────────────────
-// Les montants n'existent que par personne (théorique) et par foyer (encaissé, remis en banque) :
-// le tarif "au choix" dépend du nombre d'activités, le Karaté combiné a sa remise, la remise famille
-// porte sur le foyer, et un règlement paie un foyer pour un trimestre, pas une activité. Pour totaliser
-// par activité, on VENTILE donc ces montants avec une clé de répartition (une estimation comptable) :
-//  - théorique d'une personne → réparti entre ses activités au prorata du prix de chacune pratiquée
-//    seule (tarif Karaté de sa tranche d'âge, tarif "au choix" pour 1 activité) ;
-//  - encaissé / remis en banque du foyer → réparti entre les personnes au prorata de leur théorique,
-//    puis entre leurs activités avec la même clé.
-// Chaque répartition est faite au centime près (méthode des plus forts restes) : la somme des lignes
-// retombe exactement sur le montant de départ, sans double comptage.
-
-/** Répartit un montant (en euros) selon des poids, au centime près : la somme des parts est exacte. */
-export const repartirMontant = (total: number, poids: number[]): number[] => {
-  if (poids.length === 0) return [];
-  const somme = poids.reduce((s, p) => s + Math.max(p, 0), 0);
-  const cles = somme > 0 ? poids.map((p) => Math.max(p, 0) / somme) : poids.map(() => 1 / poids.length);
-  const centimes = Math.round(total * 100);
-  const bruts = cles.map((c) => c * centimes);
-  const parts = bruts.map((b) => Math.floor(b));
-  let reste = centimes - parts.reduce((s, p) => s + p, 0);
-  // Les centimes restants vont aux plus fortes parties décimales
-  const ordre = bruts.map((b, i) => ({ i, frac: b - Math.floor(b) })).sort((a, b) => b.frac - a.frac);
-  for (let k = 0; reste > 0; k = (k + 1) % ordre.length, reste--) parts[ordre[k].i]++;
-  return parts.map((p) => p / 100);
-};
-
-/**
- * Tranche Karaté déduite de l'âge, en lisant les libellés de la grille ("6-8 ans", "9-17 ans",
- * "+ de 18 ans"). Sert uniquement de clé de répartition : la tranche choisie par l'admin n'est pas
- * enregistrée en base, seul le montant l'est.
- */
-export const trancheKarateParAge = (grille: GrilleTarifs, age: number | null): TarifKarateTranche | null => {
-  if (age == null) return null;
-  for (const t of grille.tarifsKarate) {
-    const nombres = (t.label.match(/\d+/g) || []).map(Number);
-    if (nombres.length >= 2 && age >= nombres[0] && age <= nombres[1]) return t;
-    if (nombres.length === 1 && /\+|plus/i.test(t.label) && age >= nombres[0]) return t;
-  }
-  return null;
-};
-
-export interface LigneActivite {
-  inscriptionId: string;
-  disciplineId: string;
-  /** null si le théorique de la personne n'est pas calculable (tranche Karaté manquante). */
-  theorique: number | null;
-  encaisse: number;
-  depose: number;
-}
-
-/**
- * Ventile les montants d'un foyer par personne et par activité (voir l'explication plus haut).
- * membres : les inscriptions du foyer, avec l'âge déjà calculé ; theoriqueParPersonne : le montant
- * théorique de chacune (calculerMontantsFoyer, null si non calculable).
- */
-export const repartirFoyerParActivite = (
-  grille: GrilleTarifs,
-  membres: { id: string; disciplines: string | null; age: number | null }[],
-  theoriqueParPersonne: Map<string, number | null>,
-  encaisseFoyer: number,
-  deposeFoyer: number
-): LigneActivite[] => {
-  const prixSeul = (disciplineId: string, age: number | null): number => {
-    const unChoix = tarifPourActivites(grille, 1)?.total ?? 0;
-    if (estDisciplineKarate(grille, disciplineId)) {
-      // Tranche inconnue (âge manquant) : prix le plus élevé, à défaut d'autre indice
-      return trancheKarateParAge(grille, age)?.total ?? Math.max(0, ...grille.tarifsKarate.map((t) => t.total));
-    }
-    return unChoix;
-  };
-
-  // Part de chaque personne dans l'encaissé et le remis en banque du foyer : au prorata du théorique
-  // (parts égales si un théorique manque, faute de mieux)
-  const theoriques = membres.map((m) => theoriqueParPersonne.get(m.id) ?? null);
-  const poidsPersonnes = theoriques.some((t) => t == null) ? membres.map(() => 1) : (theoriques as number[]);
-  const encaisseParPersonne = repartirMontant(encaisseFoyer, poidsPersonnes);
-  const deposeParPersonne = repartirMontant(deposeFoyer, poidsPersonnes);
-
-  const lignes: LigneActivite[] = [];
-  membres.forEach((m, idx) => {
-    const ids = (m.disciplines || "").split(",").map((s) => s.trim()).filter(Boolean);
-    if (ids.length === 0) return;
-    const poids = ids.map((id) => prixSeul(id, m.age));
-    const theo = theoriques[idx];
-    const partsTheo = theo == null ? ids.map(() => null) : repartirMontant(theo, poids);
-    const partsEnc = repartirMontant(encaisseParPersonne[idx], poids);
-    const partsDep = repartirMontant(deposeParPersonne[idx], poids);
-    ids.forEach((id, k) => lignes.push({
-      inscriptionId: m.id, disciplineId: id, theorique: partsTheo[k], encaisse: partsEnc[k], depose: partsDep[k],
-    }));
-  });
-  return lignes;
 };
 
 export interface BilanFoyer {

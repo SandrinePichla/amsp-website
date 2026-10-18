@@ -29,7 +29,7 @@ import { PrintableInscription, type RecapData } from "@/components/PrintableInsc
 import { ReglementsPanel } from "@/components/ReglementsPanel";
 import { fetchGrilleTarifs, type GrilleTarifs } from "@/lib/tarifs";
 import { appelerChangerEmail } from "@/lib/changerEmail";
-import { getFoyerIds, calculerMontantsFoyer, calculerEncaisseFoyer, bilanFoyer, formatMontant, echeancesDuMoyenPaiement, repartirFoyerParActivite } from "@/lib/reglements";
+import { getFoyerIds, calculerMontantsFoyer, calculerEncaisseFoyer, bilanFoyer, formatMontant, echeancesDuMoyenPaiement } from "@/lib/reglements";
 
 interface Membre {
   id: string;
@@ -1864,13 +1864,9 @@ const AdminMembres = () => {
       return total;
     };
 
-    type LigneBilanFoyer = { noms: string; triNom: string; activites: string; theorique: number | null; encaisse: number; depose: number; resteDu: number | null; tropPercu: boolean; saison: string };
+    type LigneBilanFoyer = { noms: string; triNom: string; theorique: number | null; encaisse: number; depose: number; resteDu: number | null; tropPercu: boolean; saison: string };
     const foyersVusBilan = new Set<string>();
     const lignesBilanFoyer: LigneBilanFoyer[] = [];
-    // Lignes "personne × activité" pour les feuilles de répartition (voir repartirFoyerParActivite)
-    type LigneRepartition = { activite: string; personne: string; type: string; foyer: string; theorique: number | null; encaisse: number; depose: number; saison: string };
-    const lignesRepartition: LigneRepartition[] = [];
-    const nomDiscipline = (id: string) => disciplinesSanity.find((d) => d._id === id)?.nom || id;
     for (const insc of data) {
       const foyerIds = getFoyerIds(insc.id, insc.saison, cheques, chequeEcheances, inscriptions);
       const foyerKey = Array.from(foyerIds).sort().join(',');
@@ -1884,72 +1880,38 @@ const AdminMembres = () => {
         const ref = nomParInscription.get(id) || inscriptions.find((i) => i.id === id);
         return typeof ref === 'string' ? ref : ref ? `${ref.nom || ''} ${ref.prenom || ''}`.trim() : '';
       }))).filter(Boolean).sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
-      const membresFoyer = inscriptions.filter((i) => foyerIds.includes(i.id));
-      const activitesFoyer = [...new Set(membresFoyer.flatMap((m) => (m.disciplines || '').split(',').map((s) => s.trim()).filter(Boolean)))]
-        .map(nomDiscipline).sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
-      const deposeFoyer = calculerDeposeFoyer(foyerIds, insc.saison);
       lignesBilanFoyer.push({
         noms: noms.join(', '),
         triNom: noms[0] || '',
-        activites: activitesFoyer.join(', '),
         theorique: bilan?.theorique ?? null,
         encaisse: bilan?.encaisse ?? 0,
-        depose: deposeFoyer,
+        depose: calculerDeposeFoyer(foyerIds, insc.saison),
         resteDu: bilan?.resteDu ?? null,
         tropPercu: bilan?.tropPercu ?? false,
         saison: insc.saison || '',
       });
-
-      // Même théorique par personne que resteDuInscription (calculerMontantsFoyer sans tranche
-      // Karaté en mémoire : seul le montant enregistré compte), ventilé ensuite par activité
-      if (grilleTarifs) {
-        const theoriqueParPersonne = new Map(calculerMontantsFoyer(grilleTarifs, membresFoyer, {}).map((c) => [c.inscriptionId, c.montant]));
-        const repartition = repartirFoyerParActivite(
-          grilleTarifs,
-          membresFoyer.map((m) => ({ id: m.id, disciplines: m.disciplines, age: calcAge(m.date_naissance) })),
-          theoriqueParPersonne,
-          bilan?.encaisse ?? 0,
-          deposeFoyer,
-        );
-        for (const l of repartition) {
-          const m = membresFoyer.find((x) => x.id === l.inscriptionId);
-          lignesRepartition.push({
-            activite: nomDiscipline(l.disciplineId),
-            personne: m ? `${m.nom || ''} ${m.prenom || ''}`.trim() : '',
-            type: m?.type_inscription === 'mineur' ? 'Mineur' : 'Adulte',
-            foyer: noms.join(', '),
-            theorique: l.theorique,
-            encaisse: l.encaisse,
-            depose: l.depose,
-            saison: insc.saison || '',
-          });
-        }
-      }
     }
     lignesBilanFoyer.sort((a, b) => a.triNom.localeCompare(b.triNom, 'fr', { sensitivity: 'base' }));
 
     // Réutilise FMT_EUR / FMT_RESTE_DU / FMT_DEPOSE déclarés plus haut (feuille "Règlements") — même
     // convention de couleur/signe sur tout l'export : négatif = reste dû (manque), positif = trop-perçu.
-    // Colonne "Activités" : toutes les activités du foyer, pour FILTRER (filtre Excel "contient").
-    // Ne pas additionner les montants après un tel filtre : un foyer à plusieurs activités serait
-    // compté en entier sous chacune — les totaux par activité sont dans "Synthèse par activité".
-    const sheetBilan = creerFeuille('Bilan par foyer', `${lignesBilanFoyer.length} foyer(s)`, 7, VERT_FG, 1);
-    styleEnTete(sheetBilan.addRow(['Foyer', 'Activités', 'Théorique', 'Encaissé', 'Reste dû (-) / Trop-perçu (+)', 'Remis en banque', 'Saison']));
+    const sheetBilan = creerFeuille('Bilan par foyer', `${lignesBilanFoyer.length} foyer(s)`, 6, VERT_FG, 1);
+    styleEnTete(sheetBilan.addRow(['Foyer', 'Théorique', 'Encaissé', 'Reste dû (-) / Trop-perçu (+)', 'Remis en banque', 'Saison']));
     let totalBilanTheorique = 0, totalBilanEncaisse = 0, totalBilanDepose = 0, totalBilanResteDu = 0;
     let bilanIncomplet = false;
     lignesBilanFoyer.forEach((l, idx) => {
       const rowBg = idx % 2 === 0 ? GRIS_CLAIR : BLANC;
       const resteDuNet = l.resteDu == null ? null : (l.tropPercu ? l.resteDu : -l.resteDu);
-      const row = sheetBilan.addRow([l.noms, l.activites, l.theorique ?? '', l.encaisse, resteDuNet ?? "à préciser (Karaté)", l.depose, l.saison]);
+      const row = sheetBilan.addRow([l.noms, l.theorique ?? '', l.encaisse, resteDuNet ?? "à préciser (Karaté)", l.depose, l.saison]);
       row.height = 18;
       row.eachCell((cell, colNum) => {
-        cell.font = { name: 'Calibri', size: 9, bold: colNum === 5 };
+        cell.font = { name: 'Calibri', size: 9, bold: colNum === 4 };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBg } };
         cell.alignment = { vertical: 'middle', wrapText: false };
+        if (colNum === 2) cell.numFmt = FMT_EUR;
         if (colNum === 3) cell.numFmt = FMT_EUR;
-        if (colNum === 4) cell.numFmt = FMT_EUR;
-        if (colNum === 5 && typeof cell.value === 'number') cell.numFmt = FMT_RESTE_DU;
-        if (colNum === 6) cell.numFmt = FMT_DEPOSE;
+        if (colNum === 4 && typeof cell.value === 'number') cell.numFmt = FMT_RESTE_DU;
+        if (colNum === 5) cell.numFmt = FMT_DEPOSE;
       });
       if (l.theorique == null || l.resteDu == null) bilanIncomplet = true;
       else {
@@ -1961,140 +1923,30 @@ const AdminMembres = () => {
     });
     const totalBilanRow = sheetBilan.addRow([
       'TOTAL GÉNÉRAL',
-      '',
       bilanIncomplet ? 'partiel' : totalBilanTheorique,
       totalBilanEncaisse,
       bilanIncomplet ? 'partiel' : -totalBilanResteDu,
       totalBilanDepose,
       '',
     ]);
-    totalBilanRow.eachCell({ includeEmpty: true }, (cell, colNum) => {
+    totalBilanRow.eachCell((cell, colNum) => {
       // La colonne "Reste dû/Trop-perçu" reste sur fond clair pour que le vert/rouge du format
       // numérique (appliqué par Excel selon la valeur) reste lisible — sur fond bleu foncé comme le
       // reste de la ligne, ces couleurs deviendraient invisibles.
-      const estColonneResteDu = colNum === 5 && typeof cell.value === 'number';
+      const estColonneResteDu = colNum === 4 && typeof cell.value === 'number';
       cell.font = estColonneResteDu ? { name: 'Calibri', size: 11, bold: true } : { name: 'Calibri', size: 11, bold: true, color: { argb: BLANC } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: estColonneResteDu ? BLANC : BLEU } };
       cell.alignment = { vertical: 'middle', horizontal: colNum === 1 ? 'left' : 'center' };
-      if ((colNum === 3 || colNum === 4) && typeof cell.value === 'number') cell.numFmt = FMT_EUR;
-      if (colNum === 6 && typeof cell.value === 'number') cell.numFmt = FMT_DEPOSE;
+      if ((colNum === 2 || colNum === 3) && typeof cell.value === 'number') cell.numFmt = FMT_EUR;
+      if (colNum === 5 && typeof cell.value === 'number') cell.numFmt = FMT_DEPOSE;
       if (estColonneResteDu) cell.numFmt = FMT_RESTE_DU;
     });
     totalBilanRow.height = 24;
-    [32, 34, 14, 14, 22, 16, 14].forEach((w, i) => { sheetBilan.getColumn(i + 1).width = w; });
+    [32, 14, 14, 22, 16, 14].forEach((w, i) => { sheetBilan.getColumn(i + 1).width = w; });
     if (lignesBilanFoyer.length > 0) {
-      appliquerAlignement(sheetBilan, 5, 4 + lignesBilanFoyer.length, ['left', 'left', 'right', 'right', 'right', 'right', 'center']);
-      activerFiltre(sheetBilan, 7, 4 + lignesBilanFoyer.length);
+      appliquerAlignement(sheetBilan, 5, 4 + lignesBilanFoyer.length, ['left', 'right', 'right', 'right', 'right', 'center']);
+      activerFiltre(sheetBilan, 6, 4 + lignesBilanFoyer.length);
     }
-
-    // ─── Feuilles "Répartition par activité" (détail) et "Synthèse par activité" (totaux) ──────────
-    // Montants VENTILÉS par activité avec une clé de répartition (voir repartirFoyerParActivite) :
-    // une estimation comptable, pas l'argent réellement versé pour chaque activité. La somme de toutes
-    // les activités retombe exactement sur les totaux du "Bilan par foyer".
-    const NOTE_REPARTITION = "Montants estimés : le théorique de chaque personne est réparti entre ses activités au prorata du prix de chacune pratiquée seule ; l'encaissé et le remis en banque du foyer sont répartis de la même façon. Total de toutes les activités = total du Bilan par foyer.";
-    lignesRepartition.sort((a, b) =>
-      a.activite.localeCompare(b.activite, 'fr', { sensitivity: 'base' }) || a.personne.localeCompare(b.personne, 'fr', { sensitivity: 'base' }));
-    const resteDuNetRepartition = (l: { theorique: number | null; encaisse: number }) =>
-      l.theorique == null ? null : Math.round((l.encaisse - l.theorique) * 100) / 100;
-
-    const ajouterNote = (sheet: typeof sheetBilan, nbCols: number) => {
-      sheet.addRow([]);
-      const r = sheet.addRow([NOTE_REPARTITION]);
-      sheet.mergeCells(r.number, 1, r.number, nbCols);
-      r.getCell(1).font = { name: 'Calibri', size: 9, italic: true, color: { argb: GRIS_FG } };
-      r.getCell(1).alignment = { vertical: 'top', wrapText: true };
-      r.height = 30;
-    };
-
-    const sheetRepart = creerFeuille('Répartition par activité', `${lignesRepartition.length} ligne(s) personne × activité — montants estimés`, 9, VERT_FG, 2);
-    styleEnTete(sheetRepart.addRow(['Activité', 'Personne', 'Type', 'Foyer', 'Théorique (part)', 'Encaissé (part)', 'Remis en banque (part)', 'Reste dû (-) / Trop-perçu (+)', 'Saison']));
-    lignesRepartition.forEach((l, idx) => {
-      const net = resteDuNetRepartition(l);
-      const row = sheetRepart.addRow([l.activite, l.personne, l.type, l.foyer, l.theorique ?? '', l.encaisse, l.depose, net ?? 'à préciser (Karaté)', l.saison]);
-      row.height = 18;
-      row.eachCell((cell, colNum) => {
-        cell.font = { name: 'Calibri', size: 9, bold: colNum === 1 };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 0 ? GRIS_CLAIR : BLANC } };
-        if (colNum === 5 || colNum === 6) cell.numFmt = FMT_EUR;
-        if (colNum === 7) cell.numFmt = FMT_DEPOSE;
-        if (colNum === 8 && typeof cell.value === 'number') cell.numFmt = FMT_RESTE_DU;
-      });
-    });
-    [22, 24, 9, 34, 15, 15, 17, 22, 12].forEach((w, i) => { sheetRepart.getColumn(i + 1).width = w; });
-    if (lignesRepartition.length > 0) {
-      appliquerAlignement(sheetRepart, 5, 4 + lignesRepartition.length, ['left', 'left', 'center', 'left', 'right', 'right', 'right', 'right', 'center']);
-      activerFiltre(sheetRepart, 9, 4 + lignesRepartition.length);
-    }
-    ajouterNote(sheetRepart, 9);
-
-    // Synthèse : une ligne par activité. Effectifs = personnes distinctes inscrites à l'activité.
-    type Synthese = { activite: string; personnes: Set<string>; adultes: Set<string>; mineurs: Set<string>; theorique: number; theoriqueIncomplet: boolean; encaisse: number; depose: number };
-    const syntheses = new Map<string, Synthese>();
-    for (const l of lignesRepartition) {
-      const s = syntheses.get(l.activite) ?? { activite: l.activite, personnes: new Set(), adultes: new Set(), mineurs: new Set(), theorique: 0, theoriqueIncomplet: false, encaisse: 0, depose: 0 };
-      const cle = `${l.personne}|${l.foyer}`;
-      s.personnes.add(cle);
-      (l.type === 'Mineur' ? s.mineurs : s.adultes).add(cle);
-      if (l.theorique == null) s.theoriqueIncomplet = true; else s.theorique += l.theorique;
-      s.encaisse += l.encaisse;
-      s.depose += l.depose;
-      syntheses.set(l.activite, s);
-    }
-    const lignesSynthese = [...syntheses.values()].sort((a, b) => a.activite.localeCompare(b.activite, 'fr', { sensitivity: 'base' }));
-    const arrondi = (n: number) => Math.round(n * 100) / 100;
-    const sheetSynthese = creerFeuille('Synthèse par activité', `${lignesSynthese.length} activité(s) — montants estimés`, 8, VERT_FG, 1);
-    styleEnTete(sheetSynthese.addRow(['Activité', 'Adhérents', 'dont adultes', 'dont mineurs', 'Théorique', 'Encaissé', 'Remis en banque', 'Reste dû (-) / Trop-perçu (+)']));
-    let synthIncomplet = false;
-    lignesSynthese.forEach((s, idx) => {
-      if (s.theoriqueIncomplet) synthIncomplet = true;
-      const row = sheetSynthese.addRow([
-        s.activite, s.personnes.size, s.adultes.size, s.mineurs.size,
-        s.theoriqueIncomplet ? 'partiel' : arrondi(s.theorique), arrondi(s.encaisse), arrondi(s.depose),
-        s.theoriqueIncomplet ? 'partiel' : arrondi(s.encaisse - s.theorique),
-      ]);
-      row.height = 18;
-      row.eachCell((cell, colNum) => {
-        cell.font = { name: 'Calibri', size: 10, bold: colNum === 1 };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 0 ? GRIS_CLAIR : BLANC } };
-        if ((colNum === 5 || colNum === 6) && typeof cell.value === 'number') cell.numFmt = FMT_EUR;
-        if (colNum === 7) cell.numFmt = FMT_DEPOSE;
-        if (colNum === 8 && typeof cell.value === 'number') cell.numFmt = FMT_RESTE_DU;
-      });
-    });
-    const personnesTotales = new Set(lignesRepartition.map((l) => `${l.personne}|${l.foyer}`));
-    const totalSynth = (f: (s: Synthese) => number) => arrondi(lignesSynthese.reduce((t, s) => t + f(s), 0));
-    const totalSynthRow = sheetSynthese.addRow([
-      'TOTAL (adhérents distincts)',
-      personnesTotales.size,
-      new Set(lignesRepartition.filter((l) => l.type !== 'Mineur').map((l) => `${l.personne}|${l.foyer}`)).size,
-      new Set(lignesRepartition.filter((l) => l.type === 'Mineur').map((l) => `${l.personne}|${l.foyer}`)).size,
-      synthIncomplet ? 'partiel' : totalSynth((s) => s.theorique),
-      totalSynth((s) => s.encaisse),
-      totalSynth((s) => s.depose),
-      synthIncomplet ? 'partiel' : totalSynth((s) => s.encaisse - s.theorique),
-    ]);
-    totalSynthRow.eachCell({ includeEmpty: true }, (cell, colNum) => {
-      const estColonneResteDu = colNum === 8 && typeof cell.value === 'number';
-      cell.font = estColonneResteDu ? { name: 'Calibri', size: 11, bold: true } : { name: 'Calibri', size: 11, bold: true, color: { argb: BLANC } };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: estColonneResteDu ? BLANC : BLEU } };
-      cell.alignment = { vertical: 'middle', horizontal: colNum === 1 ? 'left' : 'center' };
-      if ((colNum === 5 || colNum === 6) && typeof cell.value === 'number') cell.numFmt = FMT_EUR;
-      if (colNum === 7 && typeof cell.value === 'number') cell.numFmt = FMT_DEPOSE;
-      if (estColonneResteDu) cell.numFmt = FMT_RESTE_DU;
-    });
-    totalSynthRow.height = 24;
-    [28, 12, 13, 13, 15, 15, 17, 22].forEach((w, i) => { sheetSynthese.getColumn(i + 1).width = w; });
-    if (lignesSynthese.length > 0) {
-      appliquerAlignement(sheetSynthese, 5, 4 + lignesSynthese.length, ['left', 'center', 'center', 'center', 'right', 'right', 'right', 'right']);
-      activerFiltre(sheetSynthese, 8, 4 + lignesSynthese.length);
-    }
-    sheetSynthese.addRow([]);
-    const rEff = sheetSynthese.addRow(["Une personne inscrite à plusieurs activités compte dans l'effectif de chacune : la ligne TOTAL compte les adhérents distincts, elle n'est donc pas la somme de la colonne."]);
-    sheetSynthese.mergeCells(rEff.number, 1, rEff.number, 8);
-    rEff.getCell(1).font = { name: 'Calibri', size: 9, italic: true, color: { argb: GRIS_FG } };
-    rEff.getCell(1).alignment = { vertical: 'top', wrapText: true };
-    rEff.height = 26;
-    ajouterNote(sheetSynthese, 8);
 
     construireFeuilleIdentite('En attente de règlement', dataEnAttenteReglement, AMBRE_FG);
     construireFeuilleIdentite('Refusées et supprimées', dataRefuseesEtSupprimees, ROUGE);
