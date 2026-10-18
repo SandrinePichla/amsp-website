@@ -162,6 +162,20 @@ On l'ouvre avec le bouton **"Règlements"** (disponible dès l'onglet **"À vali
 
 - Le montant théorique est calculé à partir de la grille tarifaire Sanity, remise famille comprise. Il est indicatif : le crayon à côté permet de le remplacer à la main (ex : arrivée en cours d'année), et un lien permet de revenir au calcul automatique.
 
+### Pour le comptable : faire une remise en banque
+
+Le statut de chaque règlement permet de savoir à tout moment ce qui est **en main** ("Reçu") et ce qui est **déjà à la banque** ("Remis en banque"), comme sur un bordereau de remise.
+
+1. Onglet **"Règlements"** → choisir le **trimestre**, puis le mode **"Chèque"** (ou "Espèces").
+2. Les règlements à déposer sont ceux au statut **"Reçu"** (badge vert).
+3. **Cocher** les règlements qui partent à la banque. Un bandeau "N sélectionnés" apparaît en haut du tableau.
+4. Cliquer sur **Marquer "Remis en banque"** (bouton bleu). Les lignes passent au statut "Remis en banque" (badge bleu).
+5. Pour contrôler : bouton **"Exporter"** → onglet **Règlements** du fichier Excel. Chaque montant y figure dans une seule des trois colonnes **Montant reçu** (en main, pas encore déposé), **Remis en banque** ou **Montant en attente** (annoncé, pas encore reçu), avec un sous-total par trimestre et un total général, à rapprocher du bordereau et du relevé de compte. L'onglet **Bilan par foyer** reprend le total remis en banque de chaque foyer.
+
+> 💡 **Une erreur ?** Cliquer sur le badge de statut d'une ligne la fait passer à l'état suivant (En attente → Reçu → Remis en banque → En attente…). Un **virement** arrive directement sur le compte : on peut le marquer "Remis en banque" dès sa saisie.
+
+> ⚠️ L'onglet "Règlements" et l'export Excel ne comptent que les inscriptions **validées**. Un chèque d'un dossier encore "À valider" n'y apparaît pas : pour le marquer "Remis en banque", passer par le bouton **"Règlements"** de ce dossier, ou valider d'abord l'inscription.
+
 ### Rattacher une personne à un foyer
 
 Un foyer regroupe les personnes dont la remise famille, l'encaissé et le reste dû sont calculés ensemble. Deux personnes forment un foyer dès qu'elles partagent un règlement, ou quand un admin les rattache. Le rattachement sert notamment pour un membre de la famille inscrit quelques mois plus tard, qui paie ses propres règlements.
@@ -386,6 +400,7 @@ Si vous dépassez 200 emails/mois, il faudra passer à un abonnement payant sur 
 | Modifier une inscription (papier ou en ligne) | Site AMSP | Aucune |
 | Saisir et suivre les règlements par trimestre | Site AMSP | Aucune |
 | Changer l'email de connexion d'un adhérent | Site AMSP | Aucune |
+| Faire une remise en banque (comptable) | Site AMSP | Aucune |
 | Rattacher une personne à un foyer (ou l'en détacher) | Site AMSP | Aucune |
 | Créer un espace membre (adulte ou parent) | Site AMSP | Aucune |
 | Promouvoir un admin ou admin de discipline | Site AMSP | Aucune |
