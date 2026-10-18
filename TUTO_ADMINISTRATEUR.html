@@ -305,6 +305,10 @@
       <td>Dans le panneau de règlement, choisir la tranche d'âge (le tarif de chaque tranche est affiché à côté), puis cliquer sur <strong>"Enregistrer le montant suggéré"</strong>. Un lien "réinitialiser" permet de corriger une erreur de tranche.</td>
     </tr>
     <tr>
+      <td>Rattacher une personne au foyer d'un autre adhérent (ex : un conjoint ou un enfant inscrit quelques mois après le reste de la famille, qui paie ses propres règlements)</td>
+      <td>Dans le panneau de règlement de la personne, cliquer sur <strong>"Rattacher à un foyer…"</strong>, rechercher un membre du foyer, puis vérifier le tableau <strong>Avant / Après</strong> des montants théoriques. La case <strong>"Garder les montants actuels des personnes déjà dans le foyer"</strong> (cochée par défaut) réserve la remise famille à l'arrivant ; décochée, la remise est recalculée pour tout le foyer. Confirmer. Un lien <strong>"Détacher du foyer"</strong> permet de corriger une erreur. Rattachement et détachement sont tracés dans le journal.</td>
+    </tr>
+    <tr>
       <td>Surcharger à la main le montant théorique d'une personne (ex : nouvel arrivant en cours d'année, qui ne doit que 3 trimestres sur 4)</td>
       <td>Dans le panneau de règlement, cliquer sur le crayon à côté du montant théorique, saisir le montant, puis "Enregistrer". Un lien permet de revenir au calcul automatique.</td>
     </tr>
@@ -456,7 +460,7 @@
   </div>
 
   <div class="attention">
-    ⚠️ Une fois l'inscription <strong>validée</strong>, certains champs sont grisés (non modifiables) car le compte membre et les accès en dépendent déjà : type Adulte/Mineur, email, email du parent 1, disciplines, saison, mode de règlement. Pour changer l'un de ces champs sur une inscription déjà validée, contactez le développeur.
+    ⚠️ Une fois l'inscription <strong>validée</strong>, certains champs sont grisés (non modifiables) car le compte membre et les accès en dépendent déjà : type Adulte/Mineur, disciplines, saison, mode de règlement. Pour changer l'un de ces champs sur une inscription déjà validée, contactez le développeur. L'email suit une règle à part (voir ci-dessous).
   </div>
 
   <div class="conseil">
@@ -473,6 +477,17 @@
 
   <div class="conseil">
     💡 <strong>Toutes les corrections sont tracées</strong> : date, admin, champ, ancienne et nouvelle valeur. L'historique s'affiche en bas de la fenêtre « Modifier ». Une correction faite par erreur peut donc toujours être rattrapée.
+  </div>
+
+  <h3>Changer une adresse email</h3>
+  <ul>
+    <li><strong>Si l'adresse ne sert à aucun espace membre</strong>, le champ est modifiable directement, comme les autres.</li>
+    <li><strong>Si c'est l'email de connexion d'un espace membre</strong> (adhérent, parent 1 ou parent 2), le champ est grisé. Cliquer sur <strong>« Changer l'email de connexion… »</strong> sous le champ, saisir la nouvelle adresse, puis <strong>« Envoyer le lien de confirmation »</strong>.</li>
+    <li>La personne reçoit un lien sur sa nouvelle adresse, et l'ancienne adresse est prévenue. <strong>Le changement n'est effectif qu'après son clic</strong> ; d'ici là, elle se connecte avec l'ancien email. Son mot de passe ne change pas.</li>
+    <li>Au clic, le compte, les inscriptions de toutes les saisons et le journal sont mis à jour automatiquement.</li>
+  </ul>
+  <div class="attention">
+    ⚠️ Le site refuse une adresse déjà utilisée par un autre compte. Si la personne ne reçoit pas le lien (faute de frappe), il suffit de refaire la demande avec la bonne adresse : tant que personne n'a cliqué, rien n'a changé.
   </div>
 
   <div class="conseil">
