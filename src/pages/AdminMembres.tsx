@@ -538,11 +538,7 @@ const AdminMembres = () => {
 
   // Changement de l'email de connexion d'un compte : passe par la fonction serveur "changer-email"
   // (lien de confirmation envoyé à la nouvelle adresse, ancienne adresse prévenue).
-  const [changementEmail, setChangementEmail] = useState<{
-    compte: Membre; nouvelEmail: string; erreur?: string; envoye?: boolean;
-    // Réponse de Brevo pour chaque email (diagnostic : à retrouver dans Brevo → Transactionnel → Logs)
-    envois?: { to: string; statut: number; messageId: string | null }[];
-  } | null>(null);
+  const [changementEmail, setChangementEmail] = useState<{ compte: Membre; nouvelEmail: string; erreur?: string; envoye?: boolean } | null>(null);
   const [envoiChangementEmail, setEnvoiChangementEmail] = useState(false);
 
   const handleDemanderChangementEmail = async () => {
@@ -570,8 +566,7 @@ const AdminMembres = () => {
     if (message) { console.error("changer-email :", message, error); afficherErreur(message); return; }
     // La fenêtre reste ouverte avec une confirmation visible ; l'historique est rechargé pour
     // afficher la demande en attente sous le champ email.
-    const envois = (data as { envois?: { to: string; statut: number; messageId: string | null }[] } | null)?.envois;
-    setChangementEmail((c) => c && { ...c, nouvelEmail, envoye: true, envois });
+    setChangementEmail((c) => c && { ...c, nouvelEmail, envoye: true });
     if (editingInsc) chargerJournal(editingInsc);
   };
 
@@ -4717,14 +4712,6 @@ const AdminMembres = () => {
               <p className="text-xs text-muted-foreground">
                 Le changement sera effectif dès que la personne aura cliqué sur le lien. D'ici là, la demande reste affichée sous le champ email.
               </p>
-              <div className="rounded-md bg-secondary/40 px-3 py-2 text-[11px] text-muted-foreground">
-                <p className="font-semibold">Réponse de Brevo</p>
-                {changementEmail.envois?.length ? changementEmail.envois.map((e) => (
-                  <p key={e.to} className="break-all">{e.to} : statut {e.statut}{e.messageId ? ` — réf. ${e.messageId}` : " — aucune référence"}</p>
-                )) : (
-                  <p>Aucun détail reçu : la fonction « changer-email » en ligne n'est pas la dernière version (à redéployer).</p>
-                )}
-              </div>
               <div className="flex justify-end border-t border-border/50 pt-3">
                 <Button onClick={() => setChangementEmail(null)}>Fermer</Button>
               </div>
