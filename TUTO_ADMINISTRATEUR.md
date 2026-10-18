@@ -248,6 +248,7 @@ Une erreur de saisie, une adresse qui change, un numéro de téléphone à jour.
 - **Si c'est l'email de connexion d'un espace membre** (adhérent, parent 1 ou parent 2), le champ est grisé. Cliquer sur **"Changer l'email de connexion…"** sous le champ, saisir la nouvelle adresse, puis **"Envoyer le lien de confirmation"**.
 - La personne reçoit un lien sur sa nouvelle adresse, et l'ancienne adresse est prévenue. **Le changement n'est effectif qu'après son clic** ; d'ici là, elle se connecte avec l'ancien email. Son mot de passe ne change pas.
 - Au clic, le compte, les inscriptions de toutes les saisons et le journal sont mis à jour automatiquement.
+- **L'adhérent peut aussi le faire lui-même**, depuis sa page "Mon profil" (rubrique "Adresse mail de connexion"), en confirmant avec son mot de passe actuel. Il reçoit les mêmes emails, et sa demande est tracée dans le journal avec la mention "l'adhérent lui-même".
 
 > ⚠️ Le site refuse une adresse déjà utilisée par un autre compte. Si la personne ne reçoit pas le lien (faute de frappe), il suffit de refaire la demande avec la bonne adresse : tant que personne n'a cliqué, rien n'a changé.
 

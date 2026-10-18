@@ -1,5 +1,6 @@
 // Edge Function "changer-email" — demande de changement de l'email de connexion d'un compte,
-// à l'initiative d'un admin.
+// à l'initiative d'un admin (pour n'importe quel compte) ou de l'adhérent lui-même (pour son
+// propre compte uniquement, depuis la page "Mon profil").
 //
 // Le changement n'est PAS appliqué ici : la fonction génère un lien de confirmation, l'envoie
 // à la nouvelle adresse et prévient l'ancienne. Le changement devient effectif au clic sur le
@@ -61,17 +62,19 @@ Deno.serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // 1. L'appelant doit être connecté et admin
+    // 1. L'appelant doit être connecté, et être admin ou le titulaire du compte concerné
     const jwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
     const { data: appelant, error: errAppelant } = await admin.auth.getUser(jwt);
     if (errAppelant || !appelant?.user) return repondre({ error: "Vous devez être connecté." }, 401);
     const { data: profilAppelant } = await admin.from("profils").select("role, prenom, nom").eq("id", appelant.user.id).single();
-    if (!profilAppelant || !["admin", "admin_discipline"].includes(profilAppelant.role)) {
-      return repondre({ error: "Action réservée aux administrateurs." }, 403);
+    const { profilId, nouvelEmail, redirectTo } = await req.json();
+    const estAdmin = !!profilAppelant && ["admin", "admin_discipline"].includes(profilAppelant.role);
+    const estTitulaire = appelant.user.id === profilId;
+    if (!estAdmin && !estTitulaire) {
+      return repondre({ error: "Vous ne pouvez changer que l'email de votre propre compte." }, 403);
     }
 
     // 2. Vérification de la demande
-    const { profilId, nouvelEmail, redirectTo } = await req.json();
     const nouveau = String(nouvelEmail ?? "").trim().toLowerCase();
     if (!profilId || !REGEX_EMAIL.test(nouveau)) return repondre({ error: "Adresse email invalide." }, 400);
 
@@ -100,11 +103,14 @@ Deno.serve(async (req) => {
     const prenom = profilCible?.prenom ?? "";
 
     // 4. Emails : confirmation à la nouvelle adresse, information à l'ancienne
+    const parLuiMeme = estTitulaire && !estAdmin;
     const envoiNouveau = await envoyerEmail(
       nouveau,
       "AMSP — Confirmez votre nouvelle adresse email",
       `<p>Bonjour ${prenom},</p>
-       <p>L'association AMSP a enregistré une demande de changement de l'adresse email de votre espace membre.</p>
+       <p>${parLuiMeme
+         ? "Vous avez demandé à changer l'adresse email de votre espace membre AMSP."
+         : "L'association AMSP a enregistré une demande de changement de l'adresse email de votre espace membre."}</p>
        <p>Nouvelle adresse : <strong>${nouveau}</strong></p>
        <p><a href="${lien.properties.action_link}">Cliquez ici pour confirmer cette nouvelle adresse</a>.</p>
        <p>Tant que vous n'avez pas confirmé, vous continuez à vous connecter avec votre ancienne adresse. Votre mot de passe ne change pas.</p>
@@ -114,7 +120,9 @@ Deno.serve(async (req) => {
       ancien,
       "AMSP — Demande de changement de votre adresse email",
       `<p>Bonjour ${prenom},</p>
-       <p>L'association AMSP a enregistré une demande de changement de l'adresse email de votre espace membre, vers <strong>${nouveau}</strong>.</p>
+       <p>${parLuiMeme
+         ? "Une demande de changement de l'adresse email de votre espace membre a été faite depuis votre compte"
+         : "L'association AMSP a enregistré une demande de changement de l'adresse email de votre espace membre"}, vers <strong>${nouveau}</strong>.</p>
        <p>Le changement ne sera effectif qu'après confirmation depuis cette nouvelle adresse. Votre mot de passe ne change pas.</p>
        <p><strong>Si cette demande est une erreur</strong>, contactez l'association rapidement : tant que le lien n'a pas été confirmé, rien n'est modifié.</p>`,
     );
@@ -122,7 +130,7 @@ Deno.serve(async (req) => {
     // 5. Trace de la demande (le changement effectif sera tracé par le déclencheur SQL)
     await admin.from("journal_modifications").insert({
       admin_id: appelant.user.id,
-      admin_nom: [profilAppelant.prenom, profilAppelant.nom].filter(Boolean).join(" ") || appelant.user.email,
+      admin_nom: ([profilAppelant?.prenom, profilAppelant?.nom].filter(Boolean).join(" ") || appelant.user.email) + (parLuiMeme ? " (l'adhérent lui-même)" : ""),
       table_cible: "profils",
       ligne_id: profilId,
       personne: [profilCible?.prenom, profilCible?.nom].filter(Boolean).join(" ") || ancien,
@@ -131,7 +139,7 @@ Deno.serve(async (req) => {
       nouvelle_valeur: nouveau,
     });
 
-    return repondre({ ok: true, ancien, nouveau, envois: [envoiNouveau, envoiAncien], version: 2 });
+    return repondre({ ok: true, ancien, nouveau, envois: [envoiNouveau, envoiAncien], version: 3 });
   } catch (e) {
     return repondre({ error: e instanceof Error ? e.message : String(e) }, 500);
   }

@@ -31,8 +31,17 @@ const Profil = () => {
   const [savingPassword, setSavingPassword] = useState(false);
 
   const [formInfo, setFormInfo] = useState({ nom: "", adresse: "", telephone: "" });
-  const [formEmail, setFormEmail] = useState({ email: "" });
+  const [formEmail, setFormEmail] = useState({ email: "", motDePasse: "" });
+  // Changement d'email en attente de confirmation (adresse demandée), et message de l'envoi
+  const [emailEnAttente, setEmailEnAttente] = useState<string | null>(null);
+  const [retourEmail, setRetourEmail] = useState<{ ok: boolean; texte: string } | null>(null);
   const [formPassword, setFormPassword] = useState({ password: "", confirm: "" });
+
+  // Supabase garde la nouvelle adresse demandée (new_email) tant que le lien n'a pas été cliqué
+  useEffect(() => {
+    if (!user) return;
+    supabase.auth.getUser().then(({ data }) => setEmailEnAttente(data.user?.new_email ?? null));
+  }, [user]);
 
   useEffect(() => {
     if (!user) {
@@ -54,7 +63,6 @@ const Profil = () => {
             adresse: data.adresse || "",
             telephone: data.telephone || "",
           });
-          setFormEmail({ email: data.email || user.email || "" });
         }
         setLoading(false);
       });
@@ -76,20 +84,54 @@ const Profil = () => {
     setSavingInfo(false);
   };
 
+  /**
+   * Demande de changement de l'email de connexion. Passe par la même fonction serveur que les
+   * admins ("changer-email") : lien de confirmation en français envoyé à la nouvelle adresse,
+   * ancienne adresse prévenue, refus d'une adresse déjà utilisée, trace dans le journal. Le
+   * changement n'est effectif qu'au clic ; le déclencheur SQL met alors à jour profil et inscriptions.
+   */
   const handleSaveEmail = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (formEmail.email === user?.email) {
-      toast.error("C'est déjà votre adresse mail actuelle.");
+    if (!user?.email) return;
+    const nouvelEmail = formEmail.email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(nouvelEmail)) {
+      setRetourEmail({ ok: false, texte: "Adresse email invalide." });
+      return;
+    }
+    if (nouvelEmail === user.email.toLowerCase()) {
+      setRetourEmail({ ok: false, texte: "C'est déjà votre adresse mail actuelle." });
       return;
     }
     setSavingEmail(true);
-    const { error } = await supabase.auth.updateUser({ email: formEmail.email });
-    if (error) {
-      toast.error("Erreur : " + error.message);
-    } else {
-      toast.success("Un email de confirmation a été envoyé à la nouvelle adresse.");
+    setRetourEmail(null);
+
+    // Action sensible : on revérifie le mot de passe actuel avant d'envoyer la demande
+    const { error: errMdp } = await supabase.auth.signInWithPassword({ email: user.email, password: formEmail.motDePasse });
+    if (errMdp) {
+      setSavingEmail(false);
+      setRetourEmail({ ok: false, texte: "Mot de passe incorrect." });
+      return;
     }
+
+    const { data, error } = await supabase.functions.invoke("changer-email", {
+      body: { profilId: user.id, nouvelEmail, redirectTo: `${window.location.origin}/profil` },
+    });
     setSavingEmail(false);
+    let message: string | null = (data as { error?: string } | null)?.error ?? null;
+    if (!message && error) {
+      const contexte = (error as { context?: Response }).context;
+      try { const json = contexte ? await contexte.json() : null; message = json?.error ?? json?.message ?? error.message; } catch { message = error.message; }
+    }
+    if (message) {
+      setRetourEmail({ ok: false, texte: message });
+      return;
+    }
+    setEmailEnAttente(nouvelEmail);
+    setFormEmail({ email: "", motDePasse: "" });
+    setRetourEmail({
+      ok: true,
+      texte: `Un lien de confirmation a été envoyé à ${nouvelEmail}, et votre adresse actuelle a été prévenue. Cliquez sur ce lien pour terminer le changement.`,
+    });
   };
 
   const handleSavePassword = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -206,6 +248,16 @@ const Profil = () => {
                     <Mail size={18} className="text-primary" />
                     <h2 className="font-serif font-bold">Adresse mail de connexion</h2>
                   </div>
+                  <p className="mb-4 text-sm">
+                    <span className="text-muted-foreground">Adresse actuelle : </span>
+                    <span className="font-medium">{user?.email}</span>
+                  </p>
+                  {emailEnAttente && (
+                    <p className="mb-4 rounded-md border border-amber-200/60 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/20 dark:text-amber-300">
+                      ⏳ Changement en attente vers <strong>{emailEnAttente}</strong>. Cliquez sur le lien reçu à cette adresse pour le terminer.
+                      D'ici là, continuez à vous connecter avec votre adresse actuelle.
+                    </p>
+                  )}
                   <form onSubmit={handleSaveEmail} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="email">Nouvelle adresse mail</Label>
@@ -214,14 +266,34 @@ const Profil = () => {
                         type="email"
                         required
                         maxLength={255}
-                        placeholder={user?.email || "votre@email.com"}
+                        placeholder="nouvelle@adresse.fr"
                         value={formEmail.email}
-                        onChange={(e) => setFormEmail({ email: e.target.value })}
+                        onChange={(e) => { setFormEmail({ ...formEmail, email: e.target.value }); setRetourEmail(null); }}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="mdp-email">Mot de passe actuel</Label>
+                      <Input
+                        id="mdp-email"
+                        type="password"
+                        required
+                        autoComplete="current-password"
+                        placeholder="Pour confirmer que c'est bien vous"
+                        value={formEmail.motDePasse}
+                        onChange={(e) => { setFormEmail({ ...formEmail, motDePasse: e.target.value }); setRetourEmail(null); }}
                       />
                       <p className="text-xs text-muted-foreground">
-                        Un email de confirmation sera envoyé à la nouvelle adresse.
+                        Un lien de confirmation sera envoyé à la nouvelle adresse, et votre adresse actuelle sera prévenue.
+                        Votre mot de passe ne change pas.
                       </p>
                     </div>
+                    {retourEmail && (
+                      <p className={`rounded-md border px-3 py-2 text-xs ${retourEmail.ok
+                        ? "border-green-200 bg-green-50 text-green-800 dark:bg-green-950/20 dark:text-green-300"
+                        : "border-destructive/40 bg-destructive/10 text-destructive"}`}>
+                        {retourEmail.ok ? "✅ " : ""}{retourEmail.texte}
+                      </p>
+                    )}
                     <Button type="submit" className="w-full" disabled={savingEmail}>
                       {savingEmail ? "Envoi..." : "Changer l'adresse mail"}
                     </Button>
