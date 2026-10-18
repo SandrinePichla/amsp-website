@@ -13,7 +13,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Clock, CheckCircle, XCircle, Shield, Download, ChevronDown, ChevronUp, ChevronsUpDown,
   UserX, UserPlus, ClipboardList, Link2, Plus, FileText, Trash2, Search, Pencil, Upload, ExternalLink,
-  List, Users, AlertTriangle,
+  List, Users, User, AlertTriangle,
 } from "lucide-react";
 import { sendBrevoEmail, TEMPLATES } from "@/lib/brevo";
 import { client } from "@/sanityClient";
@@ -289,8 +289,11 @@ const AdminMembres = () => {
   const [confirmModifierInsc, setConfirmModifierInsc] = useState<Inscription | null>(null);
   const [reglementsPanelInscId, setReglementsPanelInscId] = useState<string | null>(null);
   const [reglementsPanelEcheance, setReglementsPanelEcheance] = useState<number | undefined>(undefined);
-  const openReglementsPanel = (inscId: string, echeance?: number) => {
+  // Ouvrir directement la recherche "Rattacher à un foyer…" (bouton des cartes de la vue Foyer)
+  const [reglementsPanelRattacher, setReglementsPanelRattacher] = useState(false);
+  const openReglementsPanel = (inscId: string, echeance?: number, rattacher = false) => {
     setReglementsPanelEcheance(echeance);
+    setReglementsPanelRattacher(rattacher);
     setReglementsPanelInscId(inscId);
   };
   const [grilleTarifs, setGrilleTarifs] = useState<GrilleTarifs | null>(null);
@@ -2193,21 +2196,39 @@ const AdminMembres = () => {
     return { theorique, encaisse, resteDu, theoriqueConnu, nbFoyers: foyersVus.size };
   })() : null;
 
-  type FamilleGroupe = { key: string; profil: Membre | null; lignes: Ligne[] };
+  // Vue Foyer : une carte par foyer de règlement (règlements partagés ou rattachement explicite,
+  // voir getFoyerIds) — PAS par compte de connexion. Deux adultes d'une même famille avec deux
+  // emails forment une seule carte une fois rattachés ; un parent et son enfant sur le même compte
+  // restent sur deux cartes tant qu'un admin ne les a pas rattachés (les montants ne changent
+  // jamais automatiquement).
+  type FamilleGroupe = { key: string; nom: string; lignes: Ligne[] };
   const familleGroupes: FamilleGroupe[] = viewMode === "famille" ? (() => {
     const map = new Map<string, FamilleGroupe>();
     lignesSorted.forEach(ligne => {
-      const profil = ligne.type === "profil" ? ligne.profil : ligne.profil;
-      const key = profil ? profil.id : `i-${ligne.type === "inscription_seule" ? ligne.inscription.id : ligne.profil.id}`;
-      if (!map.has(key)) map.set(key, { key, profil: profil ?? null, lignes: [] });
+      const key = ligne.type === "profil"
+        ? `p-${ligne.profil.id}`
+        : `f-${getFoyerIds(ligne.inscription.id, ligne.inscription.saison, cheques, chequeEcheances, inscriptions).sort().join(",")}`;
+      if (!map.has(key)) map.set(key, { key, nom: "", lignes: [] });
       map.get(key)!.lignes.push(ligne);
     });
-    return Array.from(map.values()).sort((a, b) => {
-      const nA = a.profil ? (a.profil.nom || a.profil.prenom || a.profil.email || "") : (a.lignes[0]?.type === "inscription_seule" ? (a.lignes[0].inscription.nom || "") : "");
-      const nB = b.profil ? (b.profil.nom || b.profil.prenom || b.profil.email || "") : (b.lignes[0]?.type === "inscription_seule" ? (b.lignes[0].inscription.nom || "") : "");
-      return nA.localeCompare(nB, "fr", { sensitivity: "base" });
-    });
+    const groupes = Array.from(map.values());
+    for (const g of groupes) {
+      const noms = [...new Set(g.lignes.map(l => (l.type === "profil" ? (l.profil.nom || l.profil.email) : l.inscription.nom) || "").filter(Boolean).map(n => n.toUpperCase()))];
+      g.nom = noms.join(" / ");
+    }
+    return groupes.sort((a, b) => a.nom.localeCompare(b.nom, "fr", { sensitivity: "base" }));
   })() : [];
+
+  /** Rôle lisible d'une inscription dans la vue Foyer : âge et compte de connexion utilisé. */
+  const roleDansFoyer = (insc: Inscription, profil: Membre | null) => {
+    const memeEmail = (a?: string | null, b?: string | null) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
+    const nomProfil = profil ? ([profil.nom, profil.prenom].filter(Boolean).join(" ") || profil.email) : "";
+    if (insc.type_inscription === "mineur") {
+      return profil ? `Mineur · compte de ${nomProfil}` : "Mineur · pas d'espace membre";
+    }
+    if (!profil) return "Adulte · pas d'espace membre";
+    return memeEmail(profil.email, insc.email) ? `Adulte · son compte : ${profil.email}` : `Adulte · compte de ${nomProfil}`;
+  };
 
   const reglementItems = activeTab === "reglement"
     ? inscriptions.filter(i => {
@@ -2581,7 +2602,7 @@ const AdminMembres = () => {
                     {activeTab !== "reglements" && activeTab !== "refusees" && (
                       <button
                         onClick={() => setViewMode(v => v === "liste" ? "famille" : "liste")}
-                        title={viewMode === "famille" ? "Vue liste" : "Vue famille"}
+                        title={viewMode === "famille" ? "Vue liste" : "Vue foyer"}
                         className={`h-9 w-9 shrink-0 flex items-center justify-center rounded-md border transition-colors ${viewMode === "famille" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"}`}
                       >
                         {viewMode === "famille" ? <List size={15} /> : <Users size={15} />}
@@ -2863,7 +2884,6 @@ const AdminMembres = () => {
                   ) : viewMode === "famille" ? (
                     <div className="space-y-3">
                       {familleGroupes.map(groupe => {
-                        const { profil: gProfil } = groupe;
                         const lignesSorted = groupe.lignes.slice().sort((a, b) => {
                           const ageA = a.type === "inscription_seule" ? calcAge(a.inscription.date_naissance) : null;
                           const ageB = b.type === "inscription_seule" ? calcAge(b.inscription.date_naissance) : null;
@@ -2872,20 +2892,36 @@ const AdminMembres = () => {
                           if (ageB === null) return -1;
                           return ageB - ageA;
                         });
+                        const inscGroupe = lignesSorted.flatMap(l => l.type === "inscription_seule" ? [l] : []);
+                        const premiere = inscGroupe[0]?.inscription;
+                        const bilan = premiere ? resteDuInscription(premiere) : null;
+                        const seul = inscGroupe.length === 1;
+                        const memeEmail = (a?: string | null, b?: string | null) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
+                        // Responsables : comptes de parents d'un mineur du foyer qui ne sont pas eux-mêmes inscrits dans ce foyer
+                        const comptesInscritsIci = new Set(inscGroupe.filter(l => l.inscription.type_inscription !== "mineur" && l.profil && memeEmail(l.profil.email, l.inscription.email)).map(l => l.profil!.id));
+                        const responsables = [...new Map(inscGroupe
+                          .filter(l => l.inscription.type_inscription === "mineur" && l.profil && !comptesInscritsIci.has(l.profil.id))
+                          .map(l => [l.profil!.id, l.profil!])).values()];
                         return (
                           <div key={groupe.key} className="rounded-lg border border-border/50 overflow-hidden">
-                            {gProfil && (
-                              <div className="flex items-center gap-2 px-4 py-2.5 bg-secondary/30 border-b border-border/30">
-                                <Users size={13} className="shrink-0 text-muted-foreground" />
-                                {(gProfil.nom || gProfil.prenom) ? (
-                                  <>
-                                    <span className="text-xs font-semibold text-foreground truncate">{[gProfil.nom, gProfil.prenom].filter(Boolean).join(" ")}</span>
-                                    <span className="text-xs text-muted-foreground truncate">— {gProfil.email}</span>
-                                  </>
-                                ) : (
-                                  <span className="text-xs font-semibold text-foreground truncate">{gProfil.email}</span>
+                            {premiere && (
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 bg-secondary/30 border-b border-border/30">
+                                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                                  {seul ? <User size={13} className="shrink-0 text-muted-foreground" /> : <Users size={13} className="shrink-0 text-violet-600" />}
+                                  {seul
+                                    ? <>{[premiere.nom?.toUpperCase(), premiere.prenom].filter(Boolean).join(" ")} <span className="font-normal text-muted-foreground">· seul(e)</span></>
+                                    : <>Foyer {groupe.nom} <span className="font-normal text-muted-foreground">· {inscGroupe.length} inscrits</span></>}
+                                </span>
+                                {bilan && (
+                                  <span className="text-[11px] text-muted-foreground">
+                                    Théorique {formatMontant(bilan.theorique)} · Encaissé <span className="text-emerald-700">{formatMontant(bilan.encaisse)}</span> ·{" "}
+                                    {bilan.tropPercu ? "Trop-perçu" : "Reste dû"}{" "}
+                                    <span className={bilan.resteDu == null ? "" : bilan.tropPercu ? "text-sky-700" : bilan.resteDu > 0 ? "text-amber-700" : "text-emerald-700"}>{formatMontant(bilan.resteDu)}</span>
+                                  </span>
                                 )}
-                                <span className={`ml-auto shrink-0 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${roleBadge(gProfil.role).cls}`}>{roleBadge(gProfil.role).label}</span>
+                                <button type="button" onClick={() => openReglementsPanel(premiere.id, undefined, true)} className="ml-auto text-[11px] text-primary underline hover:no-underline">
+                                  Rattacher à un foyer…
+                                </button>
                               </div>
                             )}
                             {lignesSorted.map(ligne => {
@@ -2921,9 +2957,26 @@ const AdminMembres = () => {
                                       {insc.source === "papier" && <span className="inline-block rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-600">papier</span>}
                                     </div>
                                   </div>
+                                  <span className="hidden sm:block shrink-0 max-w-[45%] truncate text-[11px] text-muted-foreground">{roleDansFoyer(insc, ligne.profil)}</span>
                                   {insc.pass_sport && (
                                     <span className="shrink-0 inline-flex items-center gap-0.5 text-[10px] text-emerald-600 font-medium"><CheckCircle size={9} /> Pass Sport</span>
                                   )}
+                                </div>
+                              );
+                            })}
+                            {responsables.map(r => {
+                              const inscritAilleurs = inscriptions.some(i =>
+                                i.saison === premiere?.saison && i.type_inscription !== "mineur" &&
+                                i.statut !== "refusee" && i.statut !== "supprimee" && memeEmail(i.email, r.email));
+                              return (
+                                <div key={`resp-${r.id}`} className="flex items-center gap-3 px-4 py-2 text-xs text-muted-foreground border-t border-border/20">
+                                  <div className="flex w-9 shrink-0 justify-center"><User size={13} /></div>
+                                  <span className="min-w-0 truncate">
+                                    Responsable : <span className="font-medium text-foreground">{[r.nom, r.prenom].filter(Boolean).join(" ") || r.email}</span> — {r.email}{" "}
+                                    {inscritAilleurs
+                                      ? <span className="text-violet-700">(inscrit(e) sur une autre carte : à rattacher si même foyer)</span>
+                                      : "(non inscrit)"}
+                                  </span>
                                 </div>
                               );
                             })}
@@ -3669,7 +3722,7 @@ const AdminMembres = () => {
                               <Button size="sm" variant="outline" onClick={() => handleApprouverCompte(profil.id)} disabled={processing === profil.id} className="gap-1 text-xs mt-2"><CheckCircle size={12} /> Réactiver le compte</Button>
                             )}
                             {isSuperAdmin && !["refuse", "admin", "admin_discipline"].includes(profil.role) && profil.id !== user?.id && (
-                              <p className="text-xs text-muted-foreground pt-1">Pour modifier le rôle, utilisez l'onglet <button onClick={() => { setSelectedLigne(null); setAdminSection("administration"); }} className="underline hover:text-foreground">Administration</button>.</p>
+                              <p className="text-xs text-muted-foreground pt-1">Pour modifier le rôle, utilisez l'onglet <button onClick={() => { setSelectedKey(null); setAdminSection("administration"); }} className="underline hover:text-foreground">Administration</button>.</p>
                             )}
                           </div>
                         </div>
@@ -4173,6 +4226,7 @@ const AdminMembres = () => {
               setChequeEcheances={setChequeEcheances}
               setInscriptions={setInscriptions}
               journaliser={journaliserModifications}
+              ouvrirRattachement={reglementsPanelRattacher}
               onClose={() => { setReglementsPanelInscId(null); setReglementsPanelEcheance(undefined); }}
             />
           )}

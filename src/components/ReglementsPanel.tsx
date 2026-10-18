@@ -83,6 +83,7 @@ export const ReglementsPanel = ({
   setChequeEcheances,
   setInscriptions,
   journaliser,
+  ouvrirRattachement = false,
   onClose,
 }: {
   inscriptionId: string;
@@ -94,6 +95,8 @@ export const ReglementsPanel = ({
   setChequeEcheances: (updater: (prev: ChequeEcheanceLite[]) => ChequeEcheanceLite[]) => void;
   setInscriptions: (updater: (prev: InscriptionLite[]) => InscriptionLite[]) => void;
   journaliser?: (entrees: EntreeJournal[]) => Promise<void>;
+  /** Ouvre directement la recherche "Rattacher à un foyer…" à l'ouverture du panneau. */
+  ouvrirRattachement?: boolean;
   onClose: () => void;
 }) => {
   const [currentId, setCurrentId] = useState(inscriptionId);
@@ -159,7 +162,7 @@ export const ReglementsPanel = ({
   // La personne affichée (et son foyer actuel éventuel) rejoint le foyer d'un autre adhérent.
   // Avant de confirmer, l'admin voit l'effet sur les montants théoriques et peut figer ceux des
   // personnes déjà dans le foyer d'accueil (la remise famille ne profite alors qu'aux arrivants).
-  const [showRattacher, setShowRattacher] = useState(false);
+  const [showRattacher, setShowRattacher] = useState(ouvrirRattachement);
   const [rattachSearch, setRattachSearch] = useState("");
   const [rattachCibleId, setRattachCibleId] = useState<string | null>(null);
   const [figerMontants, setFigerMontants] = useState(true);
@@ -168,8 +171,11 @@ export const ReglementsPanel = ({
 
   const nomComplet = (i: InscriptionLite) => [i.prenom, i.nom].filter(Boolean).join(" ");
 
-  // Changer d'adhérent referme un rattachement ou un détachement en cours
+  // Changer d'adhérent referme un rattachement ou un détachement en cours (pas à l'ouverture du
+  // panneau, qui peut demander la recherche de rattachement ouverte d'emblée)
+  const premierRenduRattachRef = useRef(true);
   useEffect(() => {
+    if (premierRenduRattachRef.current) { premierRenduRattachRef.current = false; return; }
     setShowRattacher(false); setRattachSearch(""); setRattachCibleId(null); setFigerMontants(true); setConfirmDetacher(false);
   }, [currentId]);
 

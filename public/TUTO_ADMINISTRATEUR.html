@@ -150,7 +150,7 @@
       <li>Présentation générale — Gestion des membres</li>
       <li>L'onglet "Inscriptions" et ses sous-onglets</li>
       <li>Le workflow complet : accepter, valider, refuser</li>
-      <li>Les deux vues du tableau : Liste et Famille</li>
+      <li>Les deux vues du tableau : Liste et Foyer</li>
       <li>Saisir une inscription en format papier</li>
       <li>Modifier une inscription (papier ou en ligne)</li>
       <li>L'onglet "Administration" — gérer les rôles</li>
@@ -390,7 +390,7 @@
 
   <!-- SECTION 5 -->
   <div class="page-break"></div>
-  <h2>5. Les deux vues du tableau : Liste et Famille</h2>
+  <h2>5. Les deux vues du tableau : Liste et Foyer</h2>
 
   <p>Dans les onglets <strong>"Validés"</strong>, <strong>"Dossiers à examiner"</strong> et <strong>"À valider"</strong>, un petit bouton en haut à droite de la barre de recherche permet de basculer entre deux modes d'affichage :</p>
 
@@ -406,14 +406,18 @@
       <td>Pour traiter les dossiers un par un, trier, rechercher.</td>
     </tr>
     <tr>
-      <td><strong>Vue Famille</strong></td>
-      <td>Des cartes regroupées par compte (même adresse email). En-tête de chaque carte : nom du titulaire du compte + email. Lignes enfants : chaque inscrit avec son âge, ses disciplines et son statut Pass'Sport. Triés du plus âgé au plus jeune au sein de chaque famille.</td>
-      <td>Pour voir d'un coup d'œil tous les membres d'une même famille et vérifier que personne ne manque.</td>
+      <td><strong>Vue Foyer</strong></td>
+      <td>Une carte par <strong>foyer de règlement</strong> : les personnes qui partagent un règlement ou qu'un admin a rattachées. L'en-tête indique « Foyer NOM · N inscrits » (ou « seul(e) ») et les montants du foyer : théorique, encaissé, reste dû. Chaque ligne précise le compte utilisé (« Adulte · son compte », « Mineur · compte de … », « pas d'espace membre »). Un parent non inscrit apparaît comme <strong>Responsable</strong>. Un lien <strong>« Rattacher à un foyer… »</strong> est disponible sur chaque carte.</td>
+      <td>Pour vérifier les foyers et leurs montants d'un coup d'œil, et repérer les personnes à rattacher.</td>
     </tr>
   </table>
 
   <div class="conseil">
-    💡 Cliquer sur n'importe quelle ligne, en vue liste comme en vue famille, ouvre la fiche complète de l'inscrit.
+    💡 Cliquer sur n'importe quelle ligne, en vue liste comme en vue foyer, ouvre la fiche complète de l'inscrit.
+  </div>
+
+  <div class="attention">
+    ⚠️ Un parent et son enfant inscrits sur le même compte n'apparaissent sur la même carte que s'ils sont rattachés au même foyer (règlement partagé ou rattachement). Le site ne les regroupe jamais tout seul, car cela changerait les montants (remise famille). Quand un responsable est marqué « inscrit(e) sur une autre carte », c'est le signe qu'un rattachement est peut-être à faire.
   </div>
 
   <h3>Trier les colonnes (vue liste)</h3>
@@ -900,8 +904,8 @@
       <td>Aucune</td>
     </tr>
     <tr>
-      <td>Voir les inscrits par famille</td>
-      <td>Site AMSP → Gestion des membres → bouton Vue famille</td>
+      <td>Voir les inscrits par foyer</td>
+      <td>Site AMSP → Gestion des membres → bouton Vue foyer</td>
       <td>Aucune</td>
     </tr>
     <tr>

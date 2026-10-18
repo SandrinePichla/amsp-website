@@ -10,6 +10,7 @@ import { MapPin, Mail, Clock, Phone, Paperclip, CheckCircle2 } from "lucide-reac
 import { client } from "@/sanityClient";
 import { supabase } from "@/supabaseClient";
 import { sendBrevoEmail, TEMPLATES } from "@/lib/brevo";
+import { toast } from "sonner";
 
 const REGEX_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
