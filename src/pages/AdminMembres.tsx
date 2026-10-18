@@ -28,6 +28,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PrintableInscription, type RecapData } from "@/components/PrintableInscription";
 import { ReglementsPanel } from "@/components/ReglementsPanel";
 import { fetchGrilleTarifs, type GrilleTarifs } from "@/lib/tarifs";
+import { appelerChangerEmail, texteAvertissementEmail } from "@/lib/changerEmail";
 import { getFoyerIds, calculerMontantsFoyer, calculerEncaisseFoyer, bilanFoyer, formatMontant, echeancesDuMoyenPaiement } from "@/lib/reglements";
 
 interface Membre {
@@ -540,7 +541,11 @@ const AdminMembres = () => {
 
   // Changement de l'email de connexion d'un compte : passe par la fonction serveur "changer-email"
   // (lien de confirmation envoyé à la nouvelle adresse, ancienne adresse prévenue).
-  const [changementEmail, setChangementEmail] = useState<{ compte: Membre; nouvelEmail: string; erreur?: string; envoye?: boolean } | null>(null);
+  // avertissement : la nouvelle adresse est déjà portée par d'autres inscriptions (elles seraient
+  // rattachées au compte) — affiché avant l'envoi, l'admin confirme en connaissance de cause.
+  const [changementEmail, setChangementEmail] = useState<{
+    compte: Membre; nouvelEmail: string; erreur?: string; envoye?: boolean; avertissement?: string;
+  } | null>(null);
   const [envoiChangementEmail, setEnvoiChangementEmail] = useState(false);
 
   const handleDemanderChangementEmail = async () => {
@@ -551,21 +556,24 @@ const AdminMembres = () => {
     if (nouvelEmail === (changementEmail.compte.email || "").toLowerCase()) { afficherErreur("C'est déjà l'email de ce compte."); return; }
     setEnvoiChangementEmail(true);
     afficherErreur("");
-    const { data, error } = await supabase.functions.invoke("changer-email", {
-      body: { profilId: changementEmail.compte.id, nouvelEmail, redirectTo: `${window.location.origin}/profil` },
-    });
-    setEnvoiChangementEmail(false);
-    // En cas d'erreur (adresse déjà prise, droits…), la réponse contient { error } ou { message } avec un statut 4xx/5xx
-    let message: string | null = (data as { error?: string } | null)?.error ?? null;
-    if (!message && error) {
-      const contexte = (error as { context?: Response }).context;
-      let corps = "";
-      try { corps = contexte ? await contexte.text() : ""; } catch { /* corps illisible */ }
-      let detail = corps;
-      try { const json = JSON.parse(corps); detail = json.error ?? json.message ?? json.code ?? corps; } catch { /* pas du JSON */ }
-      message = `${detail || error.message}${contexte?.status ? ` (code ${contexte.status})` : ""}`;
+    const corps = { profilId: changementEmail.compte.id, nouvelEmail, redirectTo: `${window.location.origin}/profil` };
+
+    // 1er clic : vérification seulement. Si l'adresse est déjà utilisée, on avertit et on s'arrête ;
+    // le clic suivant ("Confirmer quand même") envoie la demande.
+    if (!changementEmail.avertissement) {
+      const verif = await appelerChangerEmail({ ...corps, verifierSeulement: true });
+      if (verif.erreur) { setEnvoiChangementEmail(false); afficherErreur(verif.erreur); return; }
+      if (verif.data?.nombre) {
+        setEnvoiChangementEmail(false);
+        const avertissement = texteAvertissementEmail(verif.data.nombre, verif.data.noms ?? [], true);
+        setChangementEmail((c) => c && { ...c, avertissement });
+        return;
+      }
     }
-    if (message) { console.error("changer-email :", message, error); afficherErreur(message); return; }
+
+    const { erreur: message } = await appelerChangerEmail(corps);
+    setEnvoiChangementEmail(false);
+    if (message) { console.error("changer-email :", message); afficherErreur(message); return; }
     // La fenêtre reste ouverte avec une confirmation visible ; l'historique est rechargé pour
     // afficher la demande en attente sous le champ email.
     setChangementEmail((c) => c && { ...c, nouvelEmail, envoye: true });
@@ -4777,11 +4785,16 @@ const AdminMembres = () => {
               <div className="space-y-1.5">
                 <Label htmlFor="nouvel-email">Nouvel email</Label>
                 <Input id="nouvel-email" type="email" autoFocus placeholder="nouvelle@adresse.fr" value={changementEmail.nouvelEmail}
-                  onChange={(e) => setChangementEmail((c) => c && { ...c, nouvelEmail: e.target.value, erreur: "" })} />
+                  onChange={(e) => setChangementEmail((c) => c && { ...c, nouvelEmail: e.target.value, erreur: "", avertissement: undefined })} />
               </div>
               {changementEmail.erreur && (
                 <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                   {changementEmail.erreur}
+                </p>
+              )}
+              {changementEmail.avertissement && (
+                <p className="rounded-md border border-amber-200/60 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/20 dark:text-amber-300">
+                  ⚠️ {changementEmail.avertissement}
                 </p>
               )}
               <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
@@ -4792,7 +4805,7 @@ const AdminMembres = () => {
               <div className="flex justify-end gap-2 border-t border-border/50 pt-3">
                 <Button variant="outline" onClick={() => setChangementEmail(null)} disabled={envoiChangementEmail}>Annuler</Button>
                 <Button onClick={handleDemanderChangementEmail} disabled={envoiChangementEmail || !changementEmail.nouvelEmail.trim()}>
-                  {envoiChangementEmail ? "Envoi…" : "Envoyer le lien de confirmation"}
+                  {envoiChangementEmail ? "Envoi…" : changementEmail.avertissement ? "Confirmer quand même" : "Envoyer le lien de confirmation"}
                 </Button>
               </div>
             </div>

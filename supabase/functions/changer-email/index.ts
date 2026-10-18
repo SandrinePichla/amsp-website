@@ -67,7 +67,9 @@ Deno.serve(async (req) => {
     const { data: appelant, error: errAppelant } = await admin.auth.getUser(jwt);
     if (errAppelant || !appelant?.user) return repondre({ error: "Vous devez être connecté." }, 401);
     const { data: profilAppelant } = await admin.from("profils").select("role, prenom, nom").eq("id", appelant.user.id).single();
-    const { profilId, nouvelEmail, redirectTo } = await req.json();
+    // verifierSeulement : ne rien envoyer, seulement dire si l'adresse est déjà portée par des
+    // inscriptions d'autres personnes (elles seraient rattachées au compte après le changement)
+    const { profilId, nouvelEmail, redirectTo, verifierSeulement } = await req.json();
     const estAdmin = !!profilAppelant && ["admin", "admin_discipline"].includes(profilAppelant.role);
     const estTitulaire = appelant.user.id === profilId;
     if (!estAdmin && !estTitulaire) {
@@ -83,9 +85,23 @@ Deno.serve(async (req) => {
     const ancien = cible.user.email;
     if (ancien.toLowerCase() === nouveau) return repondre({ error: "C'est déjà l'email de ce compte." }, 400);
 
-    const { data: dejaPris } = await admin.from("profils").select("id").ilike("email", nouveau).neq("id", profilId).limit(1);
+    // ilike sans joker : on échappe % et _ (le _ est fréquent dans les emails)
+    const motif = nouveau.replace(/[\\%_]/g, (c) => `\\${c}`);
+    const { data: dejaPris } = await admin.from("profils").select("id").ilike("email", motif).neq("id", profilId).limit(1);
     if (dejaPris && dejaPris.length > 0) {
       return repondre({ error: "Cette adresse est déjà utilisée par un autre compte membre." }, 409);
+    }
+
+    if (verifierSeulement) {
+      // Inscriptions (non refusées) qui portent déjà la nouvelle adresse sans être liées à ce compte
+      const portees = (await Promise.all(["email", "parent1_email", "parent2_email"].map((col) =>
+        admin.from("inscriptions").select("prenom, nom, user_id, statut").ilike(col, motif)
+      ))).flatMap((r) => r.data ?? []);
+      const autres = portees.filter((i) =>
+        i.user_id !== profilId && i.statut !== "refusee" && i.statut !== "supprimee");
+      const noms = [...new Set(autres.map((i) => [i.prenom, i.nom].filter(Boolean).join(" ")).filter(Boolean))];
+      // Un adhérent ne voit pas les noms : ne pas révéler qui se cache derrière une adresse
+      return repondre({ ok: true, verification: true, nombre: noms.length, noms: estAdmin ? noms : [] });
     }
 
     // 3. Lien de confirmation (n'envoie rien par lui-même et ne change encore rien)
@@ -139,7 +155,7 @@ Deno.serve(async (req) => {
       nouvelle_valeur: nouveau,
     });
 
-    return repondre({ ok: true, ancien, nouveau, envois: [envoiNouveau, envoiAncien], version: 3 });
+    return repondre({ ok: true, ancien, nouveau, envois: [envoiNouveau, envoiAncien], version: 4 });
   } catch (e) {
     return repondre({ error: e instanceof Error ? e.message : String(e) }, 500);
   }

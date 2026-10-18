@@ -250,7 +250,7 @@ Une erreur de saisie, une adresse qui change, un numéro de téléphone à jour.
 - Au clic, le compte, les inscriptions de toutes les saisons et le journal sont mis à jour automatiquement.
 - **L'adhérent peut aussi le faire lui-même**, depuis sa page "Mon profil" (rubrique "Adresse mail de connexion"), en confirmant avec son mot de passe actuel. Il reçoit les mêmes emails, et sa demande est tracée dans le journal avec la mention "l'adhérent lui-même".
 
-> ⚠️ Le site refuse une adresse déjà utilisée par un autre compte. Si la personne ne reçoit pas le lien (faute de frappe), il suffit de refaire la demande avec la bonne adresse : tant que personne n'a cliqué, rien n'a changé.
+> ⚠️ Le site refuse une adresse déjà utilisée par un autre compte. Si l'adresse est déjà portée par l'**inscription** d'une autre personne sans espace membre, un avertissement s'affiche avant l'envoi : après le changement, cette inscription sera rattachée au compte, dont le titulaire pourra voir et modifier les informations. Il faut alors cliquer sur "Confirmer quand même". Si la personne ne reçoit pas le lien (faute de frappe), il suffit de refaire la demande avec la bonne adresse : tant que personne n'a cliqué, rien n'a changé.
 
 ---
 

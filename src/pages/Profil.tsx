@@ -9,6 +9,27 @@ import { supabase } from "@/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { User, Shield, Mail, Lock } from "lucide-react";
+import { client } from "@/sanityClient";
+import { appelerChangerEmail, texteAvertissementEmail } from "@/lib/changerEmail";
+
+/** Inscription rattachée au compte, telle qu'affichée dans "Personnes inscrites avec ce compte". */
+interface InscriptionCompte {
+  id: string;
+  nom: string | null;
+  prenom: string | null;
+  date_naissance: string | null;
+  disciplines: string | null;
+  saison: string | null;
+  statut: string;
+}
+
+const calcAge = (ddn: string | null) => {
+  if (!ddn) return null;
+  const n = new Date(ddn), t = new Date();
+  let age = t.getFullYear() - n.getFullYear();
+  if (t.getMonth() < n.getMonth() || (t.getMonth() === n.getMonth() && t.getDate() < n.getDate())) age--;
+  return age;
+};
 
 interface Profil {
   id: string;
@@ -35,7 +56,35 @@ const Profil = () => {
   // Changement d'email en attente de confirmation (adresse demandée), et message de l'envoi
   const [emailEnAttente, setEmailEnAttente] = useState<string | null>(null);
   const [retourEmail, setRetourEmail] = useState<{ ok: boolean; texte: string } | null>(null);
+  // Nouvelle adresse déjà portée par d'autres inscriptions : l'adhérent confirme en connaissance de cause
+  const [avertissementEmail, setAvertissementEmail] = useState<string | null>(null);
   const [formPassword, setFormPassword] = useState({ password: "", confirm: "" });
+
+  // Personnes inscrites avec ce compte (saison la plus récente) : même règle de rattachement que
+  // l'ancien espace membre — identifiant du compte ou même email.
+  const [inscritsCompte, setInscritsCompte] = useState<{ saison: string | null; liste: InscriptionCompte[] }>({ saison: null, liste: [] });
+  const [nomsDisciplines, setNomsDisciplines] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!user) return;
+    const champs = "id, nom, prenom, date_naissance, disciplines, saison, statut";
+    Promise.all([
+      supabase.from("inscriptions").select(champs).eq("user_id", user.id),
+      supabase.from("inscriptions").select(champs).ilike("email", (user.email ?? "").replace(/[\\%_]/g, (c) => `\\${c}`)),
+    ]).then(([parId, parEmail]) => {
+      const vues = new Set<string>();
+      const toutes = [...(parId.data ?? []), ...(parEmail.data ?? [])]
+        .filter((i) => i.statut !== "refusee" && i.statut !== "supprimee" && !vues.has(i.id) && vues.add(i.id)) as InscriptionCompte[];
+      const saison = toutes.map((i) => i.saison || "").sort().pop() || null;
+      setInscritsCompte({
+        saison,
+        liste: toutes.filter((i) => (i.saison || null) === saison)
+          .sort((a, b) => (calcAge(b.date_naissance) ?? -1) - (calcAge(a.date_naissance) ?? -1)),
+      });
+    });
+    client.fetch(`*[_type == "discipline"]{ _id, nom }`)
+      .then((d: { _id: string; nom: string }[]) => setNomsDisciplines(Object.fromEntries(d.map((x) => [x._id, x.nom]))))
+      .catch(() => {});
+  }, [user]);
 
   // Supabase garde la nouvelle adresse demandée (new_email) tant que le lien n'a pas été cliqué
   useEffect(() => {
@@ -113,19 +162,26 @@ const Profil = () => {
       return;
     }
 
-    const { data, error } = await supabase.functions.invoke("changer-email", {
-      body: { profilId: user.id, nouvelEmail, redirectTo: `${window.location.origin}/profil` },
-    });
-    setSavingEmail(false);
-    let message: string | null = (data as { error?: string } | null)?.error ?? null;
-    if (!message && error) {
-      const contexte = (error as { context?: Response }).context;
-      try { const json = contexte ? await contexte.json() : null; message = json?.error ?? json?.message ?? error.message; } catch { message = error.message; }
+    const corps = { profilId: user.id, nouvelEmail, redirectTo: `${window.location.origin}/profil` };
+    // 1er clic : vérification seulement. Si l'adresse est déjà utilisée par d'autres inscriptions,
+    // on avertit et on s'arrête ; le clic suivant ("Confirmer quand même") envoie la demande.
+    if (!avertissementEmail) {
+      const verif = await appelerChangerEmail({ ...corps, verifierSeulement: true });
+      if (verif.erreur) { setSavingEmail(false); setRetourEmail({ ok: false, texte: verif.erreur }); return; }
+      if (verif.data?.nombre) {
+        setSavingEmail(false);
+        setAvertissementEmail(texteAvertissementEmail(verif.data.nombre, verif.data.noms ?? [], false));
+        return;
+      }
     }
+
+    const { erreur: message } = await appelerChangerEmail(corps);
+    setSavingEmail(false);
     if (message) {
       setRetourEmail({ ok: false, texte: message });
       return;
     }
+    setAvertissementEmail(null);
     setEmailEnAttente(nouvelEmail);
     setFormEmail({ email: "", motDePasse: "" });
     setRetourEmail({
@@ -173,7 +229,7 @@ const Profil = () => {
                 <div className="rounded-lg border border-border/50 bg-card p-6 space-y-3">
                   <div className="flex items-center gap-2 mb-4">
                     <User size={18} className="text-primary" />
-                    <h2 className="font-serif font-bold">Informations du compte</h2>
+                    <h2 className="font-serif font-bold">Titulaire du compte</h2>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Prénom</span>
@@ -196,6 +252,29 @@ const Profil = () => {
                       {profil?.role === "admin" ? "Administrateur" : "Membre"}
                     </span>
                   </div>
+
+                  {inscritsCompte.liste.length > 0 && (
+                    <div className="mt-4 border-t border-border/50 pt-4">
+                      <p className="mb-2 text-xs font-semibold text-muted-foreground">
+                        Personnes inscrites avec ce compte{inscritsCompte.saison ? ` (${inscritsCompte.saison})` : ""}
+                      </p>
+                      <ul className="space-y-1.5">
+                        {inscritsCompte.liste.map((i) => {
+                          const age = calcAge(i.date_naissance);
+                          const discs = (i.disciplines || "").split(",").map((s) => s.trim()).filter(Boolean)
+                            .map((id) => nomsDisciplines[id]).filter(Boolean);
+                          return (
+                            <li key={i.id} className="text-xs">
+                              <span className="font-medium">{[i.nom?.toUpperCase(), i.prenom].filter(Boolean).join(" ")}</span>
+                              <span className="text-muted-foreground">
+                                {age !== null ? ` · ${age} ans` : ""}{discs.length ? ` · ${discs.join(", ")}` : ""}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  )}
                 </div>
 
                 {/* Informations personnelles */}
@@ -268,7 +347,7 @@ const Profil = () => {
                         maxLength={255}
                         placeholder="nouvelle@adresse.fr"
                         value={formEmail.email}
-                        onChange={(e) => { setFormEmail({ ...formEmail, email: e.target.value }); setRetourEmail(null); }}
+                        onChange={(e) => { setFormEmail({ ...formEmail, email: e.target.value }); setRetourEmail(null); setAvertissementEmail(null); }}
                       />
                     </div>
                     <div className="space-y-2">
@@ -287,6 +366,11 @@ const Profil = () => {
                         Votre mot de passe ne change pas.
                       </p>
                     </div>
+                    {avertissementEmail && (
+                      <p className="rounded-md border border-amber-200/60 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/20 dark:text-amber-300">
+                        ⚠️ {avertissementEmail}
+                      </p>
+                    )}
                     {retourEmail && (
                       <p className={`rounded-md border px-3 py-2 text-xs ${retourEmail.ok
                         ? "border-green-200 bg-green-50 text-green-800 dark:bg-green-950/20 dark:text-green-300"
@@ -295,7 +379,7 @@ const Profil = () => {
                       </p>
                     )}
                     <Button type="submit" className="w-full" disabled={savingEmail}>
-                      {savingEmail ? "Envoi..." : "Changer l'adresse mail"}
+                      {savingEmail ? "Envoi..." : avertissementEmail ? "Confirmer quand même" : "Changer l'adresse mail"}
                     </Button>
                   </form>
                 </div>
