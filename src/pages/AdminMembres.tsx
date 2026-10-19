@@ -29,7 +29,7 @@ import { PrintableInscription, type RecapData } from "@/components/PrintableInsc
 import { ReglementsPanel } from "@/components/ReglementsPanel";
 import { fetchGrilleTarifs, type GrilleTarifs } from "@/lib/tarifs";
 import { appelerChangerEmail } from "@/lib/changerEmail";
-import { getFoyerIds, calculerMontantsFoyer, calculerEncaisseFoyer, bilanFoyer, formatMontant, echeancesDuMoyenPaiement, repartirFoyerParActivite } from "@/lib/reglements";
+import { getFoyerIds, calculerMontantsFoyer, calculerEncaisseFoyer, bilanFoyer, formatMontant, echeancesDuMoyenPaiement, repartirFoyerParActivite, calculerSoldeFoyer, type OperationSoldeDetail } from "@/lib/reglements";
 
 interface Membre {
   id: string;
@@ -341,6 +341,8 @@ const AdminMembres = () => {
   const [viewInscReadOnly, setViewInscReadOnly] = useState<Inscription | null>(null);
   const [cheques, setCheques] = useState<Cheque[]>([]);
   const [chequeEcheances, setChequeEcheances] = useState<ChequeEcheance[]>([]);
+  // Remboursements et écarts acceptés (table operations_solde ; vide tant que la migration n'est pas faite)
+  const [operationsSolde, setOperationsSolde] = useState<OperationSoldeDetail[]>([]);
   const [chequeModal, setChequeModal] = useState<{ groupKey: string; chequeId: string | null; representative: PaymentEvent } | null>(null);
   const [chequeModalType, setChequeModalType] = useState<'cheque' | 'especes' | 'virement'>('cheque');
   const [chequeModalNumero, setChequeModalNumero] = useState("");
@@ -425,6 +427,9 @@ const AdminMembres = () => {
     if (logsRes) setConnexionsLog(logsRes);
     if (chequesRes) setCheques(chequesRes);
     if (chequeEchRes) setChequeEcheances(chequeEchRes);
+    // Chargée à part : une erreur (table pas encore créée) ne doit pas bloquer le reste de la page
+    const { data: opsRes } = await supabase.from("operations_solde").select("*").order("created_at", { ascending: true });
+    setOperationsSolde((opsRes as OperationSoldeDetail[]) || []);
     setLoading(false);
   };
 
@@ -939,7 +944,7 @@ const AdminMembres = () => {
       ? calculs.reduce((s, c) => s + (c.montant || 0), 0)
       : null;
     const encaisse = calculerEncaisseFoyer(foyerIds, insc.saison, cheques, chequeEcheances);
-    return bilanFoyer(theorique, encaisse);
+    return bilanFoyer(theorique, encaisse, calculerSoldeFoyer(foyerIds, insc.saison, operationsSolde));
   };
 
   const chequeById = new Map(cheques.map((c) => [c.id, c]));
@@ -1864,11 +1869,11 @@ const AdminMembres = () => {
       return total;
     };
 
-    type LigneBilanFoyer = { noms: string; triNom: string; activites: string; theorique: number | null; encaisse: number; depose: number; resteDu: number | null; tropPercu: boolean; saison: string };
+    type LigneBilanFoyer = { noms: string; triNom: string; activites: string; theorique: number | null; encaisse: number; rembourse: number; ecarts: number; depose: number; resteDu: number | null; tropPercu: boolean; saison: string };
     const foyersVusBilan = new Set<string>();
     const lignesBilanFoyer: LigneBilanFoyer[] = [];
     // Lignes "personne × activité" pour les feuilles de répartition (voir repartirFoyerParActivite)
-    type LigneRepartition = { activite: string; personne: string; type: string; foyer: string; theorique: number | null; encaisse: number; depose: number; saison: string };
+    type LigneRepartition = { activite: string; personne: string; type: string; foyer: string; theorique: number | null; encaisse: number; rembourse: number; ecart: number; depose: number; saison: string };
     const lignesRepartition: LigneRepartition[] = [];
     const nomDiscipline = (id: string) => disciplinesSanity.find((d) => d._id === id)?.nom || id;
     for (const insc of data) {
@@ -1894,6 +1899,8 @@ const AdminMembres = () => {
         activites: activitesFoyer.join(', '),
         theorique: bilan?.theorique ?? null,
         encaisse: bilan?.encaisse ?? 0,
+        rembourse: bilan?.rembourse ?? 0,
+        ecarts: bilan?.ecarts ?? 0,
         depose: deposeFoyer,
         resteDu: bilan?.resteDu ?? null,
         tropPercu: bilan?.tropPercu ?? false,
@@ -1910,6 +1917,8 @@ const AdminMembres = () => {
           theoriqueParPersonne,
           bilan?.encaisse ?? 0,
           deposeFoyer,
+          bilan?.rembourse ?? 0,
+          bilan?.ecarts ?? 0,
         );
         for (const l of repartition) {
           const m = membresFoyer.find((x) => x.id === l.inscriptionId);
@@ -1920,6 +1929,8 @@ const AdminMembres = () => {
             foyer: noms.join(', '),
             theorique: l.theorique,
             encaisse: l.encaisse,
+            rembourse: l.rembourse,
+            ecart: l.ecart,
             depose: l.depose,
             saison: insc.saison || '',
           });
@@ -1928,28 +1939,34 @@ const AdminMembres = () => {
     }
     lignesBilanFoyer.sort((a, b) => a.triNom.localeCompare(b.triNom, 'fr', { sensitivity: 'base' }));
 
+    // Remboursé / Écart accepté : un tiret quand il n'y a rien, pour que les rares cas se voient
+    const FMT_OPTIONNEL = '#,##0.00" €";-#,##0.00" €";"–"';
+    const arrondi = (n: number) => Math.round(n * 100) / 100;
+
     // Réutilise FMT_EUR / FMT_RESTE_DU / FMT_DEPOSE déclarés plus haut (feuille "Règlements") — même
     // convention de couleur/signe sur tout l'export : négatif = reste dû (manque), positif = trop-perçu.
     // Colonne "Activités" : toutes les activités du foyer, pour FILTRER (filtre Excel "contient").
     // Ne pas additionner les montants après un tel filtre : un foyer à plusieurs activités serait
     // compté en entier sous chacune — les totaux par activité sont dans "Synthèse par activité".
-    const sheetBilan = creerFeuille('Bilan par foyer', `${lignesBilanFoyer.length} foyer(s)`, 7, VERT_FG, 1);
-    styleEnTete(sheetBilan.addRow(['Foyer', 'Activités', 'Théorique', 'Encaissé', 'Reste dû (-) / Trop-perçu (+)', 'Remis en banque', 'Saison']));
-    let totalBilanTheorique = 0, totalBilanEncaisse = 0, totalBilanDepose = 0, totalBilanResteDu = 0;
+    // Reste dû = Encaissé − Remboursé + Écart accepté − Théorique (écart : + reste dû abandonné par le
+    // club, − trop-perçu conservé par le club ; aucun argent ne bouge).
+    const sheetBilan = creerFeuille('Bilan par foyer', `${lignesBilanFoyer.length} foyer(s)`, 9, VERT_FG, 1);
+    styleEnTete(sheetBilan.addRow(['Foyer', 'Activités', 'Théorique', 'Encaissé', 'Remboursé', 'Écart accepté', 'Reste dû (-) / Trop-perçu (+)', 'Remis en banque', 'Saison']));
+    let totalBilanTheorique = 0, totalBilanEncaisse = 0, totalBilanRembourse = 0, totalBilanEcarts = 0, totalBilanDepose = 0, totalBilanResteDu = 0;
     let bilanIncomplet = false;
     lignesBilanFoyer.forEach((l, idx) => {
       const rowBg = idx % 2 === 0 ? GRIS_CLAIR : BLANC;
       const resteDuNet = l.resteDu == null ? null : (l.tropPercu ? l.resteDu : -l.resteDu);
-      const row = sheetBilan.addRow([l.noms, l.activites, l.theorique ?? '', l.encaisse, resteDuNet ?? "à préciser (Karaté)", l.depose, l.saison]);
+      const row = sheetBilan.addRow([l.noms, l.activites, l.theorique ?? '', l.encaisse, l.rembourse, l.ecarts, resteDuNet ?? "à préciser (Karaté)", l.depose, l.saison]);
       row.height = 18;
       row.eachCell((cell, colNum) => {
-        cell.font = { name: 'Calibri', size: 9, bold: colNum === 5 };
+        cell.font = { name: 'Calibri', size: 9, bold: colNum === 7 };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBg } };
         cell.alignment = { vertical: 'middle', wrapText: false };
-        if (colNum === 3) cell.numFmt = FMT_EUR;
-        if (colNum === 4) cell.numFmt = FMT_EUR;
-        if (colNum === 5 && typeof cell.value === 'number') cell.numFmt = FMT_RESTE_DU;
-        if (colNum === 6) cell.numFmt = FMT_DEPOSE;
+        if (colNum === 3 || colNum === 4) cell.numFmt = FMT_EUR;
+        if (colNum === 5 || colNum === 6) cell.numFmt = FMT_OPTIONNEL;
+        if (colNum === 7 && typeof cell.value === 'number') cell.numFmt = FMT_RESTE_DU;
+        if (colNum === 8) cell.numFmt = FMT_DEPOSE;
       });
       if (l.theorique == null || l.resteDu == null) bilanIncomplet = true;
       else {
@@ -1957,45 +1974,51 @@ const AdminMembres = () => {
         totalBilanResteDu += l.tropPercu ? -l.resteDu : l.resteDu;
       }
       totalBilanEncaisse += l.encaisse;
+      totalBilanRembourse += l.rembourse;
+      totalBilanEcarts += l.ecarts;
       totalBilanDepose += l.depose;
     });
     const totalBilanRow = sheetBilan.addRow([
       'TOTAL GÉNÉRAL',
       '',
-      bilanIncomplet ? 'partiel' : totalBilanTheorique,
-      totalBilanEncaisse,
-      bilanIncomplet ? 'partiel' : -totalBilanResteDu,
-      totalBilanDepose,
+      bilanIncomplet ? 'partiel' : arrondi(totalBilanTheorique),
+      arrondi(totalBilanEncaisse),
+      arrondi(totalBilanRembourse),
+      arrondi(totalBilanEcarts),
+      bilanIncomplet ? 'partiel' : -arrondi(totalBilanResteDu),
+      arrondi(totalBilanDepose),
       '',
     ]);
     totalBilanRow.eachCell({ includeEmpty: true }, (cell, colNum) => {
       // La colonne "Reste dû/Trop-perçu" reste sur fond clair pour que le vert/rouge du format
       // numérique (appliqué par Excel selon la valeur) reste lisible — sur fond bleu foncé comme le
       // reste de la ligne, ces couleurs deviendraient invisibles.
-      const estColonneResteDu = colNum === 5 && typeof cell.value === 'number';
+      const estColonneResteDu = colNum === 7 && typeof cell.value === 'number';
       cell.font = estColonneResteDu ? { name: 'Calibri', size: 11, bold: true } : { name: 'Calibri', size: 11, bold: true, color: { argb: BLANC } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: estColonneResteDu ? BLANC : BLEU } };
       cell.alignment = { vertical: 'middle', horizontal: colNum === 1 ? 'left' : 'center' };
       if ((colNum === 3 || colNum === 4) && typeof cell.value === 'number') cell.numFmt = FMT_EUR;
-      if (colNum === 6 && typeof cell.value === 'number') cell.numFmt = FMT_DEPOSE;
+      if ((colNum === 5 || colNum === 6) && typeof cell.value === 'number') cell.numFmt = FMT_OPTIONNEL;
+      if (colNum === 8 && typeof cell.value === 'number') cell.numFmt = FMT_DEPOSE;
       if (estColonneResteDu) cell.numFmt = FMT_RESTE_DU;
     });
     totalBilanRow.height = 24;
-    [32, 34, 14, 14, 22, 16, 14].forEach((w, i) => { sheetBilan.getColumn(i + 1).width = w; });
+    [32, 34, 14, 14, 13, 13, 22, 16, 14].forEach((w, i) => { sheetBilan.getColumn(i + 1).width = w; });
     if (lignesBilanFoyer.length > 0) {
-      appliquerAlignement(sheetBilan, 5, 4 + lignesBilanFoyer.length, ['left', 'left', 'right', 'right', 'right', 'right', 'center']);
-      activerFiltre(sheetBilan, 7, 4 + lignesBilanFoyer.length);
+      appliquerAlignement(sheetBilan, 5, 4 + lignesBilanFoyer.length, ['left', 'left', 'right', 'right', 'right', 'right', 'right', 'right', 'center']);
+      activerFiltre(sheetBilan, 9, 4 + lignesBilanFoyer.length);
     }
 
     // ─── Feuilles "Répartition par activité" (détail) et "Synthèse par activité" (totaux) ──────────
     // Montants VENTILÉS par activité avec une clé de répartition (voir repartirFoyerParActivite) :
     // une estimation comptable, pas l'argent réellement versé pour chaque activité. La somme de toutes
     // les activités retombe exactement sur les totaux du "Bilan par foyer".
-    const NOTE_REPARTITION = "Montants estimés : le théorique de chaque personne est réparti entre ses activités au prorata du prix de chacune pratiquée seule ; l'encaissé et le remis en banque du foyer sont répartis de la même façon. Total de toutes les activités = total du Bilan par foyer.";
+    const NOTE_REPARTITION = "Montants estimés : le théorique de chaque personne est réparti entre ses activités au prorata du prix de chacune pratiquée seule ; l'encaissé, les remboursements, les écarts acceptés et le remis en banque du foyer sont répartis de la même façon. Total de toutes les activités = total du Bilan par foyer.";
     lignesRepartition.sort((a, b) =>
       a.activite.localeCompare(b.activite, 'fr', { sensitivity: 'base' }) || a.personne.localeCompare(b.personne, 'fr', { sensitivity: 'base' }));
-    const resteDuNetRepartition = (l: { theorique: number | null; encaisse: number }) =>
-      l.theorique == null ? null : Math.round((l.encaisse - l.theorique) * 100) / 100;
+    // Même formule que le Bilan par foyer : Encaissé − Remboursé + Écart accepté − Théorique
+    const resteDuNetRepartition = (l: { theorique: number | null; encaisse: number; rembourse: number; ecart: number }) =>
+      l.theorique == null ? null : arrondi(l.encaisse - l.rembourse + l.ecart - l.theorique);
 
     const ajouterNote = (sheet: typeof sheetBilan, nbCols: number) => {
       sheet.addRow([]);
@@ -2006,59 +2029,63 @@ const AdminMembres = () => {
       r.height = 30;
     };
 
-    const sheetRepart = creerFeuille('Répartition par activité', `${lignesRepartition.length} ligne(s) personne × activité — montants estimés`, 9, VERT_FG, 2);
-    styleEnTete(sheetRepart.addRow(['Activité', 'Personne', 'Type', 'Foyer', 'Théorique (part)', 'Encaissé (part)', 'Remis en banque (part)', 'Reste dû (-) / Trop-perçu (+)', 'Saison']));
+    const sheetRepart = creerFeuille('Répartition par activité', `${lignesRepartition.length} ligne(s) personne × activité — montants estimés`, 11, VERT_FG, 2);
+    styleEnTete(sheetRepart.addRow(['Activité', 'Personne', 'Type', 'Foyer', 'Théorique (part)', 'Encaissé (part)', 'Remboursé (part)', 'Écart accepté (part)', 'Remis en banque (part)', 'Reste dû (-) / Trop-perçu (+)', 'Saison']));
     lignesRepartition.forEach((l, idx) => {
       const net = resteDuNetRepartition(l);
-      const row = sheetRepart.addRow([l.activite, l.personne, l.type, l.foyer, l.theorique ?? '', l.encaisse, l.depose, net ?? 'à préciser (Karaté)', l.saison]);
+      const row = sheetRepart.addRow([l.activite, l.personne, l.type, l.foyer, l.theorique ?? '', l.encaisse, l.rembourse, l.ecart, l.depose, net ?? 'à préciser (Karaté)', l.saison]);
       row.height = 18;
       row.eachCell((cell, colNum) => {
         cell.font = { name: 'Calibri', size: 9, bold: colNum === 1 };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 0 ? GRIS_CLAIR : BLANC } };
         if (colNum === 5 || colNum === 6) cell.numFmt = FMT_EUR;
-        if (colNum === 7) cell.numFmt = FMT_DEPOSE;
-        if (colNum === 8 && typeof cell.value === 'number') cell.numFmt = FMT_RESTE_DU;
+        if (colNum === 7 || colNum === 8) cell.numFmt = FMT_OPTIONNEL;
+        if (colNum === 9) cell.numFmt = FMT_DEPOSE;
+        if (colNum === 10 && typeof cell.value === 'number') cell.numFmt = FMT_RESTE_DU;
       });
     });
-    [22, 24, 9, 34, 15, 15, 17, 22, 12].forEach((w, i) => { sheetRepart.getColumn(i + 1).width = w; });
+    [22, 24, 9, 34, 15, 15, 14, 14, 17, 22, 12].forEach((w, i) => { sheetRepart.getColumn(i + 1).width = w; });
     if (lignesRepartition.length > 0) {
-      appliquerAlignement(sheetRepart, 5, 4 + lignesRepartition.length, ['left', 'left', 'center', 'left', 'right', 'right', 'right', 'right', 'center']);
-      activerFiltre(sheetRepart, 9, 4 + lignesRepartition.length);
+      appliquerAlignement(sheetRepart, 5, 4 + lignesRepartition.length, ['left', 'left', 'center', 'left', 'right', 'right', 'right', 'right', 'right', 'right', 'center']);
+      activerFiltre(sheetRepart, 11, 4 + lignesRepartition.length);
     }
-    ajouterNote(sheetRepart, 9);
+    ajouterNote(sheetRepart, 11);
 
     // Synthèse : une ligne par activité. Effectifs = personnes distinctes inscrites à l'activité.
-    type Synthese = { activite: string; personnes: Set<string>; adultes: Set<string>; mineurs: Set<string>; theorique: number; theoriqueIncomplet: boolean; encaisse: number; depose: number };
+    type Synthese = { activite: string; personnes: Set<string>; adultes: Set<string>; mineurs: Set<string>; theorique: number; theoriqueIncomplet: boolean; encaisse: number; rembourse: number; ecart: number; depose: number };
     const syntheses = new Map<string, Synthese>();
     for (const l of lignesRepartition) {
-      const s = syntheses.get(l.activite) ?? { activite: l.activite, personnes: new Set(), adultes: new Set(), mineurs: new Set(), theorique: 0, theoriqueIncomplet: false, encaisse: 0, depose: 0 };
+      const s = syntheses.get(l.activite) ?? { activite: l.activite, personnes: new Set(), adultes: new Set(), mineurs: new Set(), theorique: 0, theoriqueIncomplet: false, encaisse: 0, rembourse: 0, ecart: 0, depose: 0 };
       const cle = `${l.personne}|${l.foyer}`;
       s.personnes.add(cle);
       (l.type === 'Mineur' ? s.mineurs : s.adultes).add(cle);
       if (l.theorique == null) s.theoriqueIncomplet = true; else s.theorique += l.theorique;
       s.encaisse += l.encaisse;
+      s.rembourse += l.rembourse;
+      s.ecart += l.ecart;
       s.depose += l.depose;
       syntheses.set(l.activite, s);
     }
     const lignesSynthese = [...syntheses.values()].sort((a, b) => a.activite.localeCompare(b.activite, 'fr', { sensitivity: 'base' }));
-    const arrondi = (n: number) => Math.round(n * 100) / 100;
-    const sheetSynthese = creerFeuille('Synthèse par activité', `${lignesSynthese.length} activité(s) — montants estimés`, 8, VERT_FG, 1);
-    styleEnTete(sheetSynthese.addRow(['Activité', 'Adhérents', 'dont adultes', 'dont mineurs', 'Théorique', 'Encaissé', 'Remis en banque', 'Reste dû (-) / Trop-perçu (+)']));
+    const resteSynthese = (s: Pick<Synthese, 'encaisse' | 'rembourse' | 'ecart' | 'theorique'>) => arrondi(s.encaisse - s.rembourse + s.ecart - s.theorique);
+    const sheetSynthese = creerFeuille('Synthèse par activité', `${lignesSynthese.length} activité(s) — montants estimés`, 10, VERT_FG, 1);
+    styleEnTete(sheetSynthese.addRow(['Activité', 'Adhérents', 'dont adultes', 'dont mineurs', 'Théorique', 'Encaissé', 'Remboursé', 'Écart accepté', 'Remis en banque', 'Reste dû (-) / Trop-perçu (+)']));
     let synthIncomplet = false;
     lignesSynthese.forEach((s, idx) => {
       if (s.theoriqueIncomplet) synthIncomplet = true;
       const row = sheetSynthese.addRow([
         s.activite, s.personnes.size, s.adultes.size, s.mineurs.size,
-        s.theoriqueIncomplet ? 'partiel' : arrondi(s.theorique), arrondi(s.encaisse), arrondi(s.depose),
-        s.theoriqueIncomplet ? 'partiel' : arrondi(s.encaisse - s.theorique),
+        s.theoriqueIncomplet ? 'partiel' : arrondi(s.theorique), arrondi(s.encaisse), arrondi(s.rembourse), arrondi(s.ecart), arrondi(s.depose),
+        s.theoriqueIncomplet ? 'partiel' : resteSynthese(s),
       ]);
       row.height = 18;
       row.eachCell((cell, colNum) => {
         cell.font = { name: 'Calibri', size: 10, bold: colNum === 1 };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 0 ? GRIS_CLAIR : BLANC } };
         if ((colNum === 5 || colNum === 6) && typeof cell.value === 'number') cell.numFmt = FMT_EUR;
-        if (colNum === 7) cell.numFmt = FMT_DEPOSE;
-        if (colNum === 8 && typeof cell.value === 'number') cell.numFmt = FMT_RESTE_DU;
+        if (colNum === 7 || colNum === 8) cell.numFmt = FMT_OPTIONNEL;
+        if (colNum === 9) cell.numFmt = FMT_DEPOSE;
+        if (colNum === 10 && typeof cell.value === 'number') cell.numFmt = FMT_RESTE_DU;
       });
     });
     const personnesTotales = new Set(lignesRepartition.map((l) => `${l.personne}|${l.foyer}`));
@@ -2070,31 +2097,91 @@ const AdminMembres = () => {
       new Set(lignesRepartition.filter((l) => l.type === 'Mineur').map((l) => `${l.personne}|${l.foyer}`)).size,
       synthIncomplet ? 'partiel' : totalSynth((s) => s.theorique),
       totalSynth((s) => s.encaisse),
+      totalSynth((s) => s.rembourse),
+      totalSynth((s) => s.ecart),
       totalSynth((s) => s.depose),
-      synthIncomplet ? 'partiel' : totalSynth((s) => s.encaisse - s.theorique),
+      synthIncomplet ? 'partiel' : totalSynth((s) => resteSynthese(s)),
     ]);
     totalSynthRow.eachCell({ includeEmpty: true }, (cell, colNum) => {
-      const estColonneResteDu = colNum === 8 && typeof cell.value === 'number';
+      const estColonneResteDu = colNum === 10 && typeof cell.value === 'number';
       cell.font = estColonneResteDu ? { name: 'Calibri', size: 11, bold: true } : { name: 'Calibri', size: 11, bold: true, color: { argb: BLANC } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: estColonneResteDu ? BLANC : BLEU } };
       cell.alignment = { vertical: 'middle', horizontal: colNum === 1 ? 'left' : 'center' };
       if ((colNum === 5 || colNum === 6) && typeof cell.value === 'number') cell.numFmt = FMT_EUR;
-      if (colNum === 7 && typeof cell.value === 'number') cell.numFmt = FMT_DEPOSE;
+      if ((colNum === 7 || colNum === 8) && typeof cell.value === 'number') cell.numFmt = FMT_OPTIONNEL;
+      if (colNum === 9 && typeof cell.value === 'number') cell.numFmt = FMT_DEPOSE;
       if (estColonneResteDu) cell.numFmt = FMT_RESTE_DU;
     });
     totalSynthRow.height = 24;
-    [28, 12, 13, 13, 15, 15, 17, 22].forEach((w, i) => { sheetSynthese.getColumn(i + 1).width = w; });
+    [28, 12, 13, 13, 15, 15, 13, 14, 17, 22].forEach((w, i) => { sheetSynthese.getColumn(i + 1).width = w; });
     if (lignesSynthese.length > 0) {
-      appliquerAlignement(sheetSynthese, 5, 4 + lignesSynthese.length, ['left', 'center', 'center', 'center', 'right', 'right', 'right', 'right']);
-      activerFiltre(sheetSynthese, 8, 4 + lignesSynthese.length);
+      appliquerAlignement(sheetSynthese, 5, 4 + lignesSynthese.length, ['left', 'center', 'center', 'center', 'right', 'right', 'right', 'right', 'right', 'right']);
+      activerFiltre(sheetSynthese, 10, 4 + lignesSynthese.length);
     }
     sheetSynthese.addRow([]);
     const rEff = sheetSynthese.addRow(["Une personne inscrite à plusieurs activités compte dans l'effectif de chacune : la ligne TOTAL compte les adhérents distincts, elle n'est donc pas la somme de la colonne."]);
-    sheetSynthese.mergeCells(rEff.number, 1, rEff.number, 8);
+    sheetSynthese.mergeCells(rEff.number, 1, rEff.number, 10);
     rEff.getCell(1).font = { name: 'Calibri', size: 9, italic: true, color: { argb: GRIS_FG } };
     rEff.getCell(1).alignment = { vertical: 'top', wrapText: true };
     rEff.height = 26;
-    ajouterNote(sheetSynthese, 8);
+    ajouterNote(sheetSynthese, 10);
+
+    // ─── Feuille "Remboursements et écarts" : la liste des opérations de solde, pour le trésorier.
+    // Les remboursements sont de vraies sorties d'argent ; les écarts acceptés n'en sont pas (le club
+    // renonce à quelques euros ou garde un petit trop-perçu) — d'où la colonne Type et les totaux séparés.
+    const idsExportes = new Set(baseData.map((i) => i.id));
+    const operationsExport = operationsSolde
+      .filter((o) => idsExportes.has(o.inscription_id))
+      .sort((a, b) => a.created_at.localeCompare(b.created_at));
+    const nomInscription = (id: string) => {
+      const i = inscriptions.find((x) => x.id === id) || baseData.find((x) => x.id === id);
+      return i ? `${i.nom || ''} ${i.prenom || ''}`.trim() : '';
+    };
+    const typeOperation = (o: OperationSoldeDetail) =>
+      o.type === 'remboursement' ? 'Remboursement' : o.montant >= 0 ? 'Écart accepté — reste dû non réclamé' : 'Écart accepté — trop-perçu conservé';
+    const MODES_EXPORT: Record<string, string> = { cheque: 'Chèque', virement: 'Virement', especes: 'Espèces' };
+    const sheetOps = creerFeuille('Remboursements et écarts', `${operationsExport.length} opération(s)`, 11, VERT_FG, 0);
+    styleEnTete(sheetOps.addRow(['Date', 'Type', 'Personne', 'Mode', 'N° chèque', 'Montant', 'Statut', 'Remboursé le', 'Motif', 'Saisi par', 'Saison']));
+    operationsExport.forEach((o, idx) => {
+      const row = sheetOps.addRow([
+        new Date(o.created_at).toLocaleDateString('fr-FR'),
+        typeOperation(o),
+        nomInscription(o.inscription_id),
+        o.mode ? MODES_EXPORT[o.mode] || o.mode : '',
+        o.numero || '',
+        Math.abs(o.montant),
+        o.type === 'remboursement' ? (o.statut === 'rembourse' ? 'Remboursé' : 'À rembourser') : '',
+        o.date_operation ? new Date(o.date_operation).toLocaleDateString('fr-FR') : '',
+        o.motif || '',
+        o.admin_nom || '',
+        o.saison || '',
+      ]);
+      row.height = 18;
+      row.eachCell((cell, colNum) => {
+        cell.font = { name: 'Calibri', size: 9, bold: colNum === 2 };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 0 ? GRIS_CLAIR : BLANC } };
+        if (colNum === 6) cell.numFmt = FMT_EUR;
+      });
+    });
+    [12, 34, 24, 11, 13, 13, 13, 13, 28, 20, 12].forEach((w, i) => { sheetOps.getColumn(i + 1).width = w; });
+    if (operationsExport.length > 0) {
+      appliquerAlignement(sheetOps, 5, 4 + operationsExport.length, ['center', 'left', 'left', 'center', 'center', 'right', 'center', 'center', 'left', 'left', 'center']);
+      activerFiltre(sheetOps, 11, 4 + operationsExport.length);
+    }
+    sheetOps.addRow([]);
+    const sommeOps = (f: (o: OperationSoldeDetail) => boolean) => arrondi(operationsExport.filter(f).reduce((t, o) => t + Math.abs(o.montant), 0));
+    ([
+      ['Total remboursé (argent sorti)', sommeOps((o) => o.type === 'remboursement' && o.statut === 'rembourse')],
+      ['Total à rembourser', sommeOps((o) => o.type === 'remboursement' && o.statut !== 'rembourse')],
+      ['Total des restes dus non réclamés (aucun argent ne bouge)', sommeOps((o) => o.type === 'ecart_accepte' && o.montant >= 0)],
+      ['Total des trop-perçus conservés (aucun argent ne bouge)', sommeOps((o) => o.type === 'ecart_accepte' && o.montant < 0)],
+    ] as [string, number][]).forEach(([libelle, montant]) => {
+      const r = sheetOps.addRow(['', libelle, '', '', '', montant]);
+      r.getCell(2).font = { name: 'Calibri', size: 10, bold: true };
+      r.getCell(6).font = { name: 'Calibri', size: 10, bold: true };
+      r.getCell(6).numFmt = FMT_EUR;
+      r.getCell(6).alignment = { horizontal: 'right' };
+    });
 
     construireFeuilleIdentite('En attente de règlement', dataEnAttenteReglement, AMBRE_FG);
     construireFeuilleIdentite('Refusées et supprimées', dataRefuseesEtSupprimees, ROUGE);
@@ -3069,6 +3156,8 @@ const AdminMembres = () => {
                                     Théorique {formatMontant(bilan.theorique)} · Encaissé <span className="text-emerald-700">{formatMontant(bilan.encaisse)}</span> ·{" "}
                                     {bilan.tropPercu ? "Trop-perçu" : "Reste dû"}{" "}
                                     <span className={bilan.resteDu == null ? "" : bilan.tropPercu ? "text-sky-700" : bilan.resteDu > 0 ? "text-amber-700" : "text-emerald-700"}>{formatMontant(bilan.resteDu)}</span>
+                                    {bilan.ecarts !== 0 && bilan.resteDu === 0 && <span className="text-emerald-700"> · soldé (écart accepté)</span>}
+                                    {bilan.aRembourser > 0 && <span className="text-sky-700"> · {formatMontant(bilan.aRembourser)} à rembourser</span>}
                                   </span>
                                 )}
                               </div>
@@ -3259,8 +3348,8 @@ const AdminMembres = () => {
                                             const bilan = resteDuInscription(inscRef);
                                             const cls = !bilan || bilan.resteDu == null ? "bg-secondary text-muted-foreground" : bilan.tropPercu ? "bg-sky-500/10 text-sky-700" : bilan.resteDu > 0 ? "bg-amber-500/10 text-amber-700" : "bg-emerald-500/10 text-emerald-700";
                                             return (
-                                              <button onClick={() => inscRef && openReglementsPanel(inscRef.id)} className={`rounded-full px-2 py-0.5 text-[11px] font-medium hover:underline ${cls}`} title={!bilan || bilan.resteDu == null ? "Montant théorique à préciser (ex : tranche d'âge Karaté)" : undefined}>
-                                                {!bilan || bilan.resteDu == null ? "—" : `${bilan.tropPercu ? "+" : ""}${formatMontant(bilan.resteDu)}`}
+                                              <button onClick={() => inscRef && openReglementsPanel(inscRef.id)} className={`rounded-full px-2 py-0.5 text-[11px] font-medium hover:underline ${cls}`} title={!bilan || bilan.resteDu == null ? "Montant théorique à préciser (ex : tranche d'âge Karaté)" : bilan.aRembourser > 0 ? `${formatMontant(bilan.aRembourser)} à rembourser` : bilan.ecarts !== 0 && bilan.resteDu === 0 ? "Soldé (écart accepté)" : undefined}>
+                                                {!bilan || bilan.resteDu == null ? "—" : `${bilan.tropPercu ? "+" : ""}${formatMontant(bilan.resteDu)}${bilan.ecarts !== 0 && bilan.resteDu === 0 ? " ✓" : ""}`}
                                               </button>
                                             );
                                           })()}
@@ -3347,8 +3436,8 @@ const AdminMembres = () => {
                                     const bilan = resteDuInscription(insc);
                                     const cls = !bilan || bilan.resteDu == null ? "bg-secondary text-muted-foreground" : bilan.tropPercu ? "bg-sky-500/10 text-sky-700" : bilan.resteDu > 0 ? "bg-amber-500/10 text-amber-700" : "bg-emerald-500/10 text-emerald-700";
                                     return (
-                                      <button onClick={() => openReglementsPanel(insc.id)} className={`rounded-full px-2 py-0.5 text-[11px] font-medium hover:underline ${cls}`} title={!bilan || bilan.resteDu == null ? "Montant théorique à préciser (ex : tranche d'âge Karaté)" : undefined}>
-                                        {!bilan || bilan.resteDu == null ? "—" : `${bilan.tropPercu ? "+" : ""}${formatMontant(bilan.resteDu)}`}
+                                      <button onClick={() => openReglementsPanel(insc.id)} className={`rounded-full px-2 py-0.5 text-[11px] font-medium hover:underline ${cls}`} title={!bilan || bilan.resteDu == null ? "Montant théorique à préciser (ex : tranche d'âge Karaté)" : bilan.aRembourser > 0 ? `${formatMontant(bilan.aRembourser)} à rembourser` : bilan.ecarts !== 0 && bilan.resteDu === 0 ? "Soldé (écart accepté)" : undefined}>
+                                        {!bilan || bilan.resteDu == null ? "—" : `${bilan.tropPercu ? "+" : ""}${formatMontant(bilan.resteDu)}${bilan.ecarts !== 0 && bilan.resteDu === 0 ? " ✓" : ""}`}
                                       </button>
                                     );
                                   })()}
@@ -4375,6 +4464,9 @@ const AdminMembres = () => {
               setChequeEcheances={setChequeEcheances}
               setInscriptions={setInscriptions}
               journaliser={journaliserModifications}
+              operations={operationsSolde}
+              setOperations={setOperationsSolde}
+              auteur={user ? { id: user.id, nom: (() => { const moi = membres.find((m) => m.id === user.id); return [moi?.prenom, moi?.nom].filter(Boolean).join(" ") || user.email || null; })() } : undefined}
               onClose={() => { setReglementsPanelInscId(null); setReglementsPanelEcheance(undefined); }}
             />
           )}

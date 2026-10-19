@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getFoyerIds, repartirMontant, trancheKarateParAge, repartirFoyerParActivite } from "./reglements";
+import { getFoyerIds, repartirMontant, trancheKarateParAge, repartirFoyerParActivite, bilanFoyer, calculerSoldeFoyer, type OperationSolde } from "./reglements";
 import type { GrilleTarifs } from "./tarifs";
 
 // Grille réelle de la saison (Sanity, octobre 2026)
@@ -65,6 +65,43 @@ describe("repartirFoyerParActivite", () => {
     const lignes = repartirFoyerParActivite(grille, [{ id: "x", disciplines: "karate", age: null }], new Map([["x", null]]), 50, 0);
     expect(lignes[0].theorique).toBeNull();
     expect(lignes[0].encaisse).toBe(50);
+  });
+});
+
+describe("solde d'un foyer : remboursements et écarts acceptés", () => {
+  const op = (o: Partial<OperationSolde>): OperationSolde =>
+    ({ id: "o", inscription_id: "A", saison: "2026-2027", type: "ecart_accepte", montant: 0, statut: null, ...o });
+
+  it("un petit reste dû accepté ramène le foyer à zéro sans toucher l'encaissé", () => {
+    // Cas réel : théorique 612,00 €, encaissé 608,98 € → reste dû 3,02 €
+    const solde = calculerSoldeFoyer(["A"], "2026-2027", [op({ montant: 3.02 })]);
+    const b = bilanFoyer(612, 608.98, solde);
+    expect(b.resteDu).toBe(0);
+    expect(b.encaisse).toBe(608.98);
+    expect(b.ecarts).toBe(3.02);
+  });
+
+  it("un petit trop-perçu conservé par le club (écart négatif) ramène aussi à zéro", () => {
+    const b = bilanFoyer(230, 230.4, calculerSoldeFoyer(["A"], "2026-2027", [op({ montant: -0.4 })]));
+    expect(b.resteDu).toBe(0);
+  });
+
+  it("seul un remboursement FAIT diminue l'encaissé net ; à rembourser reste une information", () => {
+    const aFaire = calculerSoldeFoyer(["A"], "2026-2027", [op({ type: "remboursement", montant: 20, statut: "a_rembourser" })]);
+    expect(bilanFoyer(230, 250, aFaire)).toMatchObject({ resteDu: 20, tropPercu: true, aRembourser: 20 });
+    const fait = calculerSoldeFoyer(["A"], "2026-2027", [op({ type: "remboursement", montant: 20, statut: "rembourse" })]);
+    expect(bilanFoyer(230, 250, fait)).toMatchObject({ resteDu: 0, rembourse: 20 });
+  });
+
+  it("ignore les opérations d'un autre foyer ou d'une autre saison", () => {
+    const solde = calculerSoldeFoyer(["A"], "2026-2027", [op({ inscription_id: "Z", montant: 3 }), op({ saison: "2025-2026", montant: 3 })]);
+    expect(solde).toEqual({ rembourse: 0, aRembourser: 0, ecarts: 0 });
+  });
+
+  it("la répartition par activité ventile aussi remboursements et écarts, au centime près", () => {
+    const lignes = repartirFoyerParActivite(grille, [{ id: "p", disciplines: "karate,qigong", age: 40 }], new Map([["p", 600]]), 610, 0, 7, -3);
+    expect(somme(lignes.map((l) => l.rembourse))).toBe(7);
+    expect(somme(lignes.map((l) => l.ecart))).toBe(-3);
   });
 });
 

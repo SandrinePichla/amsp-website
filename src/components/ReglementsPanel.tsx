@@ -19,6 +19,9 @@ import {
   bilanFoyer,
   echeancesDuMoyenPaiement,
   prixBrutPersonne,
+  calculerSoldeFoyer,
+  SEUIL_ECART_ACCEPTE,
+  type OperationSoldeDetail,
 } from "@/lib/reglements";
 
 interface InscriptionLite {
@@ -83,6 +86,9 @@ export const ReglementsPanel = ({
   setChequeEcheances,
   setInscriptions,
   journaliser,
+  operations = [],
+  setOperations,
+  auteur,
   onClose,
 }: {
   inscriptionId: string;
@@ -94,6 +100,11 @@ export const ReglementsPanel = ({
   setChequeEcheances: (updater: (prev: ChequeEcheanceLite[]) => ChequeEcheanceLite[]) => void;
   setInscriptions: (updater: (prev: InscriptionLite[]) => InscriptionLite[]) => void;
   journaliser?: (entrees: EntreeJournal[]) => Promise<void>;
+  /** Remboursements et écarts acceptés (table operations_solde). */
+  operations?: OperationSoldeDetail[];
+  setOperations?: (updater: (prev: OperationSoldeDetail[]) => OperationSoldeDetail[]) => void;
+  /** Admin connecté, enregistré sur chaque opération de solde. */
+  auteur?: { id: string; nom: string | null };
   onClose: () => void;
 }) => {
   const [currentId, setCurrentId] = useState(inscriptionId);
@@ -128,7 +139,7 @@ export const ReglementsPanel = ({
   const insc = inscriptions.find((i) => i.id === currentId);
 
   const foyerIds = useMemo(
-    () => (insc ? getFoyerIds(insc.id, insc.saison, cheques, chequeEcheances, inscriptions) : [insc]),
+    (): string[] => (insc ? getFoyerIds(insc.id, insc.saison, cheques, chequeEcheances, inscriptions) : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [insc?.id, insc?.saison, cheques, chequeEcheances, inscriptions]
   );
@@ -143,7 +154,97 @@ export const ReglementsPanel = ({
   );
   const theoriqueFoyer = calculs.some((c) => c.montant == null) ? null : calculs.reduce((s, c) => s + (c.montant || 0), 0);
   const encaisseFoyer = insc ? calculerEncaisseFoyer(foyerIds, insc.saison, cheques, chequeEcheances) : 0;
-  const bilan = bilanFoyer(theoriqueFoyer, encaisseFoyer);
+  const bilan = bilanFoyer(theoriqueFoyer, encaisseFoyer, calculerSoldeFoyer(foyerIds, insc?.saison ?? null, operations));
+  const operationsFoyer = operations.filter((o) => foyerIds.includes(o.inscription_id) && o.saison === (insc?.saison ?? null));
+
+  // ── Solder le foyer : accepter un écart (aucun argent ne bouge) ou rembourser un trop-perçu ──
+  const [showSolder, setShowSolder] = useState(false);
+  const [motifEcart, setMotifEcart] = useState("Arrondi des chèques");
+  const [confirmeGrosEcart, setConfirmeGrosEcart] = useState(false);
+  const [rembMontant, setRembMontant] = useState("");
+  const [rembMode, setRembMode] = useState<"cheque" | "virement" | "especes">("virement");
+  const [rembNumero, setRembNumero] = useState("");
+  const [rembStatut, setRembStatut] = useState<"a_rembourser" | "rembourse">("a_rembourser");
+  const [soldeEnCours, setSoldeEnCours] = useState(false);
+  const [confirmAnnulerOp, setConfirmAnnulerOp] = useState<string | null>(null);
+  // Écart signé : + reste dû abandonné par le club, − trop-perçu conservé par le club
+  const ecartSigne = bilan.resteDu == null ? null : (bilan.tropPercu ? -bilan.resteDu : bilan.resteDu);
+  const grosEcart = ecartSigne != null && Math.abs(ecartSigne) > SEUIL_ECART_ACCEPTE;
+  useEffect(() => {
+    setShowSolder(false); setConfirmeGrosEcart(false); setConfirmAnnulerOp(null);
+    setRembMontant(""); setRembNumero(""); setRembStatut("a_rembourser"); setMotifEcart("Arrondi des chèques");
+  }, [currentId]);
+
+  const libelleOperation = (o: Pick<OperationSoldeDetail, "type" | "montant" | "statut" | "mode" | "numero">) =>
+    o.type === "ecart_accepte"
+      ? (o.montant >= 0 ? `Écart accepté : ${formatMontant(o.montant)} non réclamé` : `Écart accepté : trop-perçu de ${formatMontant(-o.montant)} conservé par le club`)
+      : `Remboursement de ${formatMontant(o.montant)} (${TYPE_LABELS[o.mode || ""] || "mode non précisé"}${o.numero ? ` n° ${o.numero}` : ""}) — ${o.statut === "rembourse" ? "remboursé" : "à rembourser"}`;
+
+  const enregistrerOperation = async (ligne: Partial<OperationSoldeDetail>) => {
+    if (!insc) return false;
+    setSoldeEnCours(true);
+    const { data, error } = await supabase.from("operations_solde").insert({
+      inscription_id: insc.id, saison: insc.saison, admin_id: auteur?.id ?? null, admin_nom: auteur?.nom ?? null, ...ligne,
+    }).select().single();
+    setSoldeEnCours(false);
+    if (error || !data) { toast.error("Erreur : " + (error?.message || "inconnue")); return false; }
+    setOperations?.((prev) => [...prev, data as OperationSoldeDetail]);
+    await journaliser?.([{
+      table_cible: "inscriptions", ligne_id: insc.id, personne: [insc.prenom, insc.nom].filter(Boolean).join(" "),
+      champ: ligne.type === "ecart_accepte" ? "Écart accepté" : "Remboursement",
+      ancienne_valeur: null, nouvelle_valeur: `${libelleOperation(data as OperationSoldeDetail)}${ligne.motif ? ` — ${ligne.motif}` : ""}`,
+    }]);
+    return true;
+  };
+
+  const handleAccepterEcart = async () => {
+    if (ecartSigne == null || ecartSigne === 0) return;
+    if (grosEcart && !confirmeGrosEcart) { toast.error(`Écart supérieur à ${SEUIL_ECART_ACCEPTE} € : cochez la case de confirmation.`); return; }
+    if (await enregistrerOperation({ type: "ecart_accepte", montant: ecartSigne, statut: null, motif: motifEcart.trim() || null })) {
+      toast.success("Écart accepté : le foyer est soldé.");
+      setShowSolder(false); setConfirmeGrosEcart(false);
+    }
+  };
+
+  const handleRembourser = async () => {
+    const montant = Number((rembMontant.trim() || String(bilan.resteDu ?? "")).replace(",", "."));
+    if (!montant || montant <= 0) { toast.error("Montant du remboursement invalide."); return; }
+    if (await enregistrerOperation({
+      type: "remboursement", montant, statut: rembStatut, mode: rembMode,
+      numero: rembMode === "cheque" ? rembNumero.trim() || null : null,
+      date_operation: rembStatut === "rembourse" ? new Date().toISOString().slice(0, 10) : null,
+    })) {
+      toast.success(rembStatut === "rembourse" ? "Remboursement enregistré." : "Remboursement noté « à rembourser ».");
+      setShowSolder(false); setRembMontant(""); setRembNumero("");
+    }
+  };
+
+  const handleMarquerRembourse = async (o: OperationSoldeDetail) => {
+    const date = new Date().toISOString().slice(0, 10);
+    const { error } = await supabase.from("operations_solde").update({ statut: "rembourse", date_operation: date }).eq("id", o.id);
+    if (error) { toast.error("Erreur : " + error.message); return; }
+    setOperations?.((prev) => prev.map((x) => (x.id === o.id ? { ...x, statut: "rembourse", date_operation: date } : x)));
+    const concerne = inscriptions.find((i) => i.id === o.inscription_id);
+    await journaliser?.([{
+      table_cible: "inscriptions", ligne_id: o.inscription_id, personne: concerne ? [concerne.prenom, concerne.nom].filter(Boolean).join(" ") : "",
+      champ: "Remboursement", ancienne_valeur: "à rembourser", nouvelle_valeur: `remboursé (${formatMontant(o.montant)})`,
+    }]);
+    toast.success("Remboursement marqué comme fait.");
+  };
+
+  const handleAnnulerOperation = async (o: OperationSoldeDetail) => {
+    const { error } = await supabase.from("operations_solde").delete().eq("id", o.id);
+    setConfirmAnnulerOp(null);
+    if (error) { toast.error("Erreur : " + error.message); return; }
+    setOperations?.((prev) => prev.filter((x) => x.id !== o.id));
+    const concerne = inscriptions.find((i) => i.id === o.inscription_id);
+    await journaliser?.([{
+      table_cible: "inscriptions", ligne_id: o.inscription_id, personne: concerne ? [concerne.prenom, concerne.nom].filter(Boolean).join(" ") : "",
+      champ: o.type === "ecart_accepte" ? "Écart accepté" : "Remboursement",
+      ancienne_valeur: libelleOperation(o), nouvelle_valeur: "Annulé",
+    }]);
+    toast.success("Opération annulée.");
+  };
 
   const echeances = insc ? echeancesDuMoyenPaiement(insc.moyen_paiement, insc.created_at) : [];
 
@@ -589,14 +690,107 @@ export const ReglementsPanel = ({
           <div className="rounded-md bg-card border border-border/40 px-3 py-2">
             <p className="text-[11px] text-muted-foreground">Encaissé</p>
             <p className="text-sm font-semibold text-emerald-700">{formatMontant(bilan.encaisse)}</p>
+            {bilan.rembourse > 0 && <p className="text-[10px] text-muted-foreground">dont {formatMontant(bilan.rembourse)} remboursé</p>}
           </div>
           <div className={`rounded-md border px-3 py-2 ${bilan.resteDu == null ? "bg-card border-border/40" : bilan.tropPercu ? "bg-sky-500/10 border-sky-200" : bilan.resteDu > 0 ? "bg-amber-500/10 border-amber-200" : "bg-emerald-500/10 border-emerald-200"}`}>
             <p className="text-[11px] text-muted-foreground">{bilan.tropPercu ? "Trop-perçu" : "Reste dû"}</p>
             <p className={`text-sm font-semibold ${bilan.resteDu == null ? "" : bilan.tropPercu ? "text-sky-700" : bilan.resteDu > 0 ? "text-amber-700" : "text-emerald-700"}`}>
               {formatMontant(bilan.resteDu)}
             </p>
+            {bilan.ecarts !== 0 && bilan.resteDu === 0 && <p className="text-[10px] text-emerald-700">soldé (écart accepté)</p>}
+            {bilan.aRembourser > 0 && <p className="text-[10px] text-sky-700">{formatMontant(bilan.aRembourser)} à rembourser</p>}
           </div>
         </div>
+
+        {/* Solder le foyer : écart accepté (aucun argent ne bouge) ou remboursement d'un trop-perçu */}
+        {ecartSigne != null && ecartSigne !== 0 && !showSolder && (
+          <button onClick={() => setShowSolder(true)} className="mt-2 text-xs text-primary underline hover:no-underline">
+            Solder…
+          </button>
+        )}
+        {showSolder && ecartSigne != null && ecartSigne !== 0 && (
+          <div className="mt-2 space-y-3 rounded-md border border-border/50 bg-card p-3 text-xs">
+            <div className="space-y-1.5">
+              <p className="font-medium">
+                {ecartSigne > 0
+                  ? `Accepter l'écart : le club ne réclame pas les ${formatMontant(ecartSigne)} restants`
+                  : `Accepter l'écart : le club conserve le trop-perçu de ${formatMontant(-ecartSigne)}`}
+              </p>
+              <p className="text-[10px] text-muted-foreground">Aucun argent ne bouge : l'encaissé et le remis en banque ne changent pas, le foyer est simplement soldé.</p>
+              <Input value={motifEcart} onChange={(e) => setMotifEcart(e.target.value)} placeholder="Motif (ex : arrondi des chèques)" className="h-7 text-xs" />
+              {grosEcart && (
+                <label className="flex items-start gap-2 rounded bg-amber-500/10 px-2 py-1.5 text-amber-800">
+                  <Checkbox checked={confirmeGrosEcart} onCheckedChange={(v) => setConfirmeGrosEcart(!!v)} className="mt-0.5" />
+                  <span>Cet écart dépasse {SEUIL_ECART_ACCEPTE} € : je confirme qu'il ne sera ni réclamé ni remboursé.</span>
+                </label>
+              )}
+              <div className="flex justify-end">
+                <Button size="sm" onClick={handleAccepterEcart} disabled={soldeEnCours || (grosEcart && !confirmeGrosEcart)} className="h-7 text-xs">
+                  Accepter l'écart
+                </Button>
+              </div>
+            </div>
+
+            {ecartSigne < 0 && (
+              <div className="space-y-1.5 border-t border-border/50 pt-3">
+                <p className="font-medium">Ou rembourser le trop-perçu</p>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Input value={rembMontant} onChange={(e) => setRembMontant(e.target.value)} placeholder={String(bilan.resteDu ?? "")} className="h-7 w-24 text-xs" />
+                  <span>€ par</span>
+                  {(["virement", "cheque", "especes"] as const).map((m) => (
+                    <button key={m} onClick={() => setRembMode(m)}
+                      className={`rounded-full px-2 py-0.5 text-[11px] ${rembMode === m ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}>
+                      {TYPE_LABELS[m]}
+                    </button>
+                  ))}
+                  {rembMode === "cheque" && (
+                    <Input value={rembNumero} onChange={(e) => setRembNumero(e.target.value)} placeholder="N° de chèque" className="h-7 w-28 text-xs" />
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {(["a_rembourser", "rembourse"] as const).map((s) => (
+                    <button key={s} onClick={() => setRembStatut(s)}
+                      className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${rembStatut === s ? "bg-sky-500/15 text-sky-700 ring-1 ring-inset ring-current" : "bg-secondary text-muted-foreground"}`}>
+                      {s === "a_rembourser" ? "À rembourser" : "Remboursé"}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex justify-end">
+                  <Button size="sm" onClick={handleRembourser} disabled={soldeEnCours} className="h-7 text-xs">Enregistrer le remboursement</Button>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end border-t border-border/50 pt-2">
+              <Button size="sm" variant="outline" onClick={() => setShowSolder(false)} className="h-7 text-xs">Fermer</Button>
+            </div>
+          </div>
+        )}
+
+        {operationsFoyer.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {operationsFoyer.map((o) => (
+              <div key={o.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded bg-secondary/40 px-2 py-1 text-[11px]">
+                <span className="font-medium">{libelleOperation(o)}</span>
+                {o.motif && <span className="text-muted-foreground">— {o.motif}</span>}
+                <span className="text-muted-foreground">
+                  · {new Date(o.created_at).toLocaleDateString("fr-FR")}{o.admin_nom ? ` par ${o.admin_nom}` : ""}
+                </span>
+                <span className="ml-auto flex gap-2">
+                  {o.type === "remboursement" && o.statut === "a_rembourser" && (
+                    <button onClick={() => handleMarquerRembourse(o)} className="text-sky-700 underline">Marquer remboursé</button>
+                  )}
+                  {confirmAnnulerOp === o.id ? (
+                    <span>Annuler ? <button onClick={() => handleAnnulerOperation(o)} className="font-medium text-destructive underline">Oui</button>{" "}
+                      <button onClick={() => setConfirmAnnulerOp(null)} className="underline">Non</button></span>
+                  ) : (
+                    <button onClick={() => setConfirmAnnulerOp(o.id)} className="text-muted-foreground underline hover:text-destructive">Annuler</button>
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Onglets trimestre */}

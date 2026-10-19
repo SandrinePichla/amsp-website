@@ -200,6 +200,9 @@ export interface LigneActivite {
   theorique: number | null;
   encaisse: number;
   depose: number;
+  /** Parts des remboursements faits et des écarts acceptés du foyer (voir calculerSoldeFoyer). */
+  rembourse: number;
+  ecart: number;
 }
 
 /**
@@ -212,7 +215,9 @@ export const repartirFoyerParActivite = (
   membres: { id: string; disciplines: string | null; age: number | null }[],
   theoriqueParPersonne: Map<string, number | null>,
   encaisseFoyer: number,
-  deposeFoyer: number
+  deposeFoyer: number,
+  rembourseFoyer = 0,
+  ecartFoyer = 0
 ): LigneActivite[] => {
   const prixSeul = (disciplineId: string, age: number | null): number => {
     const unChoix = tarifPourActivites(grille, 1)?.total ?? 0;
@@ -229,6 +234,8 @@ export const repartirFoyerParActivite = (
   const poidsPersonnes = theoriques.some((t) => t == null) ? membres.map(() => 1) : (theoriques as number[]);
   const encaisseParPersonne = repartirMontant(encaisseFoyer, poidsPersonnes);
   const deposeParPersonne = repartirMontant(deposeFoyer, poidsPersonnes);
+  const rembourseParPersonne = repartirMontant(rembourseFoyer, poidsPersonnes);
+  const ecartParPersonne = repartirMontant(ecartFoyer, poidsPersonnes);
 
   const lignes: LigneActivite[] = [];
   membres.forEach((m, idx) => {
@@ -239,8 +246,11 @@ export const repartirFoyerParActivite = (
     const partsTheo = theo == null ? ids.map(() => null) : repartirMontant(theo, poids);
     const partsEnc = repartirMontant(encaisseParPersonne[idx], poids);
     const partsDep = repartirMontant(deposeParPersonne[idx], poids);
+    const partsRemb = repartirMontant(rembourseParPersonne[idx], poids);
+    const partsEcart = repartirMontant(ecartParPersonne[idx], poids);
     ids.forEach((id, k) => lignes.push({
       inscriptionId: m.id, disciplineId: id, theorique: partsTheo[k], encaisse: partsEnc[k], depose: partsDep[k],
+      rembourse: partsRemb[k], ecart: partsEcart[k],
     }));
   });
   return lignes;
@@ -248,10 +258,65 @@ export const repartirFoyerParActivite = (
 
 export interface BilanFoyer {
   theorique: number | null;
+  /** Encaissé brut : règlements reçus ou remis en banque (l'argent entré). */
   encaisse: number;
+  /** Remboursements effectués (argent sorti) — déduits de l'encaissé pour le reste dû. */
+  rembourse: number;
+  /** Remboursements décidés mais pas encore faits (information : ne change pas le reste dû). */
+  aRembourser: number;
+  /** Écarts acceptés (aucun argent ne bouge) : + reste dû abandonné, − trop-perçu conservé. */
+  ecarts: number;
   resteDu: number | null;
   tropPercu: boolean;
 }
+
+// ─── Opérations de solde ──────────────────────────────────────────────────────────────────────
+// Deux façons de ramener un foyer à zéro, de nature comptable différente :
+//  - "remboursement" : de l'argent SORT (chèque, virement, espèces). Statut "a_rembourser" (décidé)
+//    puis "rembourse" (fait) ; seul un remboursement fait diminue l'encaissé net.
+//  - "ecart_accepte" : AUCUN argent ne bouge, le club renonce à quelques euros/centimes (montant > 0)
+//    ou garde un petit trop-perçu (montant < 0). montant = théorique − encaissé net au moment de
+//    la décision, ce qui ramène le reste dû à 0. Ne compte ni dans l'encaissé ni en banque.
+// Rattachées à une inscription du foyer, cumulées par foyer comme les règlements.
+
+/** Au-delà de ce montant (en valeur absolue), accepter un écart demande une confirmation explicite. */
+export const SEUIL_ECART_ACCEPTE = 5;
+
+export interface OperationSolde {
+  id: string;
+  inscription_id: string;
+  saison: string | null;
+  type: "remboursement" | "ecart_accepte";
+  montant: number;
+  statut: "a_rembourser" | "rembourse" | null;
+}
+
+/** Une ligne complète de la table operations_solde (affichage, export, journal). */
+export interface OperationSoldeDetail extends OperationSolde {
+  created_at: string;
+  mode: "cheque" | "virement" | "especes" | null;
+  numero: string | null;
+  date_operation: string | null;
+  motif: string | null;
+  admin_nom: string | null;
+}
+
+export const calculerSoldeFoyer = (
+  foyerIds: string[],
+  saison: string | null,
+  operations: OperationSolde[]
+): { rembourse: number; aRembourser: number; ecarts: number } => {
+  const foyerSet = new Set(foyerIds);
+  let rembourse = 0, aRembourser = 0, ecarts = 0;
+  for (const o of operations) {
+    if (!foyerSet.has(o.inscription_id) || o.saison !== saison) continue;
+    if (o.type === "ecart_accepte") ecarts += o.montant;
+    else if (o.statut === "rembourse") rembourse += o.montant;
+    else aRembourser += o.montant;
+  }
+  const arrondi = (n: number) => Math.round(n * 100) / 100;
+  return { rembourse: arrondi(rembourse), aRembourser: arrondi(aRembourser), ecarts: arrondi(ecarts) };
+};
 
 /** Encaissé du foyer = somme des règlements "reçu" liés à ses membres pour la saison, un même chèque partagé ne comptant qu'une fois. */
 export const calculerEncaisseFoyer = (
@@ -276,10 +341,19 @@ export const calculerEncaisseFoyer = (
   return total;
 };
 
-export const bilanFoyer = (theorique: number | null, encaisse: number): BilanFoyer => {
-  if (theorique == null) return { theorique: null, encaisse, resteDu: null, tropPercu: false };
-  const diff = Math.round((theorique - encaisse) * 100) / 100;
-  return { theorique, encaisse, resteDu: Math.abs(diff), tropPercu: diff < 0 };
+/**
+ * Bilan d'un foyer : reste dû = théorique − (encaissé − remboursé) − écarts acceptés.
+ * resteDu est toujours positif ; tropPercu indique le sens.
+ */
+export const bilanFoyer = (
+  theorique: number | null,
+  encaisse: number,
+  solde: { rembourse: number; aRembourser: number; ecarts: number } = { rembourse: 0, aRembourser: 0, ecarts: 0 }
+): BilanFoyer => {
+  const base = { encaisse, rembourse: solde.rembourse, aRembourser: solde.aRembourser, ecarts: solde.ecarts };
+  if (theorique == null) return { theorique: null, ...base, resteDu: null, tropPercu: false };
+  const diff = Math.round((theorique - (encaisse - solde.rembourse) - solde.ecarts) * 100) / 100;
+  return { theorique, ...base, resteDu: Math.abs(diff), tropPercu: diff < 0 };
 };
 
 /**

@@ -119,7 +119,7 @@ En bas du tableau, une ligne de **totaux** affiche le théorique, l'encaissé et
 
 ### Export Excel
 
-Le bouton **"Exporter"** en haut de page génère un fichier Excel de **9 feuilles**, regroupées par couleur d'onglet et toutes triées par nom puis prénom :
+Le bouton **"Exporter"** en haut de page génère un fichier Excel de **10 feuilles**, regroupées par couleur d'onglet et toutes triées par nom puis prénom :
 
 | Feuille | Contenu |
 |---------|---------|
@@ -127,9 +127,10 @@ Le bouton **"Exporter"** en haut de page génère un fichier Excel de **9 feuill
 | 🟢 **Santé & urgence** | Groupe sanguin, allergies, contact d'urgence |
 | 🟢 **Autorisations** | Droit à l'image, autorisation parentale, Pass Sport |
 | 🟢 **Règlements** | Une ligne par règlement, classée par trimestre : Personnes concernées, Mode, N° chèque, puis le montant dans la colonne de son statut (**Montant reçu**, **Remis en banque** ou **Montant en attente**). Sous-totaux par trimestre et total général |
-| 🟢 **Bilan par foyer** | Une ligne par foyer : Activités, Théorique, Encaissé, Reste dû (−) / Trop-perçu (+), Remis en banque. La colonne Activités sert à filtrer ; pour des totaux par activité, utiliser la Synthèse par activité |
+| 🟢 **Bilan par foyer** | Une ligne par foyer : Activités, Théorique, Encaissé, Remboursé, Écart accepté, Reste dû (−) / Trop-perçu (+), Remis en banque. La colonne Activités sert à filtrer ; pour des totaux par activité, utiliser la Synthèse par activité |
 | 🟢 **Répartition par activité** | Une ligne par personne et par activité, avec les montants ventilés : le théorique de chaque personne est réparti entre ses activités au prorata du prix de chacune pratiquée seule, et l'encaissé du foyer de la même façon |
-| 🟢 **Synthèse par activité** | Une ligne par activité : adhérents (dont adultes, dont mineurs), Théorique, Encaissé, Remis en banque, Reste dû / Trop-perçu, et une ligne TOTAL égale au total du Bilan par foyer |
+| 🟢 **Synthèse par activité** | Une ligne par activité : adhérents (dont adultes, dont mineurs), Théorique, Encaissé, Remboursé, Écart accepté, Remis en banque, Reste dû / Trop-perçu, et une ligne TOTAL égale au total du Bilan par foyer |
+| 🟢 **Remboursements et écarts** | La liste des opérations de solde (type, personne, mode, montant, statut, motif, auteur), avec le total remboursé, le total à rembourser et les totaux des écarts acceptés |
 | 🟠 **En attente de règlement** | Identité des dossiers "À valider" |
 | 🔴 **Refusées et supprimées** | Identité des dossiers refusés ou supprimés, pour garder un historique complet |
 
@@ -163,6 +164,17 @@ On l'ouvre avec le bouton **"Règlements"** (disponible dès l'onglet **"À vali
 > ⚠️ **Karaté : la tranche d'âge est obligatoire pour obtenir le montant théorique.** Tant qu'elle n'est pas choisie, le théorique et le reste dû restent vides, sur le site comme dans l'export Excel. Le choix n'est conservé qu'après le clic sur "Enregistrer le montant suggéré" : si le panneau est fermé avant, il faut recommencer.
 
 - Le montant théorique est calculé à partir de la grille tarifaire Sanity, remise famille comprise. Il est indicatif : le crayon à côté permet de le remplacer à la main (ex : arrivée en cours d'année), et un lien permet de revenir au calcul automatique.
+
+### Solder un foyer : écart accepté ou remboursement
+
+Quand le reste dû d'un foyer n'est pas à zéro, un lien **"Solder…"** apparaît sous les montants du panneau de règlement. Deux cas, de nature comptable différente :
+
+| Cas | Ce qui se passe |
+|-----|-----------------|
+| **Accepter l'écart** (petit reste dû ou petit trop-perçu, ex : centimes d'arrondi) | Saisir un motif ("Arrondi des chèques" par défaut), puis **"Accepter l'écart"**. **Aucun argent ne bouge** : le club renonce aux quelques euros manquants, ou garde le petit trop-perçu. Le foyer est soldé, l'encaissé et le remis en banque ne changent pas. **Au-delà de 5 €**, une case de confirmation est obligatoire |
+| **Rembourser le trop-perçu** | Montant (proposé automatiquement), mode (virement, chèque avec son numéro, espèces) et statut : **"À rembourser"** (décidé) ou **"Remboursé"** (fait). Seul un remboursement fait diminue l'encaissé et solde le foyer. Le lien **"Marquer remboursé"** le fait passer de l'un à l'autre |
+
+> 💡 Les opérations enregistrées s'affichent sous les montants du foyer. Chacune peut être **annulée**, et tout est tracé dans le journal. Dans le tableau des membres, un foyer soldé par un écart affiche "✓" à côté de son reste dû.
 
 ### Pour le comptable : faire une remise en banque
 
@@ -403,6 +415,7 @@ Si vous dépassez 200 emails/mois, il faudra passer à un abonnement payant sur 
 | Saisir et suivre les règlements par trimestre | Site AMSP | Aucune |
 | Changer l'email de connexion d'un adhérent | Site AMSP | Aucune |
 | Faire une remise en banque (comptable) | Site AMSP | Aucune |
+| Solder un foyer (écart accepté ou remboursement) | Site AMSP | Aucune |
 | Rattacher une personne à un foyer (ou l'en détacher) | Site AMSP | Aucune |
 | Créer un espace membre (adulte ou parent) | Site AMSP | Aucune |
 | Promouvoir un admin ou admin de discipline | Site AMSP | Aucune |
