@@ -324,6 +324,26 @@
     ⚠️ <strong>Karaté : la tranche d'âge est obligatoire pour obtenir le montant théorique.</strong> Le tarif du Karaté dépend de l'âge : tant que la tranche n'est pas choisie dans le panneau de règlement, le montant théorique et le reste dû restent vides (sur le site comme dans l'export Excel). Le choix de la tranche n'est conservé qu'après avoir cliqué sur <strong>"Enregistrer le montant suggéré"</strong> : si vous fermez le panneau avant, il faudra recommencer.
   </div>
 
+  <h3>Solder un foyer : écart accepté ou remboursement</h3>
+  <p>Quand le reste dû d'un foyer n'est pas à zéro, un lien <strong>« Solder… »</strong> apparaît sous les montants du panneau de règlement. Deux cas, de nature comptable différente :</p>
+  <table>
+    <tr>
+      <th>Cas</th>
+      <th>Ce qui se passe</th>
+    </tr>
+    <tr>
+      <td><strong>Accepter l'écart</strong> (petit reste dû ou petit trop-perçu, ex : centimes d'arrondi)</td>
+      <td>Saisir un motif (« Arrondi des chèques » par défaut), puis cliquer sur <strong>« Accepter l'écart »</strong>. <strong>Aucun argent ne bouge</strong> : le club renonce aux quelques euros manquants, ou garde le petit trop-perçu. Le foyer est soldé (reste dû à 0), l'encaissé et le remis en banque ne changent pas. <strong>Au-delà de 5 €</strong>, une case de confirmation est obligatoire.</td>
+    </tr>
+    <tr>
+      <td><strong>Rembourser le trop-perçu</strong></td>
+      <td>Montant (proposé automatiquement), mode (virement, chèque avec son numéro, espèces) et statut : <strong>« À rembourser »</strong> si c'est décidé mais pas encore fait, <strong>« Remboursé »</strong> si c'est fait. Seul un remboursement fait diminue l'encaissé et solde le foyer. Un remboursement « à rembourser » se passe ensuite à « remboursé » avec le lien <strong>« Marquer remboursé »</strong>.</td>
+    </tr>
+  </table>
+  <div class="conseil">
+    💡 Les opérations enregistrées s'affichent sous les montants du foyer. Chacune peut être <strong>annulée</strong> en cas d'erreur, et tout est tracé dans le journal. Dans le tableau des membres, un foyer soldé par un écart affiche « ✓ » à côté de son reste dû. Dans la vue Foyer, la carte indique « soldé » ou « à rembourser ».
+  </div>
+
   <h3>Pour le comptable : faire une remise en banque</h3>
   <p>Le statut de chaque règlement permet de savoir à tout moment ce qui est <strong>en main</strong> (« Reçu ») et ce qui est <strong>déjà à la banque</strong> (« Remis en banque »), comme sur un bordereau de remise.</p>
   <ol>
@@ -632,7 +652,7 @@
     </ol>
   </div>
 
-  <p>Le fichier contient <strong>9 feuilles</strong>, regroupées par statut (validées, puis en attente de règlement, puis refusées et supprimées), toutes triées par ordre alphabétique nom puis prénom :</p>
+  <p>Le fichier contient <strong>10 feuilles</strong>, regroupées par statut (validées, puis en attente de règlement, puis refusées et supprimées), toutes triées par ordre alphabétique nom puis prénom :</p>
   <table>
     <tr>
       <th>Feuille</th>
@@ -656,7 +676,7 @@
     </tr>
     <tr>
       <td><strong>Bilan par foyer</strong></td>
-      <td>Une ligne par <strong>foyer</strong> (personnes qui partagent au moins un règlement ou rattachées par un admin) — jamais par personne, pour ne pas compter deux fois un chèque partagé par une famille. Colonnes : <em>Foyer, Activités, Théorique, Encaissé, Reste dû (-) / Trop-perçu (+), Remis en banque, Saison</em>, avec montants au format monétaire et code couleur (vert/rouge) selon le signe. La colonne <em>Activités</em> sert à <strong>filtrer</strong> ; pour des <strong>totaux par activité</strong>, utiliser la feuille « Synthèse par activité » (un foyer à plusieurs activités serait sinon compté en entier sous chacune).</td>
+      <td>Une ligne par <strong>foyer</strong> (personnes qui partagent au moins un règlement ou rattachées par un admin) — jamais par personne, pour ne pas compter deux fois un chèque partagé par une famille. Colonnes : <em>Foyer, Activités, Théorique, Encaissé, Remboursé, Écart accepté, Reste dû (-) / Trop-perçu (+), Remis en banque, Saison</em>, avec montants au format monétaire et code couleur (vert/rouge) selon le signe. La colonne <em>Activités</em> sert à <strong>filtrer</strong> ; pour des <strong>totaux par activité</strong>, utiliser la feuille « Synthèse par activité » (un foyer à plusieurs activités serait sinon compté en entier sous chacune).</td>
     </tr>
     <tr>
       <td><strong>Répartition par activité</strong></td>
@@ -664,7 +684,11 @@
     </tr>
     <tr>
       <td><strong>Synthèse par activité</strong></td>
-      <td>Une ligne par activité : <em>nombre d'adhérents (dont adultes, dont mineurs), Théorique, Encaissé, Remis en banque, Reste dû / Trop-perçu</em>, avec une ligne TOTAL. La somme des montants de toutes les activités est égale au total du Bilan par foyer.</td>
+      <td>Une ligne par activité : <em>nombre d'adhérents (dont adultes, dont mineurs), Théorique, Encaissé, Remboursé, Écart accepté, Remis en banque, Reste dû / Trop-perçu</em>, avec une ligne TOTAL. La somme des montants de toutes les activités est égale au total du Bilan par foyer.</td>
+    </tr>
+    <tr>
+      <td><strong>Remboursements et écarts</strong></td>
+      <td><strong>Un seul tableau</strong>, filtrable par <em>Type</em> et par <em>Statut</em>, qui commence par ce qui demande une action : <strong>À traiter</strong> (foyers en trop-perçu, et petits restes dus de 5 € ou moins, calculés à l'export), <strong>À rembourser</strong> (remboursement décidé), puis <strong>Remboursé</strong> et les écarts <strong>Soldés</strong>. En bas, un total par catégorie : remboursé (argent sorti), noté à rembourser, trop-perçus à traiter, petits restes dus à traiter, et écarts acceptés (aucun argent ne bouge).</td>
     </tr>
     <tr>
       <td><strong>En attente de règlement</strong></td>
@@ -926,6 +950,11 @@
     <tr>
       <td>Voir et saisir les règlements par trimestre</td>
       <td>Site AMSP → Gestion des membres → Règlements</td>
+      <td>Aucune</td>
+    </tr>
+    <tr>
+      <td>Solder un foyer (écart accepté ou remboursement)</td>
+      <td>Site AMSP → Gestion des membres → panneau "Règlements" → "Solder…"</td>
       <td>Aucune</td>
     </tr>
     <tr>
