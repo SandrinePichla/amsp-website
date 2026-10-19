@@ -130,7 +130,7 @@ Le bouton **"Exporter"** en haut de page génère un fichier Excel de **10 feuil
 | 🟢 **Bilan par foyer** | Une ligne par foyer : Activités, Théorique, Encaissé, Remboursé, Écart accepté, Reste dû (−) / Trop-perçu (+), Remis en banque. La colonne Activités sert à filtrer ; pour des totaux par activité, utiliser la Synthèse par activité |
 | 🟢 **Répartition par activité** | Une ligne par personne et par activité, avec les montants ventilés : le théorique de chaque personne est réparti entre ses activités au prorata du prix de chacune pratiquée seule, et l'encaissé du foyer de la même façon |
 | 🟢 **Synthèse par activité** | Une ligne par activité : adhérents (dont adultes, dont mineurs), Théorique, Encaissé, Remboursé, Écart accepté, Remis en banque, Reste dû / Trop-perçu, et une ligne TOTAL égale au total du Bilan par foyer |
-| 🟢 **Remboursements et écarts** | La liste des opérations de solde (type, personne, mode, montant, statut, motif, auteur), avec le total remboursé, le total à rembourser et les totaux des écarts acceptés. Puis la **liste de travail** : les **trop-perçus à traiter** et les **petits restes dus de 5 € ou moins** |
+| 🟢 **Remboursements et écarts** | **Un seul tableau**, filtrable par Type et par Statut, qui commence par ce qui demande une action : **À traiter** (trop-perçus, et petits restes dus de 5 € ou moins), **À rembourser**, puis **Remboursé** et les écarts **Soldés**. En bas, un total par catégorie |
 | 🟠 **En attente de règlement** | Identité des dossiers "À valider" |
 | 🔴 **Refusées et supprimées** | Identité des dossiers refusés ou supprimés, pour garder un historique complet |
 

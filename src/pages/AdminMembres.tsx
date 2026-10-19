@@ -2127,55 +2127,110 @@ const AdminMembres = () => {
     rEff.height = 26;
     ajouterNote(sheetSynthese, 10);
 
-    // ─── Feuille "Remboursements et écarts" : la liste des opérations de solde, pour le trésorier.
-    // Les remboursements sont de vraies sorties d'argent ; les écarts acceptés n'en sont pas (le club
-    // renonce à quelques euros ou garde un petit trop-perçu) — d'où la colonne Type et les totaux séparés.
+    // ─── Feuille "Remboursements et écarts" : UN SEUL tableau pour le trésorier, filtrable par Type et
+    // par Statut. On y trouve :
+    //  - les opérations enregistrées : remboursements (vraies sorties d'argent, "À rembourser" puis
+    //    "Remboursé") et écarts acceptés (aucun argent ne bouge, statut "Soldé") ;
+    //  - les foyers PAS ENCORE soldés, calculés à l'export (statut "À traiter") : trop-perçus, et petits
+    //    restes dus de SEUIL_ECART_ACCEPTE € ou moins. Les gros restes dus n'y figurent pas (normaux en
+    //    cours de saison, trimestres à venir) : ils sont dans le Bilan par foyer.
+    // Une ligne "À traiter" exclut ce qui est déjà noté "À rembourser", pour ne pas compter deux fois.
     const idsExportes = new Set(baseData.map((i) => i.id));
-    const operationsExport = operationsSolde
-      .filter((o) => idsExportes.has(o.inscription_id))
-      .sort((a, b) => a.created_at.localeCompare(b.created_at));
     const nomInscription = (id: string) => {
       const i = inscriptions.find((x) => x.id === id) || baseData.find((x) => x.id === id);
       return i ? `${i.nom || ''} ${i.prenom || ''}`.trim() : '';
     };
-    const typeOperation = (o: OperationSoldeDetail) =>
-      o.type === 'remboursement' ? 'Remboursement' : o.montant >= 0 ? 'Écart accepté — reste dû non réclamé' : 'Écart accepté — trop-perçu conservé';
     const MODES_EXPORT: Record<string, string> = { cheque: 'Chèque', virement: 'Virement', especes: 'Espèces' };
-    const sheetOps = creerFeuille('Remboursements et écarts', `${operationsExport.length} opération(s)`, 11, VERT_FG, 0);
-    styleEnTete(sheetOps.addRow(['Date', 'Type', 'Personne', 'Mode', 'N° chèque', 'Montant', 'Statut', 'Remboursé le', 'Motif', 'Saisi par', 'Saison']));
-    operationsExport.forEach((o, idx) => {
-      const row = sheetOps.addRow([
-        new Date(o.created_at).toLocaleDateString('fr-FR'),
-        typeOperation(o),
-        nomInscription(o.inscription_id),
-        o.mode ? MODES_EXPORT[o.mode] || o.mode : '',
-        o.numero || '',
-        Math.abs(o.montant),
-        o.type === 'remboursement' ? (o.statut === 'rembourse' ? 'Remboursé' : 'À rembourser') : '',
-        o.date_operation ? new Date(o.date_operation).toLocaleDateString('fr-FR') : '',
-        o.motif || '',
-        o.admin_nom || '',
-        o.saison || '',
-      ]);
+    type LigneOps = {
+      ordre: number; date: string; tri: string; type: string; personne: string; mode: string; numero: string;
+      montant: number; statut: string; faitLe: string; motif: string; auteur: string; saison: string;
+    };
+    const lignesOps: LigneOps[] = [];
+
+    // 1. Foyers à traiter (calculés à l'export)
+    for (const l of lignesBilanFoyer) {
+      if (l.resteDu == null || l.resteDu <= 0) continue;
+      const contexte = `Théorique ${formatMontant(l.theorique)} · encaissé ${formatMontant(l.encaisse)}${l.rembourse > 0 ? ` · déjà remboursé ${formatMontant(l.rembourse)}` : ''}`;
+      if (l.tropPercu) {
+        const restant = arrondi(l.resteDu - l.aRembourser);
+        if (restant <= 0) continue; // déjà entièrement noté "à rembourser" : la ligne d'opération suffit
+        lignesOps.push({ ordre: 0, date: '', tri: l.triNom, type: 'Trop-perçu à traiter', personne: l.noms, mode: '', numero: '', montant: restant, statut: 'À traiter', faitLe: '', motif: contexte, auteur: '', saison: l.saison });
+      } else if (l.resteDu <= SEUIL_ECART_ACCEPTE) {
+        lignesOps.push({ ordre: 0, date: '', tri: l.triNom, type: `Petit reste dû à traiter (${SEUIL_ECART_ACCEPTE} € ou moins)`, personne: l.noms, mode: '', numero: '', montant: l.resteDu, statut: 'À traiter', faitLe: '', motif: contexte, auteur: '', saison: l.saison });
+      }
+    }
+
+    // 2. Opérations enregistrées
+    for (const o of operationsSolde.filter((x) => idsExportes.has(x.inscription_id))) {
+      const estRemb = o.type === 'remboursement';
+      const fait = estRemb && o.statut === 'rembourse';
+      lignesOps.push({
+        ordre: estRemb ? (fait ? 2 : 1) : 3,
+        date: new Date(o.created_at).toLocaleDateString('fr-FR'),
+        tri: o.created_at,
+        type: estRemb ? 'Remboursement' : o.montant >= 0 ? 'Écart accepté — reste dû non réclamé' : 'Écart accepté — trop-perçu conservé',
+        personne: nomInscription(o.inscription_id),
+        mode: o.mode ? MODES_EXPORT[o.mode] || o.mode : '',
+        numero: o.numero || '',
+        montant: Math.abs(o.montant),
+        statut: estRemb ? (fait ? 'Remboursé' : 'À rembourser') : 'Soldé',
+        faitLe: o.date_operation ? new Date(o.date_operation).toLocaleDateString('fr-FR') : '',
+        motif: o.motif || '',
+        auteur: o.admin_nom || '',
+        saison: o.saison || '',
+      });
+    }
+    // Ce qui demande une action d'abord : à traiter, à rembourser, puis remboursé, puis écarts soldés
+    lignesOps.sort((a, b) => a.ordre - b.ordre || a.tri.localeCompare(b.tri, 'fr', { sensitivity: 'base' }));
+
+    const STATUT_COULEURS: Record<string, { bg: string; fg: string }> = {
+      'À traiter': { bg: AMBRE_BG, fg: AMBRE_FG },
+      'À rembourser': { bg: VIOLET_BG, fg: VIOLET_FG },
+      'Remboursé': { bg: VERT_BG, fg: VERT_FG },
+      'Soldé': { bg: GRIS_BG, fg: GRIS_FG },
+    };
+    const nbAction = lignesOps.filter((l) => l.statut === 'À traiter' || l.statut === 'À rembourser').length;
+    const sheetOps = creerFeuille('Remboursements et écarts', `${lignesOps.length} ligne(s), dont ${nbAction} demandant une action`, 11, VERT_FG, 0);
+    styleEnTete(sheetOps.addRow(['Date', 'Type', 'Personne / Foyer', 'Mode', 'N° chèque', 'Montant', 'Statut', 'Remboursé le', 'Motif / détail', 'Saisi par', 'Saison']));
+    lignesOps.forEach((l, idx) => {
+      const row = sheetOps.addRow([l.date, l.type, l.personne, l.mode, l.numero, l.montant, l.statut, l.faitLe, l.motif, l.auteur, l.saison]);
       row.height = 18;
-      row.eachCell((cell, colNum) => {
-        cell.font = { name: 'Calibri', size: 9, bold: colNum === 2 };
+      const couleur = STATUT_COULEURS[l.statut];
+      row.eachCell({ includeEmpty: true }, (cell, colNum) => {
+        cell.font = { name: 'Calibri', size: 9, bold: colNum === 2 || colNum === 6 };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 0 ? GRIS_CLAIR : BLANC } };
         if (colNum === 6) cell.numFmt = FMT_EUR;
+        if (colNum === 7 && couleur) {
+          cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: couleur.fg } };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: couleur.bg } };
+        }
       });
     });
-    [12, 34, 24, 11, 13, 13, 13, 13, 28, 20, 12].forEach((w, i) => { sheetOps.getColumn(i + 1).width = w; });
-    if (operationsExport.length > 0) {
-      appliquerAlignement(sheetOps, 5, 4 + operationsExport.length, ['center', 'left', 'left', 'center', 'center', 'right', 'center', 'center', 'left', 'left', 'center']);
-      activerFiltre(sheetOps, 11, 4 + operationsExport.length);
+    [12, 36, 30, 11, 13, 13, 14, 13, 44, 20, 14].forEach((w, i) => { sheetOps.getColumn(i + 1).width = w; });
+    if (lignesOps.length > 0) {
+      appliquerAlignement(sheetOps, 5, 4 + lignesOps.length, ['center', 'left', 'left', 'center', 'center', 'right', 'center', 'center', 'left', 'left', 'center']);
+      activerFiltre(sheetOps, 11, 4 + lignesOps.length);
+      // appliquerAlignement remet les cellules à plat : on réapplique la couleur des statuts
+      lignesOps.forEach((l, idx) => {
+        const couleur = STATUT_COULEURS[l.statut];
+        if (!couleur) return;
+        const cell = sheetOps.getRow(5 + idx).getCell(7);
+        cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: couleur.fg } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: couleur.bg } };
+      });
+    } else {
+      sheetOps.addRow(['', 'Aucune opération ni aucun foyer à traiter.']).getCell(2).font = { name: 'Calibri', size: 9, italic: true };
     }
+
     sheetOps.addRow([]);
-    const sommeOps = (f: (o: OperationSoldeDetail) => boolean) => arrondi(operationsExport.filter(f).reduce((t, o) => t + Math.abs(o.montant), 0));
+    const sommeOps = (f: (l: LigneOps) => boolean) => arrondi(lignesOps.filter(f).reduce((t, l) => t + l.montant, 0));
     ([
-      ['Total remboursé (argent sorti)', sommeOps((o) => o.type === 'remboursement' && o.statut === 'rembourse')],
-      ['Total à rembourser', sommeOps((o) => o.type === 'remboursement' && o.statut !== 'rembourse')],
-      ['Total des restes dus non réclamés (aucun argent ne bouge)', sommeOps((o) => o.type === 'ecart_accepte' && o.montant >= 0)],
-      ['Total des trop-perçus conservés (aucun argent ne bouge)', sommeOps((o) => o.type === 'ecart_accepte' && o.montant < 0)],
+      ['Total remboursé (argent sorti)', sommeOps((l) => l.statut === 'Remboursé')],
+      ['Total noté « à rembourser » (remboursement décidé, pas encore fait)', sommeOps((l) => l.statut === 'À rembourser')],
+      ['Total des trop-perçus à traiter (rien n\'est encore décidé)', sommeOps((l) => l.type === 'Trop-perçu à traiter')],
+      [`Total des petits restes dus à traiter (${SEUIL_ECART_ACCEPTE} € ou moins)`, sommeOps((l) => l.type.startsWith('Petit reste dû'))],
+      ['Total des restes dus non réclamés (aucun argent ne bouge)', sommeOps((l) => l.type === 'Écart accepté — reste dû non réclamé')],
+      ['Total des trop-perçus conservés (aucun argent ne bouge)', sommeOps((l) => l.type === 'Écart accepté — trop-perçu conservé')],
     ] as [string, number][]).forEach(([libelle, montant]) => {
       const r = sheetOps.addRow(['', libelle, '', '', '', montant]);
       sheetOps.mergeCells(r.number, 2, r.number, 5); // libellés longs : sur 4 colonnes pour ne pas être tronqués
@@ -2184,57 +2239,6 @@ const AdminMembres = () => {
       r.getCell(6).numFmt = FMT_EUR;
       r.getCell(6).alignment = { horizontal: 'right' };
     });
-
-    // Foyers PAS ENCORE soldés, calculés à l'export : la liste de travail du trésorier. Les gros restes
-    // dus n'y figurent pas (normaux en cours de saison, trimestres à venir) — ils sont dans le Bilan.
-    const ajouterSectionFoyers = (titre: string, explication: string, lignes: LigneBilanFoyer[], colonneMontant: string) => {
-      sheetOps.addRow([]);
-      const rTitre = sheetOps.addRow([titre]);
-      sheetOps.mergeCells(rTitre.number, 1, rTitre.number, 11);
-      rTitre.getCell(1).font = { name: 'Calibri', size: 11, bold: true, color: { argb: BLANC } };
-      rTitre.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLEU } };
-      rTitre.height = 22;
-      const rExpl = sheetOps.addRow([explication]);
-      sheetOps.mergeCells(rExpl.number, 1, rExpl.number, 11);
-      rExpl.getCell(1).font = { name: 'Calibri', size: 9, italic: true, color: { argb: GRIS_FG } };
-      if (lignes.length === 0) {
-        sheetOps.addRow(['', 'Aucun foyer concerné.']).getCell(2).font = { name: 'Calibri', size: 9, italic: true };
-        return;
-      }
-      // Le nom du foyer occupe les colonnes 2 à 5 (fusionnées) pour rester lisible
-      const rEnTete = sheetOps.addRow(['', 'Foyer', '', '', '', colonneMontant, 'Noté à rembourser', 'Théorique', 'Encaissé', 'Déjà remboursé', 'Saison']);
-      sheetOps.mergeCells(rEnTete.number, 2, rEnTete.number, 5);
-      styleEnTete(rEnTete);
-      lignes.forEach((l, idx) => {
-        const row = sheetOps.addRow(['', l.noms, '', '', '', l.resteDu ?? 0, l.aRembourser, l.theorique ?? '', l.encaisse, l.rembourse, l.saison]);
-        sheetOps.mergeCells(row.number, 2, row.number, 5);
-        row.height = 18;
-        row.eachCell((cell, colNum) => {
-          cell.font = { name: 'Calibri', size: 9, bold: colNum === 6 };
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 0 ? GRIS_CLAIR : BLANC } };
-          if (colNum === 6 || colNum === 8 || colNum === 9) cell.numFmt = FMT_EUR;
-          if (colNum === 7 || colNum === 10) cell.numFmt = FMT_OPTIONNEL;
-        });
-      });
-      const rTot = sheetOps.addRow(['', `Total (${lignes.length} foyer${lignes.length > 1 ? 's' : ''})`, '', '', '', arrondi(lignes.reduce((t, l) => t + (l.resteDu ?? 0), 0))]);
-      sheetOps.mergeCells(rTot.number, 2, rTot.number, 5);
-      rTot.getCell(2).font = { name: 'Calibri', size: 10, bold: true };
-      rTot.getCell(6).font = { name: 'Calibri', size: 10, bold: true };
-      rTot.getCell(6).numFmt = FMT_EUR;
-    };
-    const foyersSoldables = lignesBilanFoyer.filter((l) => l.resteDu != null && l.resteDu > 0);
-    ajouterSectionFoyers(
-      'Trop-perçus à traiter',
-      "Foyers qui ont payé plus que le théorique : à rembourser, ou à solder par « Accepter l'écart » si le club garde la différence. Panneau Règlements du foyer → « Solder… ».",
-      foyersSoldables.filter((l) => l.tropPercu),
-      'Trop-perçu',
-    );
-    ajouterSectionFoyers(
-      `Petits restes dus (${SEUIL_ECART_ACCEPTE} € ou moins)`,
-      "Écarts de quelques euros ou centimes (arrondis des chèques…) : à réclamer, ou à solder par « Accepter l'écart ». Les restes dus plus importants sont dans le Bilan par foyer.",
-      foyersSoldables.filter((l) => !l.tropPercu && (l.resteDu ?? 0) <= SEUIL_ECART_ACCEPTE),
-      'Reste dû',
-    );
 
     construireFeuilleIdentite('En attente de règlement', dataEnAttenteReglement, AMBRE_FG);
     construireFeuilleIdentite('Refusées et supprimées', dataRefuseesEtSupprimees, ROUGE);
