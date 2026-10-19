@@ -29,7 +29,7 @@ import { PrintableInscription, type RecapData } from "@/components/PrintableInsc
 import { ReglementsPanel } from "@/components/ReglementsPanel";
 import { fetchGrilleTarifs, type GrilleTarifs } from "@/lib/tarifs";
 import { appelerChangerEmail } from "@/lib/changerEmail";
-import { getFoyerIds, calculerMontantsFoyer, calculerEncaisseFoyer, bilanFoyer, formatMontant, echeancesDuMoyenPaiement, repartirFoyerParActivite, calculerSoldeFoyer, type OperationSoldeDetail } from "@/lib/reglements";
+import { getFoyerIds, calculerMontantsFoyer, calculerEncaisseFoyer, bilanFoyer, formatMontant, echeancesDuMoyenPaiement, repartirFoyerParActivite, calculerSoldeFoyer, SEUIL_ECART_ACCEPTE, type OperationSoldeDetail } from "@/lib/reglements";
 
 interface Membre {
   id: string;
@@ -1869,7 +1869,7 @@ const AdminMembres = () => {
       return total;
     };
 
-    type LigneBilanFoyer = { noms: string; triNom: string; activites: string; theorique: number | null; encaisse: number; rembourse: number; ecarts: number; depose: number; resteDu: number | null; tropPercu: boolean; saison: string };
+    type LigneBilanFoyer = { noms: string; triNom: string; activites: string; theorique: number | null; encaisse: number; rembourse: number; aRembourser: number; ecarts: number; depose: number; resteDu: number | null; tropPercu: boolean; saison: string };
     const foyersVusBilan = new Set<string>();
     const lignesBilanFoyer: LigneBilanFoyer[] = [];
     // Lignes "personne × activité" pour les feuilles de répartition (voir repartirFoyerParActivite)
@@ -1901,6 +1901,7 @@ const AdminMembres = () => {
         encaisse: bilan?.encaisse ?? 0,
         rembourse: bilan?.rembourse ?? 0,
         ecarts: bilan?.ecarts ?? 0,
+        aRembourser: bilan?.aRembourser ?? 0,
         depose: deposeFoyer,
         resteDu: bilan?.resteDu ?? null,
         tropPercu: bilan?.tropPercu ?? false,
@@ -2177,11 +2178,63 @@ const AdminMembres = () => {
       ['Total des trop-perçus conservés (aucun argent ne bouge)', sommeOps((o) => o.type === 'ecart_accepte' && o.montant < 0)],
     ] as [string, number][]).forEach(([libelle, montant]) => {
       const r = sheetOps.addRow(['', libelle, '', '', '', montant]);
+      sheetOps.mergeCells(r.number, 2, r.number, 5); // libellés longs : sur 4 colonnes pour ne pas être tronqués
       r.getCell(2).font = { name: 'Calibri', size: 10, bold: true };
       r.getCell(6).font = { name: 'Calibri', size: 10, bold: true };
       r.getCell(6).numFmt = FMT_EUR;
       r.getCell(6).alignment = { horizontal: 'right' };
     });
+
+    // Foyers PAS ENCORE soldés, calculés à l'export : la liste de travail du trésorier. Les gros restes
+    // dus n'y figurent pas (normaux en cours de saison, trimestres à venir) — ils sont dans le Bilan.
+    const ajouterSectionFoyers = (titre: string, explication: string, lignes: LigneBilanFoyer[], colonneMontant: string) => {
+      sheetOps.addRow([]);
+      const rTitre = sheetOps.addRow([titre]);
+      sheetOps.mergeCells(rTitre.number, 1, rTitre.number, 11);
+      rTitre.getCell(1).font = { name: 'Calibri', size: 11, bold: true, color: { argb: BLANC } };
+      rTitre.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BLEU } };
+      rTitre.height = 22;
+      const rExpl = sheetOps.addRow([explication]);
+      sheetOps.mergeCells(rExpl.number, 1, rExpl.number, 11);
+      rExpl.getCell(1).font = { name: 'Calibri', size: 9, italic: true, color: { argb: GRIS_FG } };
+      if (lignes.length === 0) {
+        sheetOps.addRow(['', 'Aucun foyer concerné.']).getCell(2).font = { name: 'Calibri', size: 9, italic: true };
+        return;
+      }
+      // Le nom du foyer occupe les colonnes 2 à 5 (fusionnées) pour rester lisible
+      const rEnTete = sheetOps.addRow(['', 'Foyer', '', '', '', colonneMontant, 'Noté à rembourser', 'Théorique', 'Encaissé', 'Déjà remboursé', 'Saison']);
+      sheetOps.mergeCells(rEnTete.number, 2, rEnTete.number, 5);
+      styleEnTete(rEnTete);
+      lignes.forEach((l, idx) => {
+        const row = sheetOps.addRow(['', l.noms, '', '', '', l.resteDu ?? 0, l.aRembourser, l.theorique ?? '', l.encaisse, l.rembourse, l.saison]);
+        sheetOps.mergeCells(row.number, 2, row.number, 5);
+        row.height = 18;
+        row.eachCell((cell, colNum) => {
+          cell.font = { name: 'Calibri', size: 9, bold: colNum === 6 };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 0 ? GRIS_CLAIR : BLANC } };
+          if (colNum === 6 || colNum === 8 || colNum === 9) cell.numFmt = FMT_EUR;
+          if (colNum === 7 || colNum === 10) cell.numFmt = FMT_OPTIONNEL;
+        });
+      });
+      const rTot = sheetOps.addRow(['', `Total (${lignes.length} foyer${lignes.length > 1 ? 's' : ''})`, '', '', '', arrondi(lignes.reduce((t, l) => t + (l.resteDu ?? 0), 0))]);
+      sheetOps.mergeCells(rTot.number, 2, rTot.number, 5);
+      rTot.getCell(2).font = { name: 'Calibri', size: 10, bold: true };
+      rTot.getCell(6).font = { name: 'Calibri', size: 10, bold: true };
+      rTot.getCell(6).numFmt = FMT_EUR;
+    };
+    const foyersSoldables = lignesBilanFoyer.filter((l) => l.resteDu != null && l.resteDu > 0);
+    ajouterSectionFoyers(
+      'Trop-perçus à traiter',
+      "Foyers qui ont payé plus que le théorique : à rembourser, ou à solder par « Accepter l'écart » si le club garde la différence. Panneau Règlements du foyer → « Solder… ».",
+      foyersSoldables.filter((l) => l.tropPercu),
+      'Trop-perçu',
+    );
+    ajouterSectionFoyers(
+      `Petits restes dus (${SEUIL_ECART_ACCEPTE} € ou moins)`,
+      "Écarts de quelques euros ou centimes (arrondis des chèques…) : à réclamer, ou à solder par « Accepter l'écart ». Les restes dus plus importants sont dans le Bilan par foyer.",
+      foyersSoldables.filter((l) => !l.tropPercu && (l.resteDu ?? 0) <= SEUIL_ECART_ACCEPTE),
+      'Reste dû',
+    );
 
     construireFeuilleIdentite('En attente de règlement', dataEnAttenteReglement, AMBRE_FG);
     construireFeuilleIdentite('Refusées et supprimées', dataRefuseesEtSupprimees, ROUGE);
