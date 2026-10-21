@@ -49,13 +49,29 @@ const journal = (msg) => {
 const echec = (msg) => { journal(`ÉCHEC : ${msg}`); process.exit(1); };
 
 // ── Configuration ────────────────────────────────────────────────────
-if (!fs.existsSync(CONFIG_FICHIER)) {
-  console.error(`Configuration absente : copiez sauvegarde.config.exemple.json en sauvegarde.config.local.json et remplissez-la.`);
-  process.exit(1);
+// --cloud : lancé par GitHub Actions (dépôt privé amsp-sauvegardes), PC éteint. La clé et le mot de
+// passe viennent des « secrets » GitHub ; la date de la dernière sauvegarde et le besoin de photos
+// sont calculés par le workflow. Pas de Google Drive ni de nettoyage : GitHub supprime lui-même les
+// archives au bout de 90 jours.
+const cloud = process.argv.includes("--cloud");
+if (cloud) {
+  config = {
+    cleServiceSupabase: process.env.SUPABASE_SECRET_KEY,
+    motDePasseArchives: process.env.ARCHIVE_PASSWORD,
+    dossierLocal: process.env.DOSSIER_SORTIE || path.resolve("sortie"),
+    cheminSeptZip: "7z",
+  };
+} else {
+  if (!fs.existsSync(CONFIG_FICHIER)) {
+    console.error(`Configuration absente : copiez sauvegarde.config.exemple.json en sauvegarde.config.local.json et remplissez-la.`);
+    process.exit(1);
+  }
+  config = JSON.parse(fs.readFileSync(CONFIG_FICHIER, "utf8"));
 }
-config = JSON.parse(fs.readFileSync(CONFIG_FICHIER, "utf8"));
 for (const champ of ["cleServiceSupabase", "motDePasseArchives", "dossierLocal"]) {
-  if (!config[champ] || String(config[champ]).includes("À_REMPLIR")) echec(`champ « ${champ} » à remplir dans sauvegarde.config.local.json`);
+  if (!config[champ] || String(config[champ]).includes("À_REMPLIR")) {
+    echec(cloud ? `secret GitHub manquant pour « ${champ} » (SUPABASE_SECRET_KEY / ARCHIVE_PASSWORD)` : `champ « ${champ} » à remplir dans sauvegarde.config.local.json`);
+  }
 }
 fs.mkdirSync(config.dossierLocal, { recursive: true });
 const septZip = config.cheminSeptZip || "7z";
@@ -69,7 +85,11 @@ const lireJson = async (url, options = {}) => {
 
 // ── Faut-il sauvegarder ? ────────────────────────────────────────────
 const ETAT = path.join(config.dossierLocal, "etat.json");
-const etat = fs.existsSync(ETAT) ? JSON.parse(fs.readFileSync(ETAT, "utf8")) : { derniere: null, photos: 0 };
+const etat = cloud
+  ? { derniere: process.env.DERNIERE_SAUVEGARDE || null, photos: 0 }
+  : fs.existsSync(ETAT) ? JSON.parse(fs.readFileSync(ETAT, "utf8")) : { derniere: null, photos: 0 };
+// En cloud, les photos (≈ 70 Mo) ne sont reprises que si le workflow le demande (1 fois par mois)
+const photosDemandees = cloud ? process.env.SAUVEGARDE_PHOTOS === "oui" : null;
 
 if (auto && etat.derniere) {
   const jours = (Date.now() - new Date(etat.derniere).getTime()) / 86400000;
@@ -88,7 +108,10 @@ if (auto && etat.derniere) {
 }
 
 // ── Export dans un dossier temporaire (jamais laissé en clair) ───────
-const horodatage = new Date().toISOString().slice(0, 16).replace("T", "_").replace(":", "h");
+// Heure locale dans le nom de fichier (une heure UTC prêtait à confusion)
+const maintenant = new Date();
+const deux = (n) => String(n).padStart(2, "0");
+const horodatage = `${maintenant.getFullYear()}-${deux(maintenant.getMonth() + 1)}-${deux(maintenant.getDate())}_${deux(maintenant.getHours())}h${deux(maintenant.getMinutes())}`;
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "amsp-sauvegarde-"));
 const ecrire = (fichier, contenu) => {
   fs.mkdirSync(path.dirname(path.join(tmp, fichier)), { recursive: true });
@@ -147,7 +170,8 @@ try {
 
   // Photos Sanity : archive à part, refaite seulement s'il y a de nouvelles photos
   const assets = documents.filter((d) => d._type === "sanity.imageAsset" || d._type === "sanity.fileAsset");
-  if (assets.length !== etat.photos || !fs.readdirSync(config.dossierLocal).some((f) => f.startsWith("amsp-photos-"))) {
+  const refairePhotos = cloud ? photosDemandees : assets.length !== etat.photos || !fs.readdirSync(config.dossierLocal).some((f) => f.startsWith("amsp-photos-"));
+  if (refairePhotos) {
     const dossierPhotos = path.join(tmp, "photos");
     fs.mkdirSync(dossierPhotos, { recursive: true });
     for (const a of assets) {
@@ -161,7 +185,7 @@ try {
   }
 
   etat.derniere = new Date().toISOString();
-  fs.writeFileSync(ETAT, JSON.stringify(etat, null, 2));
+  if (!cloud) fs.writeFileSync(ETAT, JSON.stringify(etat, null, 2));
 } catch (e) {
   echec(e.message);
 } finally {
@@ -191,7 +215,7 @@ const nettoyer = (dossier) => {
 };
 
 // ── Copie vers Google Drive (2e support, hors de l'ordinateur) ───────
-if (config.dossierGoogleDrive) {
+if (!cloud && config.dossierGoogleDrive) {
   try {
     fs.mkdirSync(config.dossierGoogleDrive, { recursive: true });
     for (const f of fs.readdirSync(config.dossierLocal).filter((x) => x.endsWith(".7z"))) {
@@ -204,5 +228,5 @@ if (config.dossierGoogleDrive) {
     journal(`ATTENTION : copie vers Google Drive impossible (${e.message}). La sauvegarde locale est faite.`);
   }
 }
-nettoyer(config.dossierLocal);
+if (!cloud) nettoyer(config.dossierLocal);
 journal("Sauvegarde terminée.");

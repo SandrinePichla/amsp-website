@@ -1,0 +1,110 @@
+# ================================================================
+# Sauvegarde AMSP dans le cloud (GitHub Actions) — tourne même PC éteint.
+#
+# À placer dans le dépôt PRIVÉ « amsp-sauvegardes », sous :
+#   .github/workflows/sauvegarde-cloud.yml
+# (jamais dans le dépôt du site, qui est public).
+#
+# Secrets à créer dans ce dépôt privé (Settings → Secrets and variables → Actions) :
+#   SUPABASE_SECRET_KEY : la clé secrète Supabase (sb_secret_…)
+#   ARCHIVE_PASSWORD    : le mot de passe des archives (le même que sur le PC)
+#
+# Chaque jour, le script du site (dépôt public, lu tel quel) décide s'il faut sauvegarder :
+# 7 jours depuis la dernière sauvegarde, ou 5 nouvelles inscriptions. Les archives 7-Zip
+# chiffrées sont gardées 90 jours dans l'onglet Actions (« Artifacts »), puis supprimées
+# automatiquement. Les photos Sanity (≈ 70 Mo) ne sont reprises qu'une fois par mois.
+# En cas d'échec, GitHub envoie un email.
+# ================================================================
+name: Sauvegarde AMSP (cloud)
+
+on:
+  schedule:
+    - cron: "0 11 * * *" # chaque jour à 11 h UTC (13 h en été, 12 h en hiver)
+  workflow_dispatch:
+    inputs:
+      forcer:
+        description: "Sauvegarder tout de suite (sans attendre 7 jours ou 5 inscriptions)"
+        type: boolean
+        default: true
+
+permissions:
+  actions: read # lire la date des sauvegardes précédentes
+  contents: read
+
+jobs:
+  sauvegarde:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Récupérer le script de sauvegarde (dépôt public du site)
+        uses: actions/checkout@v4
+        with:
+          repository: SandrinePichla/amsp-website
+          sparse-checkout: scripts/sauvegarde
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Vérifier 7-Zip
+        run: command -v 7z || (sudo apt-get update && sudo apt-get install -y p7zip-full)
+
+      - name: Date de la dernière sauvegarde, besoin de photos
+        id: etat
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          artefacts=$(gh api "repos/${{ github.repository }}/actions/artifacts?per_page=100")
+          derniere=$(echo "$artefacts" | jq -r '[.artifacts[] | select(.name | startswith("amsp-sauvegarde-")) | .created_at] | max // ""')
+          photos=$(echo "$artefacts" | jq -r '[.artifacts[] | select(.name | startswith("amsp-photos-")) | .created_at] | max // ""')
+          # Photos : une fois par mois (aucune archive photos de moins de 30 jours)
+          besoin_photos=oui
+          if [ -n "$photos" ] && [ $(( $(date +%s) - $(date -d "$photos" +%s) )) -lt 2592000 ]; then besoin_photos=non; fi
+          echo "derniere=$derniere" >> "$GITHUB_OUTPUT"
+          echo "photos=$besoin_photos" >> "$GITHUB_OUTPUT"
+          echo "Dernière sauvegarde : ${derniere:-aucune} — photos à reprendre : $besoin_photos"
+
+      - name: Sauvegarde
+        env:
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          ARCHIVE_PASSWORD: ${{ secrets.ARCHIVE_PASSWORD }}
+          DERNIERE_SAUVEGARDE: ${{ steps.etat.outputs.derniere }}
+          SAUVEGARDE_PHOTOS: ${{ steps.etat.outputs.photos }}
+          DOSSIER_SORTIE: ${{ runner.temp }}/sortie
+          TZ: Europe/Paris # heure française dans le nom des archives
+          FORCER: ${{ github.event_name == 'workflow_dispatch' && inputs.forcer }}
+        run: |
+          if [ "$FORCER" = "true" ]; then
+            node scripts/sauvegarde/sauvegarde.mjs --cloud
+          else
+            node scripts/sauvegarde/sauvegarde.mjs --cloud --auto
+          fi
+
+      - name: Archives produites
+        id: archives
+        run: |
+          sortie="${{ runner.temp }}/sortie"
+          s=$(ls "$sortie"/amsp-sauvegarde-*.7z 2>/dev/null | head -1)
+          p=$(ls "$sortie"/amsp-photos-*.7z 2>/dev/null | head -1)
+          echo "sauvegarde=$s" >> "$GITHUB_OUTPUT"
+          echo "nom_sauvegarde=$( [ -n "$s" ] && basename "$s" .7z )" >> "$GITHUB_OUTPUT"
+          echo "photos=$p" >> "$GITHUB_OUTPUT"
+          echo "nom_photos=$( [ -n "$p" ] && basename "$p" .7z )" >> "$GITHUB_OUTPUT"
+
+      - name: Conserver la sauvegarde (90 jours)
+        if: steps.archives.outputs.sauvegarde != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.archives.outputs.nom_sauvegarde }}
+          path: ${{ steps.archives.outputs.sauvegarde }}
+          retention-days: 90
+          compression-level: 0 # déjà compressée et chiffrée
+
+      - name: Conserver les photos (90 jours)
+        if: steps.archives.outputs.photos != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.archives.outputs.nom_photos }}
+          path: ${{ steps.archives.outputs.photos }}
+          retention-days: 90
+          compression-level: 0

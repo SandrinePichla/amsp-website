@@ -37,6 +37,16 @@ Le fichier `journal-sauvegardes.log` (dans le dossier de l'ordinateur) indique c
 - Si la clé Supabase est régénérée, la remplacer dans ce fichier, sinon les sauvegardes échouent (visible dans le journal).
 - **Le mot de passe des archives doit être noté en lieu sûr** (hors de cet ordinateur) : sans lui, les sauvegardes sont illisibles.
 
+## Sauvegarde dans le cloud (PC éteint)
+La même sauvegarde tourne aussi chaque jour sur GitHub Actions, dans le dépôt **privé** `amsp-sauvegardes` (jamais dans le dépôt du site, qui est public). Elle lit ce script dans le dépôt du site : **le script doit donc être poussé sur GitHub** pour que les modifications soient prises en compte.
+
+- Fichier du workflow : `cloud/sauvegarde-cloud.yml`, à copier dans le dépôt privé sous `.github/workflows/`.
+- Secrets du dépôt privé : `SUPABASE_SECRET_KEY` et `ARCHIVE_PASSWORD` (le même mot de passe que sur le PC).
+- Mêmes règles : 7 jours ou 5 nouvelles inscriptions ; photos une fois par mois.
+- Les archives sont dans l'onglet **Actions** du dépôt privé → une exécution → **Artifacts**. Elles sont gardées **90 jours**, puis supprimées automatiquement.
+- En cas d'échec, GitHub envoie un email.
+- Si la clé Supabase change, la remplacer **aussi** dans les secrets du dépôt privé.
+
 ## Relire / restaurer
 1. Ouvrir l'archive avec 7-Zip et le mot de passe.
 2. Contenu Sanity : `sanity dataset import production-export.ndjson production` (depuis le projet du Studio).
