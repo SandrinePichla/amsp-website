@@ -22,6 +22,15 @@ import {
   calculerSoldeFoyer,
   SEUIL_ECART_ACCEPTE,
   type OperationSoldeDetail,
+  sommeAjustementsParInscription,
+  moisRestantsSaison,
+  prixActiviteSeule,
+  suggererAjustement,
+  trancheKarateParAge,
+  disciplinesApresAnnulation,
+  conflitAnnulation,
+  type AjustementActivite,
+  type TypeAjustement,
 } from "@/lib/reglements";
 
 interface InscriptionLite {
@@ -35,6 +44,7 @@ interface InscriptionLite {
   montant_attendu: number | null;
   statut?: string | null;
   foyer_id?: string | null;
+  date_naissance?: string | null;
 }
 
 /** Une ligne pour le journal des modifications (voir journaliserModifications dans AdminMembres). */
@@ -89,6 +99,11 @@ export const ReglementsPanel = ({
   operations = [],
   setOperations,
   auteur,
+  ajustements = [],
+  setAjustements,
+  peutModifierActivites = false,
+  disciplinesListe = [],
+  onOuvrirGaleries,
   onClose,
 }: {
   inscriptionId: string;
@@ -105,6 +120,15 @@ export const ReglementsPanel = ({
   setOperations?: (updater: (prev: OperationSoldeDetail[]) => OperationSoldeDetail[]) => void;
   /** Admin connecté, enregistré sur chaque opération de solde. */
   auteur?: { id: string; nom: string | null };
+  /** Changements d'activité en cours d'année (table ajustements_activite). */
+  ajustements?: AjustementActivite[];
+  setAjustements?: (updater: (prev: AjustementActivite[]) => AjustementActivite[]) => void;
+  /** Réservé aux admins (pas aux admins de discipline) : règle de l'association. */
+  peutModifierActivites?: boolean;
+  /** Disciplines du site (id Sanity + nom), pour choisir l'activité ajoutée ou retirée. */
+  disciplinesListe?: { _id: string; nom: string }[];
+  /** Ouvre l'onglet Accès galeries (rappel après un changement d'activité). */
+  onOuvrirGaleries?: () => void;
   onClose: () => void;
 }) => {
   const [currentId, setCurrentId] = useState(inscriptionId);
@@ -148,9 +172,10 @@ export const ReglementsPanel = ({
     [inscriptions, foyerIds]
   );
 
+  const ajustementsMap = useMemo(() => sommeAjustementsParInscription(ajustements), [ajustements]);
   const calculs = useMemo(
-    () => (grille ? calculerMontantsFoyer(grille, foyerMembres, tranchesKarate) : []),
-    [grille, foyerMembres, tranchesKarate]
+    () => (grille ? calculerMontantsFoyer(grille, foyerMembres, tranchesKarate, ajustementsMap) : []),
+    [grille, foyerMembres, tranchesKarate, ajustementsMap]
   );
   const theoriqueFoyer = calculs.some((c) => c.montant == null) ? null : calculs.reduce((s, c) => s + (c.montant || 0), 0);
   const encaisseFoyer = insc ? calculerEncaisseFoyer(foyerIds, insc.saison, cheques, chequeEcheances) : 0;
@@ -256,6 +281,158 @@ export const ReglementsPanel = ({
     );
   }, [search, foyerMembres, inscriptions, currentId]);
 
+  // ── Changement en cours d'année (ajout, changement, arrêt, inscription tardive) ─────────────
+  // Le site suggère un montant au prorata (10 mois, mois commencé dû, prix de l'activité seule),
+  // l'admin le corrige. Au 1er changement, le montant de départ de la personne est figé (sinon le
+  // calcul automatique repartirait de zéro avec les nouvelles activités) : théorique = départ + ajustements.
+  const aujourdhuiIso = () => new Date().toISOString().slice(0, 10);
+  const [showChangement, setShowChangement] = useState(false);
+  const [chType, setChType] = useState<TypeAjustement>("ajout");
+  const [chRetiree, setChRetiree] = useState("");
+  const [chAjoutee, setChAjoutee] = useState("");
+  const [chDate, setChDate] = useState(aujourdhuiIso());
+  const [chTranche, setChTranche] = useState("");
+  const [chMontant, setChMontant] = useState("");
+  const [chMotif, setChMotif] = useState("");
+  const [chEnCours, setChEnCours] = useState(false);
+  const [rappelGalerie, setRappelGalerie] = useState<{ ajout: string | null; retrait: string | null } | null>(null);
+  const [confirmAnnulerAj, setConfirmAnnulerAj] = useState<string | null>(null);
+  const resetChangement = () => {
+    setShowChangement(false); setChType("ajout"); setChRetiree(""); setChAjoutee(""); setChDate(aujourdhuiIso());
+    setChTranche(""); setChMontant(""); setChMotif("");
+  };
+  // Changer d'adhérent referme le simulateur (resetChangement n'utilise que des setters stables)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { resetChangement(); setRappelGalerie(null); setConfirmAnnulerAj(null); }, [currentId]);
+
+  const nomDisc = (id: string | null) => (id ? disciplinesListe.find((d) => d._id === id)?.nom || id : "");
+  const ageInsc = (() => {
+    if (!insc?.date_naissance) return null;
+    const n = new Date(insc.date_naissance), t = new Date();
+    let a = t.getFullYear() - n.getFullYear();
+    if (t.getMonth() < n.getMonth() || (t.getMonth() === n.getMonth() && t.getDate() < n.getDate())) a--;
+    return a;
+  })();
+  const disciplinesActuelles = (insc?.disciplines || "").split(",").map((x) => x.trim()).filter(Boolean);
+  const ajustementsInsc = ajustements
+    .filter((a) => a.inscription_id === insc?.id)
+    .sort((a, b) => a.created_at.localeCompare(b.created_at));
+  // Arrêt de la seule activité : l'inscription reste validée, l'activité reste sur la fiche, avec la mention
+  const arretTotal = ajustementsInsc.find((a) => a.type === "arret" && a.discipline_retiree && disciplinesActuelles.includes(a.discipline_retiree));
+
+  const chKarate = !!grille && [chRetiree, chAjoutee].some((id) => id && estDisciplineKarate(grille, id));
+  const trancheChoisie = chTranche || (grille ? trancheKarateParAge(grille, ageInsc)?.label ?? "" : "");
+  const moisRestants = moisRestantsSaison(chDate, insc?.saison ?? null);
+  const prixSeul = (id: string) => (grille && id ? prixActiviteSeule(grille, id, trancheChoisie || null, ageInsc) : null);
+  const suggestion = suggererAjustement({
+    type: chType,
+    moisRestants,
+    prixAjoutee: chAjoutee ? prixSeul(chAjoutee) : null,
+    prixRetiree: chRetiree ? prixSeul(chRetiree) : null,
+  });
+  const montantRetenu = chMontant.trim() ? Number(chMontant.replace(",", ".")) : suggestion.montant;
+  // Montant de départ à figer au 1er changement : le théorique actuel hors ajustements (avec la
+  // remise du foyer, puisque c'était la souscription de début d'année)
+  const calculInsc = calculs.find((c) => c.inscriptionId === insc?.id);
+  const departActuel = calculInsc?.montant == null ? null : Math.round((calculInsc.montant - (ajustementsMap.get(insc?.id ?? "") ?? 0)) * 100) / 100;
+  const departAFiger = insc?.montant_attendu != null ? null : departActuel;
+
+  const handleValiderChangement = async () => {
+    if (!insc) return;
+    if ((chType === "ajout" || chType === "changement") && !chAjoutee) { toast.error("Choisissez l'activité ajoutée."); return; }
+    if ((chType === "changement" || chType === "arret") && !chRetiree) { toast.error("Choisissez l'activité retirée."); return; }
+    if (montantRetenu == null || isNaN(montantRetenu)) { toast.error("Montant à préciser (tranche Karaté ?) : saisissez-le à la main."); return; }
+    if (insc.montant_attendu == null && departAFiger == null) {
+      toast.error("Le montant de départ de cette personne n'est pas calculable (tranche Karaté) : enregistrez-le d'abord dans « Théorique ».");
+      return;
+    }
+    // Nouvelles activités de la fiche
+    let nouvelles = [...disciplinesActuelles];
+    if (chType === "ajout" || chType === "changement") nouvelles = [...new Set([...nouvelles.filter((d) => chType !== "changement" || d !== chRetiree), chAjoutee])];
+    // Arrêt : l'activité est retirée, sauf si c'est la seule (l'inscription reste validée, avec la mention)
+    if (chType === "arret" && nouvelles.length > 1) nouvelles = nouvelles.filter((d) => d !== chRetiree);
+    const disciplinesApres = nouvelles.join(",");
+
+    setChEnCours(true);
+    const { data, error } = await supabase.from("ajustements_activite").insert({
+      inscription_id: insc.id,
+      saison: insc.saison,
+      type: chType,
+      discipline_retiree: chType === "ajout" ? null : chRetiree || null,
+      discipline_ajoutee: chType === "ajout" || chType === "changement" ? chAjoutee : null,
+      date_effet: chDate,
+      mois_restants: moisRestants,
+      montant_suggere: suggestion.montant,
+      montant: Math.round(montantRetenu * 100) / 100,
+      part_retiree: chType === "changement" ? suggestion.partRetiree : null,
+      tranche_karate: chKarate ? trancheChoisie || null : null,
+      motif: chMotif.trim() || null,
+      disciplines_avant: insc.disciplines,
+      montant_attendu_avant: insc.montant_attendu,
+      admin_id: auteur?.id ?? null,
+      admin_nom: auteur?.nom ?? null,
+    }).select().single();
+    if (error || !data) { setChEnCours(false); toast.error("Erreur : " + (error?.message || "inconnue")); return; }
+
+    const majInsc: { disciplines?: string; montant_attendu?: number } = {};
+    if (disciplinesApres !== (insc.disciplines || "")) majInsc.disciplines = disciplinesApres;
+    if (insc.montant_attendu == null && departAFiger != null) majInsc.montant_attendu = departAFiger;
+    if (Object.keys(majInsc).length > 0) {
+      const { error: errMaj } = await supabase.from("inscriptions").update(majInsc).eq("id", insc.id);
+      if (errMaj) toast.warning("Changement enregistré, mais la fiche n'a pas pu être mise à jour : " + errMaj.message);
+      else setInscriptions((prev) => prev.map((i) => (i.id === insc.id ? { ...i, ...majInsc } : i)));
+    }
+    setAjustements?.((prev) => [...prev, data as AjustementActivite]);
+    setChEnCours(false);
+
+    const TYPES_LIBELLES: Record<TypeAjustement, string> = { ajout: "Ajout d'activité", changement: "Changement d'activité", arret: "Arrêt (force majeure)", inscription_tardive: "Inscription tardive" };
+    await journaliser?.([{
+      table_cible: "inscriptions", ligne_id: insc.id, personne: [insc.prenom, insc.nom].filter(Boolean).join(" "),
+      champ: TYPES_LIBELLES[chType],
+      ancienne_valeur: chRetiree ? nomDisc(chRetiree) : null,
+      nouvelle_valeur: `${chAjoutee ? `${nomDisc(chAjoutee)} — ` : ""}${formatMontant(montantRetenu)} (${moisRestants}/10, effet le ${new Date(chDate).toLocaleDateString("fr-FR")})${chMotif.trim() ? ` — ${chMotif.trim()}` : ""}`,
+    }]);
+    toast.success("Changement enregistré.");
+    // Rappel : les accès galerie se mettent à jour à la main (règle de l'association)
+    const ajoutGalerie = chType === "ajout" || chType === "changement" ? nomDisc(chAjoutee) : null;
+    const retraitGalerie = chType === "changement" || chType === "arret" ? nomDisc(chRetiree) : null;
+    setRappelGalerie(ajoutGalerie || retraitGalerie ? { ajout: ajoutGalerie, retrait: retraitGalerie } : null);
+    resetChangement();
+  };
+
+  /**
+   * Annule N'IMPORTE QUEL changement de la personne : son effet sur les activités de la fiche est
+   * inversé (voir disciplinesApresAnnulation). S'il n'en reste plus aucun, le montant de départ figé
+   * au 1er changement est aussi rendu (retour à l'état d'avant tout changement). Bloqué si un
+   * changement plus récent touche la même activité : il faut l'annuler d'abord.
+   */
+  const handleAnnulerAjustement = async (a: AjustementActivite) => {
+    if (!insc) return;
+    setConfirmAnnulerAj(null);
+    const conflit = conflitAnnulation(a, ajustementsInsc);
+    if (conflit) {
+      toast.error(`Un changement plus récent concerne aussi « ${nomDisc(conflit)} » : annulez-le d'abord.`);
+      return;
+    }
+    const { error } = await supabase.from("ajustements_activite").delete().eq("id", a.id);
+    if (error) { toast.error("Erreur : " + error.message); return; }
+    const restants = ajustementsInsc.filter((x) => x.id !== a.id);
+    const premier = ajustementsInsc[0];
+    const restauration: { disciplines: string; montant_attendu?: number | null } = {
+      disciplines: disciplinesApresAnnulation(insc.disciplines, a),
+    };
+    if (restants.length === 0) restauration.montant_attendu = premier?.montant_attendu_avant == null ? null : Number(premier.montant_attendu_avant);
+    const { error: errMaj } = await supabase.from("inscriptions").update(restauration).eq("id", insc.id);
+    if (errMaj) toast.warning("Changement annulé, mais la fiche n'a pas pu être restaurée : " + errMaj.message);
+    else setInscriptions((prev) => prev.map((i) => (i.id === insc.id ? { ...i, ...restauration } : i)));
+    setAjustements?.((prev) => prev.filter((x) => x.id !== a.id));
+    await journaliser?.([{
+      table_cible: "inscriptions", ligne_id: insc.id, personne: [insc.prenom, insc.nom].filter(Boolean).join(" "),
+      champ: "Changement en cours d'année", ancienne_valeur: `${a.type} ${formatMontant(Number(a.montant))}`, nouvelle_valeur: "Annulé",
+    }]);
+    toast.success("Changement annulé.");
+  };
+
   // ── Rattachement explicite à un foyer ──────────────────────────────────────
   // La personne affichée (et son foyer actuel éventuel) rejoint le foyer d'un autre adhérent.
   // Avant de confirmer, l'admin voit l'effet sur les montants théoriques et peut figer ceux des
@@ -291,26 +468,32 @@ export const ReglementsPanel = ({
     const idsAccueil = getFoyerIds(cible.id, cible.saison, cheques, chequeEcheances, inscriptions);
     const accueil = inscriptions.filter((i) => idsAccueil.includes(i.id));
     const arrivants = foyerMembres;
-    const avantAccueil = calculerMontantsFoyer(grille, accueil, tranchesKarate);
-    const avantArrivants = calculerMontantsFoyer(grille, arrivants, tranchesKarate);
+    const avantAccueil = calculerMontantsFoyer(grille, accueil, tranchesKarate, ajustementsMap);
+    const avantArrivants = calculerMontantsFoyer(grille, arrivants, tranchesKarate, ajustementsMap);
     const avant = new Map([...avantAccueil, ...avantArrivants].map((c) => [c.inscriptionId, c.montant]));
     // Si on fige, chaque membre du foyer d'accueil garde son montant actuel (surcharge manuelle)
     const accueilApres = accueil.map((m) =>
       figerMontants && m.montant_attendu == null && avant.get(m.id) != null ? { ...m, montant_attendu: avant.get(m.id)! } : m
     );
-    const apres = new Map(calculerMontantsFoyer(grille, [...accueilApres, ...arrivants], tranchesKarate).map((c) => [c.inscriptionId, c.montant]));
+    // Règle du club (octobre 2026) : pas de remise famille pour un membre rattaché en cours d'année.
+    // Si on fige, l'arrivant paie son tarif sans remise famille (le dégressif de sa propre souscription reste).
+    const brutSansRemise = (m: InscriptionLite) => { const b = prixBrutPersonne(grille, m.disciplines, tranchesKarate[m.id] ?? null); return b.calculable ? b.montant : null; };
+    const arrivantsApres = arrivants.map((m) =>
+      figerMontants && m.montant_attendu == null && brutSansRemise(m) != null ? { ...m, montant_attendu: brutSansRemise(m)! } : m
+    );
+    const apres = new Map(calculerMontantsFoyer(grille, [...accueilApres, ...arrivantsApres], tranchesKarate, ajustementsMap).map((c) => [c.inscriptionId, c.montant]));
     const lignes = [...accueil.map((m) => ({ m, role: "accueil" as const })), ...arrivants.map((m) => ({ m, role: "arrivant" as const }))]
       .map(({ m, role }) => ({ m, role, avant: avant.get(m.id) ?? null, apres: apres.get(m.id) ?? null }));
     // Karaté sans tranche : montant non calculable, donc impossible à figer automatiquement
     const nonFigeables = figerMontants ? accueil.filter((m) => m.montant_attendu == null && avant.get(m.id) == null) : [];
-    return { cible, accueil, arrivants, lignes, nonFigeables };
-  }, [rattachCibleId, inscriptions, insc, grille, cheques, chequeEcheances, foyerMembres, tranchesKarate, figerMontants]);
+    return { cible, accueil, arrivants, arrivantsApres, lignes, nonFigeables };
+  }, [rattachCibleId, inscriptions, insc, grille, cheques, chequeEcheances, foyerMembres, tranchesKarate, figerMontants, ajustementsMap]);
 
   const fermerRattachement = () => { setShowRattacher(false); setRattachSearch(""); setRattachCibleId(null); setFigerMontants(true); };
 
   const handleRattacher = async () => {
     if (!apercuRattachement) return;
-    const { accueil, arrivants, lignes } = apercuRattachement;
+    const { accueil, arrivants, arrivantsApres, lignes } = apercuRattachement;
     const tous = [...accueil, ...arrivants];
     const foyerId = tous.find((m) => m.foyer_id)?.foyer_id ?? crypto.randomUUID();
     const aMettreAJour = tous.filter((m) => m.foyer_id !== foyerId);
@@ -328,6 +511,14 @@ export const ReglementsPanel = ({
         const { error } = await supabase.from("inscriptions").update({ montant_attendu: montant }).eq("id", m.id);
         if (error) toast.warning(`Montant de ${nomComplet(m)} non figé : ${error.message}`);
         else montantsFiges.push({ m, montant });
+      }
+      // Arrivants : tarif sans remise famille (règle du club pour un rattachement en cours d'année)
+      for (const a of arrivantsApres) {
+        const avantA = arrivants.find((x) => x.id === a.id);
+        if (!avantA || avantA.montant_attendu != null || a.montant_attendu == null) continue;
+        const { error } = await supabase.from("inscriptions").update({ montant_attendu: a.montant_attendu }).eq("id", a.id);
+        if (error) toast.warning(`Montant de ${nomComplet(a)} non figé : ${error.message}`);
+        else montantsFiges.push({ m: a, montant: a.montant_attendu });
       }
     }
 
@@ -473,12 +664,37 @@ export const ReglementsPanel = ({
 
   const saveMontantAttendu = async (valeur: number | null) => {
     if (!insc) return;
+    const avant = insc.montant_attendu;
     const { error } = await supabase.from("inscriptions").update({ montant_attendu: valeur }).eq("id", insc.id);
     if (error) { toast.error("Erreur : " + error.message); return; }
     setInscriptions((prev) => prev.map((i) => (i.id === insc.id ? { ...i, montant_attendu: valeur } : i)));
     setEditingMontant(false);
+    // Trace : montant saisi à la main (avec la date d'arrivée si l'aide au prorata a servi)
+    await journaliser?.([{
+      table_cible: "inscriptions", ligne_id: insc.id, personne: [insc.prenom, insc.nom].filter(Boolean).join(" "),
+      champ: "Montant théorique",
+      ancienne_valeur: avant == null ? "Calcul automatique" : formatMontant(avant),
+      nouvelle_valeur: valeur == null ? "Calcul automatique"
+        : `${formatMontant(valeur)}${arriveeDate && propositionProrata === valeur ? ` (prorata : arrivée le ${new Date(arriveeDate).toLocaleDateString("fr-FR")}, ${moisArrivee}/10)` : ""}`,
+    }]);
+    setArriveeDate("");
     toast.success(valeur == null ? "Retour au calcul automatique." : "Montant attendu mis à jour.");
   };
+
+  // Aide au prorata pour une inscription tardive (faite par la saisie papier classique) : tarif de la
+  // grille SANS remise famille (règle du club ; le dégressif de sa propre souscription reste) ramené
+  // aux mois restants à partir de la date d'arrivée. Le site suggère, l'admin corrige.
+  const [arriveeDate, setArriveeDate] = useState("");
+  const annuelGrille = (() => {
+    if (!insc || !grille) return null;
+    const tranche = tranchesKarate[insc.id] ?? trancheKarateParAge(grille, ageInsc)?.label ?? null;
+    const b = prixBrutPersonne(grille, insc.disciplines, tranche);
+    return b.calculable ? b.montant : null;
+  })();
+  const moisArrivee = arriveeDate ? moisRestantsSaison(arriveeDate, insc?.saison ?? null) : null;
+  const propositionProrata = annuelGrille != null && moisArrivee != null
+    ? Math.round((annuelGrille * moisArrivee / 10) * 100) / 100
+    : null;
   const handleSaveMontantAttendu = () => saveMontantAttendu(montantInput.trim() ? Number(montantInput.replace(",", ".")) : null);
   const handleResetMontantAttendu = () => saveMontantAttendu(null);
 
@@ -502,6 +718,11 @@ export const ReglementsPanel = ({
               {foyerMembres.length > 1 && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 px-2 py-0.5 text-[11px] font-medium text-violet-700">
                   <Users size={10} /> Foyer de {foyerMembres.length}
+                </span>
+              )}
+              {arretTotal && (
+                <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-700">
+                  Arrêt le {new Date(arretTotal.date_effet).toLocaleDateString("fr-FR")}
                 </span>
               )}
             </div>
@@ -603,9 +824,9 @@ export const ReglementsPanel = ({
                 <label className="flex items-start gap-2">
                   <Checkbox checked={figerMontants} onCheckedChange={(v) => setFigerMontants(!!v)} className="mt-0.5" />
                   <span>
-                    Garder les montants actuels des personnes déjà dans le foyer
+                    Appliquer la règle du club : montants actuels inchangés, pas de remise famille pour l'arrivant
                     <span className="block text-[10px] text-muted-foreground">
-                      Décoché : la remise famille est recalculée pour tout le foyer (un trop-perçu peut apparaître). Coché : seul l'arrivant en profite. Le crayon du montant théorique reste disponible pour ajuster ensuite.
+                      Coché (règle pour un rattachement en cours d'année) : personne ne change de montant, l'arrivant paie son tarif sans remise famille. Décoché : la remise famille est recalculée pour tout le foyer (un trop-perçu peut apparaître). Pour une inscription tardive, ramenez ensuite l'arrivant au prorata avec « Changement en cours d'année… ».
                     </span>
                   </span>
                 </label>
@@ -636,10 +857,28 @@ export const ReglementsPanel = ({
               </button>
             </div>
             {editingMontant ? (
-              <div className="mt-1 flex items-center gap-1">
-                <Input autoFocus type="number" step="0.01" value={montantInput} onChange={(e) => setMontantInput(e.target.value)} placeholder="auto" className="h-7 text-sm" />
-                <Button size="sm" className="h-7 w-7 p-0" onClick={handleSaveMontantAttendu}><Check size={13} /></Button>
-                <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => setEditingMontant(false)}><X size={13} /></Button>
+              <div className="mt-1 space-y-1.5">
+                <div className="flex items-center gap-1">
+                  <Input autoFocus type="number" step="0.01" value={montantInput} onChange={(e) => setMontantInput(e.target.value)} placeholder="auto" className="h-7 text-sm" />
+                  <Button size="sm" className="h-7 w-7 p-0" onClick={handleSaveMontantAttendu}><Check size={13} /></Button>
+                  <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => { setEditingMontant(false); setArriveeDate(""); }}><X size={13} /></Button>
+                </div>
+                {/* Aide au prorata : inscription en cours d'année */}
+                <div className="rounded bg-secondary/40 px-1.5 py-1 text-[10px] text-muted-foreground">
+                  <label className="flex flex-wrap items-center gap-1">
+                    Inscription en cours d'année ? Arrivée le
+                    <input type="date" value={arriveeDate} onChange={(e) => setArriveeDate(e.target.value)}
+                      className="h-6 rounded border border-border/50 bg-background px-1 text-[10px]" />
+                  </label>
+                  {arriveeDate && (annuelGrille == null ? (
+                    <p className="mt-0.5 text-amber-700">Tarif non calculable (tranche Karaté à choisir) : saisissez le montant à la main.</p>
+                  ) : (
+                    <p className="mt-0.5">
+                      {formatMontant(annuelGrille)} × {moisArrivee}/10 = <strong className="text-foreground">{formatMontant(propositionProrata)}</strong> (sans remise famille){" "}
+                      <button onClick={() => setMontantInput(String(propositionProrata))} className="font-medium text-primary underline">Utiliser ce montant</button>
+                    </p>
+                  ))}
+                </div>
               </div>
             ) : (
               <p className="text-sm font-semibold">{formatMontant(theoriqueFoyer)}</p>
@@ -789,6 +1028,139 @@ export const ReglementsPanel = ({
                 </span>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Changements en cours d'année : historique, rappel galerie, simulateur */}
+        {(ajustementsInsc.length > 0 || peutModifierActivites) && (
+          <div className="mt-3 border-t border-border/50 pt-2 text-xs">
+            {ajustementsInsc.length > 0 && (
+              <div className="mb-2 space-y-1">
+                <p className="font-medium text-muted-foreground">Changements en cours d'année</p>
+                {ajustementsInsc.map((a) => {
+                  const libelles: Record<TypeAjustement, string> = { ajout: "Ajout", changement: "Changement", arret: "Arrêt", inscription_tardive: "Inscription tardive" };
+                  return (
+                    <div key={a.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded bg-secondary/40 px-2 py-1 text-[11px]">
+                      <span className="font-medium">
+                        {libelles[a.type]}
+                        {a.discipline_retiree ? ` : ${nomDisc(a.discipline_retiree)}` : ""}
+                        {a.discipline_retiree && a.discipline_ajoutee ? " → " : a.discipline_ajoutee ? " : " : ""}
+                        {a.discipline_ajoutee ? nomDisc(a.discipline_ajoutee) : ""}
+                      </span>
+                      <span className={Number(a.montant) >= 0 ? "text-amber-700" : "text-sky-700"}>
+                        {Number(a.montant) >= 0 ? "+" : ""}{formatMontant(Number(a.montant))}
+                      </span>
+                      <span className="text-muted-foreground">
+                        · effet le {new Date(a.date_effet).toLocaleDateString("fr-FR")} ({a.mois_restants}/10){a.motif ? ` — ${a.motif}` : ""}{a.admin_nom ? ` · ${a.admin_nom}` : ""}
+                      </span>
+                      {peutModifierActivites && (
+                        <span className="ml-auto">
+                          {confirmAnnulerAj === a.id ? (
+                            <span>Annuler ? <button onClick={() => handleAnnulerAjustement(a)} className="font-medium text-destructive underline">Oui</button>{" "}
+                              <button onClick={() => setConfirmAnnulerAj(null)} className="underline">Non</button></span>
+                          ) : (
+                            <button onClick={() => setConfirmAnnulerAj(a.id)} className="text-muted-foreground underline hover:text-destructive">Annuler</button>
+                          )}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {rappelGalerie && (
+              <div className="mb-2 rounded-md border border-amber-200/60 bg-amber-50 px-3 py-2 text-amber-800 dark:bg-amber-950/20 dark:text-amber-300">
+                ⚠️ Pensez à mettre à jour les <strong>accès galerie</strong> de {insc.prenom} {insc.nom} :
+                {rappelGalerie.ajout ? ` ajouter « ${rappelGalerie.ajout} »` : ""}
+                {rappelGalerie.ajout && rappelGalerie.retrait ? "," : ""}
+                {rappelGalerie.retrait ? ` retirer « ${rappelGalerie.retrait} »` : ""}.
+                <span className="mt-1 flex gap-3">
+                  {onOuvrirGaleries && <button onClick={onOuvrirGaleries} className="font-medium underline">Ouvrir les accès galerie</button>}
+                  <button onClick={() => setRappelGalerie(null)} className="underline">C'est noté</button>
+                </span>
+              </div>
+            )}
+
+            {peutModifierActivites && !showChangement && (
+              <button onClick={() => setShowChangement(true)} className="text-primary underline hover:no-underline">
+                Changement en cours d'année…
+              </button>
+            )}
+
+            {peutModifierActivites && showChangement && (
+              <div className="space-y-2.5 rounded-md border border-border/50 bg-card p-3">
+                <p className="font-medium">Changement en cours d'année — {insc.prenom} {insc.nom}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {([["ajout", "Ajout d'activité"], ["changement", "Changement"], ["arret", "Arrêt (force majeure)"]] as [TypeAjustement, string][]).map(([t, l]) => (
+                    <button key={t} onClick={() => { setChType(t); setChMontant(""); }}
+                      className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${chType === t ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
+
+                {(chType === "changement" || chType === "arret") && (
+                  <label className="flex items-center gap-2">
+                    <span className="w-28 shrink-0 text-muted-foreground">Activité {chType === "arret" ? "arrêtée" : "retirée"}</span>
+                    <select value={chRetiree} onChange={(e) => { setChRetiree(e.target.value); setChMontant(""); }} className="h-7 flex-1 rounded-md border border-border/50 bg-background px-2">
+                      <option value="">— choisir —</option>
+                      {disciplinesActuelles.map((id) => <option key={id} value={id}>{nomDisc(id)}</option>)}
+                    </select>
+                  </label>
+                )}
+                {(chType === "ajout" || chType === "changement") && (
+                  <label className="flex items-center gap-2">
+                    <span className="w-28 shrink-0 text-muted-foreground">Activité ajoutée</span>
+                    <select value={chAjoutee} onChange={(e) => { setChAjoutee(e.target.value); setChMontant(""); }} className="h-7 flex-1 rounded-md border border-border/50 bg-background px-2">
+                      <option value="">— choisir —</option>
+                      {disciplinesListe.filter((d) => !disciplinesActuelles.includes(d._id)).map((d) => <option key={d._id} value={d._id}>{d.nom}</option>)}
+                    </select>
+                  </label>
+                )}
+                {chKarate && grille && (
+                  <label className="flex items-center gap-2">
+                    <span className="w-28 shrink-0 text-muted-foreground">Tranche Karaté</span>
+                    <select value={trancheChoisie} onChange={(e) => { setChTranche(e.target.value); setChMontant(""); }} className="h-7 flex-1 rounded-md border border-border/50 bg-background px-2">
+                      <option value="">— choisir —</option>
+                      {grille.tarifsKarate.map((t) => <option key={t.label} value={t.label}>{t.label} ({formatMontant(t.total)})</option>)}
+                    </select>
+                  </label>
+                )}
+                <label className="flex items-center gap-2">
+                  <span className="w-28 shrink-0 text-muted-foreground">Date d'effet</span>
+                  <Input type="date" value={chDate} onChange={(e) => { setChDate(e.target.value); setChMontant(""); }} className="h-7 w-40 text-xs" />
+                  <span className="text-muted-foreground">{moisRestants} mois restants sur 10</span>
+                </label>
+
+                <div className="rounded bg-secondary/40 px-2 py-1.5">
+                  <p>
+                    <span className="text-muted-foreground">Montant suggéré : </span>
+                    {suggestion.montant == null ? <span className="text-amber-700">{suggestion.detail}</span>
+                      : <><strong>{suggestion.montant >= 0 ? "+" : ""}{formatMontant(suggestion.montant)}</strong> <span className="text-muted-foreground">({suggestion.detail}, sans réduction)</span></>}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">+ à payer en plus · − à rendre (un trop-perçu se rembourse ensuite avec « Solder… »)</p>
+                </div>
+                <label className="flex items-center gap-2">
+                  <span className="w-28 shrink-0 text-muted-foreground">Montant retenu</span>
+                  <Input value={chMontant} onChange={(e) => setChMontant(e.target.value)} placeholder={suggestion.montant == null ? "à saisir" : String(suggestion.montant)} className="h-7 w-28 text-xs" />
+                  <span className="text-muted-foreground">€ (vide = suggestion)</span>
+                </label>
+                <Input value={chMotif} onChange={(e) => setChMotif(e.target.value)} placeholder="Motif (ex : ajout du Wutao en janvier)" className="h-7 text-xs" />
+
+                {theoriqueFoyer != null && montantRetenu != null && !isNaN(montantRetenu) && (
+                  <p className="text-muted-foreground">
+                    Théorique du foyer : {formatMontant(theoriqueFoyer)} → <strong className="text-foreground">{formatMontant(Math.round((theoriqueFoyer + montantRetenu) * 100) / 100)}</strong>
+                  </p>
+                )}
+                <div className="flex justify-end gap-1.5">
+                  <Button size="sm" variant="outline" onClick={resetChangement} className="h-7 text-xs" disabled={chEnCours}>Annuler</Button>
+                  <Button size="sm" onClick={handleValiderChangement} className="h-7 text-xs" disabled={chEnCours}>
+                    {chEnCours ? "Enregistrement…" : "Valider le changement"}
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

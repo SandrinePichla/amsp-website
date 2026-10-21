@@ -306,11 +306,11 @@
     </tr>
     <tr>
       <td>Rattacher une personne au foyer d'un autre adhérent (ex : un conjoint ou un enfant inscrit quelques mois après le reste de la famille, qui paie ses propres règlements)</td>
-      <td>Dans le panneau de règlement de la personne, cliquer sur <strong>"Rattacher à un foyer…"</strong>, rechercher un membre du foyer, puis vérifier le tableau <strong>Avant / Après</strong> des montants théoriques. La case <strong>"Garder les montants actuels des personnes déjà dans le foyer"</strong> (cochée par défaut) réserve la remise famille à l'arrivant ; décochée, la remise est recalculée pour tout le foyer. Confirmer. Un lien <strong>"Détacher du foyer"</strong> permet de corriger une erreur. Rattachement et détachement sont tracés dans le journal.</td>
+      <td>Dans le panneau de règlement de la personne, cliquer sur <strong>"Rattacher à un foyer…"</strong>, rechercher un membre du foyer, puis vérifier le tableau <strong>Avant / Après</strong> des montants théoriques. La case <strong>« Appliquer la règle du club »</strong> (cochée par défaut) applique la règle d'un rattachement en cours d'année : personne ne change de montant, et l'arrivant paie son tarif <strong>sans remise famille</strong>. Décochée, la remise est recalculée pour tout le foyer. Pour une inscription tardive, ramener ensuite l'arrivant au prorata avec « Changement en cours d'année… ». Confirmer. Un lien <strong>"Détacher du foyer"</strong> permet de corriger une erreur. Rattachement et détachement sont tracés dans le journal.</td>
     </tr>
     <tr>
-      <td>Surcharger à la main le montant théorique d'une personne (ex : nouvel arrivant en cours d'année, qui ne doit que 3 trimestres sur 4)</td>
-      <td>Dans le panneau de règlement, cliquer sur le crayon à côté du montant théorique, saisir le montant, puis "Enregistrer". Un lien permet de revenir au calcul automatique.</td>
+      <td>Surcharger à la main le montant théorique d'une personne, notamment pour une <strong>inscription en cours d'année</strong> (faite par la saisie papier classique)</td>
+      <td>Dans le panneau de règlement, cliquer sur le crayon à côté du montant théorique. Pour une inscription en cours d'année, renseigner <strong>« Arrivée le … »</strong> : le site propose le tarif de la grille, <strong>sans remise famille</strong>, au prorata des mois restants (ex : 437 € × 6/10 = 262,20 €). Cliquer sur « Utiliser ce montant », le corriger si besoin, puis valider. La correction est tracée dans le journal. Un lien permet de revenir au calcul automatique.</td>
     </tr>
     <tr>
       <td>Saisir le code Pass Sport d'un adhérent</td>
@@ -322,6 +322,23 @@
   </div>
   <div class="attention">
     ⚠️ <strong>Karaté : la tranche d'âge est obligatoire pour obtenir le montant théorique.</strong> Le tarif du Karaté dépend de l'âge : tant que la tranche n'est pas choisie dans le panneau de règlement, le montant théorique et le reste dû restent vides (sur le site comme dans l'export Excel). Le choix de la tranche n'est conservé qu'après avoir cliqué sur <strong>"Enregistrer le montant suggéré"</strong> : si vous fermez le panneau avant, il faudra recommencer.
+  </div>
+
+  <h3>Changements en cours d'année (ajout, changement, arrêt)</h3>
+  <p>Règles de l'association : <strong>toujours au prorata</strong>, au mois, sur 10 mois (septembre → juin), <strong>le mois commencé étant dû</strong> ; <strong>pas de réduction</strong> (remise famille, tarif dégressif, Karaté combiné) pour un ajout d'activité ou de membre en cours d'année ; <strong>le site suggère le montant, l'admin le corrige</strong>. Réservé aux admins (pas aux admins de discipline).</p>
+  <ol>
+    <li>Panneau <strong>"Règlements"</strong> de la personne → <strong>« Changement en cours d'année… »</strong>.</li>
+    <li>Choisir le cas, l'activité ajoutée et/ou retirée, la tranche Karaté si besoin, et la <strong>date d'effet</strong> (le nombre de mois restants s'affiche).</li>
+    <li>Vérifier le <strong>montant suggéré</strong>, le corriger si besoin dans « Montant retenu », saisir un motif, puis <strong>« Valider le changement »</strong>.</li>
+  </ol>
+  <table>
+    <tr><th>Cas</th><th>Montant suggéré</th><th>Activités de la fiche</th></tr>
+    <tr><td><strong>Ajout d'activité</strong></td><td>+ prix de l'activité seule × mois restants / 10</td><td>L'activité est ajoutée</td></tr>
+    <tr><td><strong>Changement d'activité</strong></td><td>(prix seul de la nouvelle − prix seul de l'ancienne) × mois restants / 10. Négatif : le trop-perçu se rembourse avec « Solder… »</td><td>L'ancienne est retirée, la nouvelle ajoutée</td></tr>
+    <tr><td><strong>Arrêt (force majeure)</strong></td><td>− prix seul × mois restants après le mois en cours / 10 (le mois commencé est dû). À rembourser avec « Solder… »</td><td>L'activité est retirée. Si c'est la seule, l'inscription reste validée avec la mention <strong>« Arrêt le … »</strong></td></tr>
+  </table>
+  <div class="conseil">
+    💡 Après un ajout, un changement ou un arrêt, un rappel invite à <strong>mettre à jour les accès galerie</strong> (bouton « Ouvrir les accès galerie »). Les changements s'affichent sous les montants du panneau ; <strong>chacun peut être annulé</strong> (son effet sur les activités de la fiche est inversé). Si un changement plus récent concerne la même activité, il faut l'annuler d'abord. Tout est tracé dans le journal et dans la feuille Excel « Historique des activités ».
   </div>
 
   <h3>Solder un foyer : écart accepté ou remboursement</h3>
@@ -652,7 +669,7 @@
     </ol>
   </div>
 
-  <p>Le fichier contient <strong>10 feuilles</strong>, regroupées par statut (validées, puis en attente de règlement, puis refusées et supprimées), toutes triées par ordre alphabétique nom puis prénom :</p>
+  <p>Le fichier contient <strong>11 feuilles</strong>, regroupées par statut (validées, puis en attente de règlement, puis refusées et supprimées), toutes triées par ordre alphabétique nom puis prénom :</p>
   <table>
     <tr>
       <th>Feuille</th>
@@ -685,6 +702,10 @@
     <tr>
       <td><strong>Synthèse par activité</strong></td>
       <td>Une ligne par activité : <em>nombre d'adhérents (dont adultes, dont mineurs), Théorique, Encaissé, Remboursé, Écart accepté, Remis en banque, Reste dû / Trop-perçu</em>, avec une ligne TOTAL. La somme des montants de toutes les activités est égale au total du Bilan par foyer.</td>
+    </tr>
+    <tr>
+      <td><strong>Historique des activités</strong></td>
+      <td>Les changements en cours d'année : date d'effet, personne, type, activité retirée, activité ajoutée, mois restants, montant suggéré par le site, montant retenu, motif, auteur.</td>
     </tr>
     <tr>
       <td><strong>Remboursements et écarts</strong></td>
@@ -951,6 +972,11 @@
       <td>Voir et saisir les règlements par trimestre</td>
       <td>Site AMSP → Gestion des membres → Règlements</td>
       <td>Aucune</td>
+    </tr>
+    <tr>
+      <td>Enregistrer un changement en cours d'année (ajout, changement, arrêt)</td>
+      <td>Site AMSP → Gestion des membres → panneau "Règlements" → "Changement en cours d'année…"</td>
+      <td>Aucune (admins uniquement)</td>
     </tr>
     <tr>
       <td>Solder un foyer (écart accepté ou remboursement)</td>

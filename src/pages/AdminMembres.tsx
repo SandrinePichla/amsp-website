@@ -29,7 +29,7 @@ import { PrintableInscription, type RecapData } from "@/components/PrintableInsc
 import { ReglementsPanel } from "@/components/ReglementsPanel";
 import { fetchGrilleTarifs, type GrilleTarifs } from "@/lib/tarifs";
 import { appelerChangerEmail } from "@/lib/changerEmail";
-import { getFoyerIds, calculerMontantsFoyer, calculerEncaisseFoyer, bilanFoyer, formatMontant, echeancesDuMoyenPaiement, repartirFoyerParActivite, calculerSoldeFoyer, SEUIL_ECART_ACCEPTE, type OperationSoldeDetail } from "@/lib/reglements";
+import { getFoyerIds, calculerMontantsFoyer, calculerEncaisseFoyer, bilanFoyer, formatMontant, echeancesDuMoyenPaiement, repartirFoyerParActivite, calculerSoldeFoyer, SEUIL_ECART_ACCEPTE, type OperationSoldeDetail, sommeAjustementsParInscription, ajustementsPourRepartition, type AjustementActivite } from "@/lib/reglements";
 
 interface Membre {
   id: string;
@@ -343,6 +343,9 @@ const AdminMembres = () => {
   const [chequeEcheances, setChequeEcheances] = useState<ChequeEcheance[]>([]);
   // Remboursements et écarts acceptés (table operations_solde ; vide tant que la migration n'est pas faite)
   const [operationsSolde, setOperationsSolde] = useState<OperationSoldeDetail[]>([]);
+  // Changements d'activité en cours d'année (table ajustements_activite ; vide tant que la migration n'est pas faite)
+  const [ajustementsActivite, setAjustementsActivite] = useState<AjustementActivite[]>([]);
+  const ajustementsParInscription = useMemo(() => sommeAjustementsParInscription(ajustementsActivite), [ajustementsActivite]);
   const [chequeModal, setChequeModal] = useState<{ groupKey: string; chequeId: string | null; representative: PaymentEvent } | null>(null);
   const [chequeModalType, setChequeModalType] = useState<'cheque' | 'especes' | 'virement'>('cheque');
   const [chequeModalNumero, setChequeModalNumero] = useState("");
@@ -430,6 +433,8 @@ const AdminMembres = () => {
     // Chargée à part : une erreur (table pas encore créée) ne doit pas bloquer le reste de la page
     const { data: opsRes } = await supabase.from("operations_solde").select("*").order("created_at", { ascending: true });
     setOperationsSolde((opsRes as OperationSoldeDetail[]) || []);
+    const { data: ajRes } = await supabase.from("ajustements_activite").select("*").order("created_at", { ascending: true });
+    setAjustementsActivite((ajRes as AjustementActivite[]) || []);
     setLoading(false);
   };
 
@@ -939,7 +944,7 @@ const AdminMembres = () => {
     if (!insc) return null;
     const foyerIds = getFoyerIds(insc.id, insc.saison, cheques, chequeEcheances, inscriptions);
     const foyerMembres = inscriptions.filter((i) => foyerIds.includes(i.id));
-    const calculs = grilleTarifs ? calculerMontantsFoyer(grilleTarifs, foyerMembres, {}) : [];
+    const calculs = grilleTarifs ? calculerMontantsFoyer(grilleTarifs, foyerMembres, {}, ajustementsParInscription) : [];
     const theorique = calculs.length > 0 && !calculs.some((c) => c.montant == null)
       ? calculs.reduce((s, c) => s + (c.montant || 0), 0)
       : null;
@@ -1911,10 +1916,10 @@ const AdminMembres = () => {
       // Même théorique par personne que resteDuInscription (calculerMontantsFoyer sans tranche
       // Karaté en mémoire : seul le montant enregistré compte), ventilé ensuite par activité
       if (grilleTarifs) {
-        const theoriqueParPersonne = new Map(calculerMontantsFoyer(grilleTarifs, membresFoyer, {}).map((c) => [c.inscriptionId, c.montant]));
+        const theoriqueParPersonne = new Map(calculerMontantsFoyer(grilleTarifs, membresFoyer, {}, ajustementsParInscription).map((c) => [c.inscriptionId, c.montant]));
         const repartition = repartirFoyerParActivite(
           grilleTarifs,
-          membresFoyer.map((m) => ({ id: m.id, disciplines: m.disciplines, age: calcAge(m.date_naissance) })),
+          membresFoyer.map((m) => ({ id: m.id, disciplines: m.disciplines, age: calcAge(m.date_naissance), ...ajustementsPourRepartition(m.id, ajustementsActivite) })),
           theoriqueParPersonne,
           bilan?.encaisse ?? 0,
           deposeFoyer,
@@ -2239,6 +2244,47 @@ const AdminMembres = () => {
       r.getCell(6).numFmt = FMT_EUR;
       r.getCell(6).alignment = { horizontal: 'right' };
     });
+
+    // ─── Feuille "Historique des activités" : les changements en cours d'année (ajouts, changements,
+    // arrêts, inscriptions tardives), avec le montant suggéré par le site et le montant retenu.
+    const TYPES_AJUSTEMENT: Record<string, string> = {
+      ajout: "Ajout d'activité", changement: "Changement d'activité", arret: 'Arrêt (force majeure)', inscription_tardive: 'Inscription tardive',
+    };
+    const ajustementsExport = ajustementsActivite
+      .filter((a) => idsExportes.has(a.inscription_id))
+      .sort((a, b) => a.date_effet.localeCompare(b.date_effet) || a.created_at.localeCompare(b.created_at));
+    const sheetHisto = creerFeuille("Historique des activités", `${ajustementsExport.length} changement(s) en cours d'année`, 12, VERT_FG, 0);
+    styleEnTete(sheetHisto.addRow(["Date d'effet", 'Personne', 'Type', 'Activité retirée', 'Activité ajoutée', 'Mois restants', 'Montant suggéré', 'Montant retenu', 'Motif', 'Saisi par', 'Saisi le', 'Saison']));
+    ajustementsExport.forEach((a, idx) => {
+      const row = sheetHisto.addRow([
+        new Date(a.date_effet).toLocaleDateString('fr-FR'),
+        nomInscription(a.inscription_id),
+        TYPES_AJUSTEMENT[a.type] || a.type,
+        a.discipline_retiree ? nomDiscipline(a.discipline_retiree) : '',
+        a.discipline_ajoutee ? nomDiscipline(a.discipline_ajoutee) : '',
+        `${a.mois_restants}/10`,
+        a.montant_suggere == null ? '' : Number(a.montant_suggere),
+        Number(a.montant),
+        a.motif || '',
+        a.admin_nom || '',
+        new Date(a.created_at).toLocaleDateString('fr-FR'),
+        a.saison || '',
+      ]);
+      row.height = 18;
+      row.eachCell((cell, colNum) => {
+        cell.font = { name: 'Calibri', size: 9, bold: colNum === 3 || colNum === 8 };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 0 ? GRIS_CLAIR : BLANC } };
+        // Signe visible : + à payer en plus, − à rendre
+        if (colNum === 7 || colNum === 8) cell.numFmt = '[Green]"+"#,##0.00" €";[Red]"-"#,##0.00" €";0.00" €"';
+      });
+    });
+    [13, 26, 22, 22, 22, 12, 15, 15, 34, 20, 12, 14].forEach((w, i) => { sheetHisto.getColumn(i + 1).width = w; });
+    if (ajustementsExport.length > 0) {
+      appliquerAlignement(sheetHisto, 5, 4 + ajustementsExport.length, ['center', 'left', 'left', 'left', 'left', 'center', 'right', 'right', 'left', 'left', 'center', 'center']);
+      activerFiltre(sheetHisto, 12, 4 + ajustementsExport.length);
+    } else {
+      sheetHisto.addRow(['', "Aucun changement d'activité en cours d'année."]).getCell(2).font = { name: 'Calibri', size: 9, italic: true };
+    }
 
     construireFeuilleIdentite('En attente de règlement', dataEnAttenteReglement, AMBRE_FG);
     construireFeuilleIdentite('Refusées et supprimées', dataRefuseesEtSupprimees, ROUGE);
@@ -4524,6 +4570,11 @@ const AdminMembres = () => {
               operations={operationsSolde}
               setOperations={setOperationsSolde}
               auteur={user ? { id: user.id, nom: (() => { const moi = membres.find((m) => m.id === user.id); return [moi?.prenom, moi?.nom].filter(Boolean).join(" ") || user.email || null; })() } : undefined}
+              ajustements={ajustementsActivite}
+              setAjustements={setAjustementsActivite}
+              peutModifierActivites={isSuperAdmin}
+              disciplinesListe={disciplinesSanity}
+              onOuvrirGaleries={() => { setReglementsPanelInscId(null); setReglementsPanelEcheance(undefined); setAdminSection("galeries"); }}
               onClose={() => { setReglementsPanelInscId(null); setReglementsPanelEcheance(undefined); }}
             />
           )}

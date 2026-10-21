@@ -119,7 +119,7 @@ En bas du tableau, une ligne de **totaux** affiche le théorique, l'encaissé et
 
 ### Export Excel
 
-Le bouton **"Exporter"** en haut de page génère un fichier Excel de **10 feuilles**, regroupées par couleur d'onglet et toutes triées par nom puis prénom :
+Le bouton **"Exporter"** en haut de page génère un fichier Excel de **11 feuilles**, regroupées par couleur d'onglet et toutes triées par nom puis prénom :
 
 | Feuille | Contenu |
 |---------|---------|
@@ -130,6 +130,7 @@ Le bouton **"Exporter"** en haut de page génère un fichier Excel de **10 feuil
 | 🟢 **Bilan par foyer** | Une ligne par foyer : Activités, Théorique, Encaissé, Remboursé, Écart accepté, Reste dû (−) / Trop-perçu (+), Remis en banque. La colonne Activités sert à filtrer ; pour des totaux par activité, utiliser la Synthèse par activité |
 | 🟢 **Répartition par activité** | Une ligne par personne et par activité, avec les montants ventilés : le théorique de chaque personne est réparti entre ses activités au prorata du prix de chacune pratiquée seule, et l'encaissé du foyer de la même façon |
 | 🟢 **Synthèse par activité** | Une ligne par activité : adhérents (dont adultes, dont mineurs), Théorique, Encaissé, Remboursé, Écart accepté, Remis en banque, Reste dû / Trop-perçu, et une ligne TOTAL égale au total du Bilan par foyer |
+| 🟢 **Historique des activités** | Les changements en cours d'année : date d'effet, personne, type, activités retirée/ajoutée, mois restants, montant suggéré, montant retenu, motif, auteur |
 | 🟢 **Remboursements et écarts** | **Un seul tableau**, filtrable par Type et par Statut, qui commence par ce qui demande une action : **À traiter** (trop-perçus, et petits restes dus de 5 € ou moins), **À rembourser**, puis **Remboursé** et les écarts **Soldés**. En bas, un total par catégorie |
 | 🟠 **En attente de règlement** | Identité des dossiers "À valider" |
 | 🔴 **Refusées et supprimées** | Identité des dossiers refusés ou supprimés, pour garder un historique complet |
@@ -163,7 +164,24 @@ On l'ouvre avec le bouton **"Règlements"** (disponible dès l'onglet **"À vali
 
 > ⚠️ **Karaté : la tranche d'âge est obligatoire pour obtenir le montant théorique.** Tant qu'elle n'est pas choisie, le théorique et le reste dû restent vides, sur le site comme dans l'export Excel. Le choix n'est conservé qu'après le clic sur "Enregistrer le montant suggéré" : si le panneau est fermé avant, il faut recommencer.
 
-- Le montant théorique est calculé à partir de la grille tarifaire Sanity, remise famille comprise. Il est indicatif : le crayon à côté permet de le remplacer à la main (ex : arrivée en cours d'année), et un lien permet de revenir au calcul automatique.
+- Le montant théorique est calculé à partir de la grille tarifaire Sanity, remise famille comprise. Il est indicatif : le crayon à côté permet de le remplacer à la main, et un lien permet de revenir au calcul automatique. La correction est tracée dans le journal.
+- **Inscription en cours d'année** (faite par la saisie papier classique) : dans le crayon, renseigner **"Arrivée le …"**. Le site propose le tarif de la grille **sans remise famille**, au prorata des mois restants (ex : 437 € × 6/10 = 262,20 €). Cliquer sur "Utiliser ce montant", le corriger si besoin, puis valider.
+
+### Changements en cours d'année (ajout, changement, arrêt)
+
+Règles de l'association : **toujours au prorata**, au mois, sur 10 mois (septembre → juin), **le mois commencé étant dû** ; **pas de réduction** (remise famille, tarif dégressif, Karaté combiné) pour un ajout d'activité ou de membre en cours d'année ; **le site suggère le montant, l'admin le corrige**. Réservé aux admins (pas aux admins de discipline).
+
+1. Panneau **"Règlements"** de la personne → **"Changement en cours d'année…"**.
+2. Choisir le cas, l'activité ajoutée et/ou retirée, la tranche Karaté si besoin, et la **date d'effet** (le nombre de mois restants s'affiche).
+3. Vérifier le **montant suggéré**, le corriger si besoin dans "Montant retenu", saisir un motif, puis **"Valider le changement"**.
+
+| Cas | Montant suggéré | Activités de la fiche |
+|-----|-----------------|-----------------------|
+| **Ajout d'activité** | + prix de l'activité seule × mois restants / 10 | L'activité est ajoutée |
+| **Changement d'activité** | (prix seul de la nouvelle − prix seul de l'ancienne) × mois restants / 10. Négatif : à rembourser avec "Solder…" | L'ancienne est retirée, la nouvelle ajoutée |
+| **Arrêt (force majeure)** | − prix seul × mois restants après le mois en cours / 10 (le mois commencé est dû). À rembourser avec "Solder…" | L'activité est retirée. Si c'est la seule, l'inscription reste validée avec la mention **"Arrêt le …"** |
+
+> 💡 Après un ajout, un changement ou un arrêt, un rappel invite à **mettre à jour les accès galerie**. **Chaque changement peut être annulé** (son effet sur les activités de la fiche est inversé). Si un changement plus récent concerne la même activité, il faut l'annuler d'abord. Tout est tracé dans le journal et dans la feuille Excel "Historique des activités".
 
 ### Solder un foyer : écart accepté ou remboursement
 
@@ -196,7 +214,7 @@ Un foyer regroupe les personnes dont la remise famille, l'encaissé et le reste 
 
 1. Ouvrir le panneau de règlement de la personne → **"Rattacher à un foyer…"**.
 2. Rechercher un membre du foyer (même saison) et le choisir.
-3. Vérifier le tableau **Avant / Après** des montants théoriques. La case **"Garder les montants actuels des personnes déjà dans le foyer"** (cochée par défaut) réserve la remise famille à l'arrivant ; décochée, la remise est recalculée pour tout le foyer, et un trop-perçu peut apparaître.
+3. Vérifier le tableau **Avant / Après** des montants théoriques. La case **"Appliquer la règle du club"** (cochée par défaut) : personne ne change de montant, et l'arrivant paie son tarif **sans remise famille** (règle d'un rattachement en cours d'année). Décochée, la remise est recalculée pour tout le foyer, et un trop-perçu peut apparaître. Pour une inscription tardive, ramener ensuite l'arrivant au prorata avec "Changement en cours d'année…".
 4. **"Confirmer le rattachement"**.
 
 Le lien **"Détacher du foyer"** corrige une erreur. Une personne qui partage encore un règlement avec le foyer y reste liée tant que ce règlement est partagé. Rattachements et détachements sont tracés dans le journal.
@@ -415,6 +433,7 @@ Si vous dépassez 200 emails/mois, il faudra passer à un abonnement payant sur 
 | Saisir et suivre les règlements par trimestre | Site AMSP | Aucune |
 | Changer l'email de connexion d'un adhérent | Site AMSP | Aucune |
 | Faire une remise en banque (comptable) | Site AMSP | Aucune |
+| Enregistrer un changement en cours d'année (ajout, changement, arrêt) | Site AMSP | Aucune (admins uniquement) |
 | Solder un foyer (écart accepté ou remboursement) | Site AMSP | Aucune |
 | Rattacher une personne à un foyer (ou l'en détacher) | Site AMSP | Aucune |
 | Créer un espace membre (adulte ou parent) | Site AMSP | Aucune |

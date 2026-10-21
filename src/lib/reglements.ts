@@ -135,20 +135,186 @@ export interface MembreFoyerCalcul {
 export const calculerMontantsFoyer = (
   grille: GrilleTarifs | null,
   membres: { id: string; disciplines: string | null; montant_attendu: number | null }[],
-  tranchesKarate: Record<string, string | null>
+  tranchesKarate: Record<string, string | null>,
+  /** Somme des ajustements en cours d'année par inscription (voir ajustements_activite). */
+  ajustements: Map<string, number> = new Map()
 ): MembreFoyerCalcul[] => {
   const remise = grille ? remiseFamille(grille, membres.length) : 0;
+  const avecAjustements = (c: MembreFoyerCalcul): MembreFoyerCalcul => {
+    const aj = ajustements.get(c.inscriptionId) ?? 0;
+    if (aj === 0 || c.montant == null) return c;
+    return { ...c, montant: Math.round((c.montant + aj) * 100) / 100, detail: `${c.detail}, changements en cours d'année compris` };
+  };
   return membres.map((m) => {
     if (m.montant_attendu != null) {
-      return { inscriptionId: m.id, montant: m.montant_attendu, manuel: true, detail: "Saisi à la main" };
+      return avecAjustements({ inscriptionId: m.id, montant: m.montant_attendu, manuel: true, detail: "Saisi à la main" });
     }
     if (!grille) return { inscriptionId: m.id, montant: null, manuel: false, detail: "Grille tarifaire indisponible" };
     const brut = prixBrutPersonne(grille, m.disciplines, tranchesKarate[m.id] ?? null);
     if (!brut.calculable) return { inscriptionId: m.id, montant: null, manuel: false, detail: brut.detail };
     const montant = Math.round(brut.montant * (1 - remise));
     const suffixeRemise = remise > 0 ? ` (dont −${Math.round(remise * 100)}% remise famille)` : "";
-    return { inscriptionId: m.id, montant, manuel: false, detail: `${brut.detail}${suffixeRemise}` };
+    return avecAjustements({ inscriptionId: m.id, montant, manuel: false, detail: `${brut.detail}${suffixeRemise}` });
   });
+};
+
+// ─── Changements d'activité en cours d'année ──────────────────────────────────────────────────
+// Règles de l'association : toujours au prorata, au mois, sur 10 mois (septembre → juin), le mois
+// commencé étant dû ; pas de réduction pour un ajout en cours d'année (prix de l'activité seule) ;
+// le site suggère, l'admin corrige. Voir la migration 20261026_ajustements_activite.sql.
+
+export type TypeAjustement = "ajout" | "changement" | "arret" | "inscription_tardive";
+
+export interface AjustementActivite {
+  id: string;
+  created_at: string;
+  inscription_id: string;
+  saison: string | null;
+  type: TypeAjustement;
+  discipline_retiree: string | null;
+  discipline_ajoutee: string | null;
+  date_effet: string;
+  mois_restants: number;
+  montant_suggere: number | null;
+  montant: number;
+  part_retiree: number | null;
+  tranche_karate: string | null;
+  motif: string | null;
+  disciplines_avant: string | null;
+  montant_attendu_avant: number | null;
+  admin_nom: string | null;
+}
+
+export const DUREE_SAISON_MOIS = 10;
+
+/**
+ * Mois restants dans la saison à partir de la date d'effet, mois commencé compris : sur une saison
+ * septembre → juin, le 15 janvier donne 6 (janvier à juin). Avant septembre : 10 ; après juin : 0.
+ * La saison ("2026-2027", "Saison 2026-2027"…) fixe l'année de septembre ; à défaut, la date.
+ */
+export const moisRestantsSaison = (dateEffet: string, saison: string | null): number => {
+  const d = new Date(dateEffet);
+  if (isNaN(d.getTime())) return DUREE_SAISON_MOIS;
+  const annees = (saison || "").match(/(\d{4})\s*[-/]\s*(\d{4})/);
+  const anneeSept = annees ? Number(annees[1]) : (d.getMonth() >= 6 ? d.getFullYear() : d.getFullYear() - 1);
+  // Rang du mois dans la saison : septembre = 0 … juin = 9
+  const rang = (d.getFullYear() - anneeSept) * 12 + d.getMonth() - 8;
+  if (rang < 0) return DUREE_SAISON_MOIS;
+  if (rang >= DUREE_SAISON_MOIS) return 0;
+  return DUREE_SAISON_MOIS - rang;
+};
+
+/**
+ * Prix d'une activité pratiquée seule, sans aucune réduction : tarif Karaté de la tranche (choisie,
+ * ou déduite de l'âge), ou tarif "au choix" pour 1 activité. null si le Karaté n'a pas de tranche.
+ */
+export const prixActiviteSeule = (
+  grille: GrilleTarifs,
+  disciplineId: string,
+  trancheKarate: string | null,
+  age: number | null
+): number | null => {
+  if (estDisciplineKarate(grille, disciplineId)) {
+    const t = grille.tarifsKarate.find((x) => x.label === trancheKarate) ?? trancheKarateParAge(grille, age);
+    return t ? t.total : null;
+  }
+  return tarifPourActivites(grille, 1)?.total ?? null;
+};
+
+const auCentime = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * Montant suggéré d'un changement (signé : + à payer en plus, − à rendre) :
+ *  - ajout : prix seul de l'activité × mois restants / 10 ;
+ *  - changement : (prix seul nouvelle − prix seul ancienne) × mois restants / 10 ;
+ *  - arrêt : − prix seul × mois restants APRÈS le mois en cours / 10 (le mois commencé est dû) ;
+ *  - inscription tardive : − montant annuel × mois écoulés / 10 (ramène au prorata).
+ * partRetiree : part attribuée à l'activité retirée (changement), pour l'export par activité.
+ */
+export const suggererAjustement = (p: {
+  type: TypeAjustement;
+  moisRestants: number;
+  prixAjoutee?: number | null;
+  prixRetiree?: number | null;
+  montantAnnuel?: number | null;
+}): { montant: number | null; partRetiree: number | null; detail: string } => {
+  const m = p.moisRestants;
+  const fraction = `${m}/${DUREE_SAISON_MOIS}`;
+  if (p.type === "ajout") {
+    if (p.prixAjoutee == null) return { montant: null, partRetiree: null, detail: "Prix de l'activité à préciser (tranche Karaté)" };
+    return { montant: auCentime((p.prixAjoutee * m) / DUREE_SAISON_MOIS), partRetiree: null, detail: `${p.prixAjoutee} € × ${fraction}` };
+  }
+  if (p.type === "changement") {
+    if (p.prixAjoutee == null || p.prixRetiree == null) return { montant: null, partRetiree: null, detail: "Prix à préciser (tranche Karaté)" };
+    const partRetiree = auCentime((-p.prixRetiree * m) / DUREE_SAISON_MOIS);
+    const montant = auCentime(((p.prixAjoutee - p.prixRetiree) * m) / DUREE_SAISON_MOIS);
+    return { montant, partRetiree, detail: `(${p.prixAjoutee} € − ${p.prixRetiree} €) × ${fraction}` };
+  }
+  if (p.type === "arret") {
+    if (p.prixRetiree == null) return { montant: null, partRetiree: null, detail: "Prix de l'activité à préciser (tranche Karaté)" };
+    const apres = Math.max(m - 1, 0);
+    return { montant: auCentime((-p.prixRetiree * apres) / DUREE_SAISON_MOIS), partRetiree: null, detail: `− ${p.prixRetiree} € × ${apres}/${DUREE_SAISON_MOIS} (mois commencé dû)` };
+  }
+  if (p.montantAnnuel == null) return { montant: null, partRetiree: null, detail: "Montant annuel à préciser" };
+  const ecoules = DUREE_SAISON_MOIS - m;
+  return { montant: auCentime((-p.montantAnnuel * ecoules) / DUREE_SAISON_MOIS), partRetiree: null, detail: `${p.montantAnnuel} € × ${fraction} = ${auCentime((p.montantAnnuel * m) / DUREE_SAISON_MOIS)} €` };
+};
+
+/**
+ * Pour l'export par activité : activités de départ (avant le 1er changement) et ajustements de la
+ * personne attribués à leur activité. Un changement se partage entre l'activité retirée (part_retiree)
+ * et l'ajoutée (le reste) ; une inscription tardive porte sur les activités de départ (null).
+ */
+export const ajustementsPourRepartition = (
+  inscriptionId: string,
+  ajustements: AjustementActivite[]
+): { disciplinesBase: string | null | undefined; ajustements: { disciplineId: string | null; montant: number }[] } => {
+  const siens = ajustements.filter((a) => a.inscription_id === inscriptionId).sort((a, b) => a.created_at.localeCompare(b.created_at));
+  const lignes: { disciplineId: string | null; montant: number }[] = [];
+  for (const a of siens) {
+    const montant = Number(a.montant);
+    if (a.type === "ajout") lignes.push({ disciplineId: a.discipline_ajoutee, montant });
+    else if (a.type === "arret") lignes.push({ disciplineId: a.discipline_retiree, montant });
+    else if (a.type === "changement") {
+      const partRetiree = a.part_retiree == null ? 0 : Number(a.part_retiree);
+      if (partRetiree !== 0) lignes.push({ disciplineId: a.discipline_retiree, montant: partRetiree });
+      lignes.push({ disciplineId: a.discipline_ajoutee, montant: auCentime(montant - partRetiree) });
+    } else lignes.push({ disciplineId: null, montant });
+  }
+  return { disciplinesBase: siens.length ? siens[0].disciplines_avant : undefined, ajustements: lignes };
+};
+
+/**
+ * Annulation de N'IMPORTE QUEL changement (pas seulement le dernier) : on inverse son effet sur les
+ * activités actuelles de la fiche. Ajout de X → X retiré ; changement A → B : B retiré, A remis ;
+ * arrêt de A → A remis (s'il avait été retiré ; un arrêt total l'avait laissé sur la fiche).
+ */
+export const disciplinesApresAnnulation = (disciplinesActuelles: string | null, a: Pick<AjustementActivite, "type" | "discipline_retiree" | "discipline_ajoutee">): string => {
+  let ids = (disciplinesActuelles || "").split(",").map((s) => s.trim()).filter(Boolean);
+  if ((a.type === "ajout" || a.type === "changement") && a.discipline_ajoutee) ids = ids.filter((d) => d !== a.discipline_ajoutee);
+  if ((a.type === "changement" || a.type === "arret") && a.discipline_retiree && !ids.includes(a.discipline_retiree)) ids.push(a.discipline_retiree);
+  return ids.join(",");
+};
+
+/**
+ * Un changement plus RÉCENT qui touche la même activité empêche d'annuler celui-ci en premier
+ * (ex : ajout du Wutao puis arrêt du Wutao) : renvoie l'activité en cause, sinon null.
+ */
+export const conflitAnnulation = (a: AjustementActivite, tous: AjustementActivite[]): string | null => {
+  const concernees = [a.discipline_retiree, a.discipline_ajoutee].filter(Boolean) as string[];
+  const plusRecents = tous.filter((x) => x.inscription_id === a.inscription_id && x.id !== a.id && x.created_at > a.created_at);
+  for (const x of plusRecents) {
+    const commun = concernees.find((d) => d === x.discipline_retiree || d === x.discipline_ajoutee);
+    if (commun) return commun;
+  }
+  return null;
+};
+
+/** Somme des ajustements par inscription, pour calculerMontantsFoyer. */
+export const sommeAjustementsParInscription = (ajustements: Pick<AjustementActivite, "inscription_id" | "montant">[]): Map<string, number> => {
+  const m = new Map<string, number>();
+  for (const a of ajustements) m.set(a.inscription_id, auCentime((m.get(a.inscription_id) ?? 0) + Number(a.montant)));
+  return m;
 };
 
 // ─── Répartition par activité (export Excel) ────────────────────────────────────────────────────
@@ -212,7 +378,15 @@ export interface LigneActivite {
  */
 export const repartirFoyerParActivite = (
   grille: GrilleTarifs,
-  membres: { id: string; disciplines: string | null; age: number | null }[],
+  membres: {
+    id: string;
+    disciplines: string | null;
+    age: number | null;
+    /** Activités du montant de départ (avant tout changement en cours d'année) ; défaut : disciplines. */
+    disciplinesBase?: string | null;
+    /** Ajustements de la personne attribués à une activité (null = réparti sur les activités de départ). */
+    ajustements?: { disciplineId: string | null; montant: number }[];
+  }[],
   theoriqueParPersonne: Map<string, number | null>,
   encaisseFoyer: number,
   deposeFoyer: number,
@@ -237,13 +411,32 @@ export const repartirFoyerParActivite = (
   const rembourseParPersonne = repartirMontant(rembourseFoyer, poidsPersonnes);
   const ecartParPersonne = repartirMontant(ecartFoyer, poidsPersonnes);
 
+  const decouper = (csv: string | null | undefined) => (csv || "").split(",").map((s) => s.trim()).filter(Boolean);
   const lignes: LigneActivite[] = [];
   membres.forEach((m, idx) => {
-    const ids = (m.disciplines || "").split(",").map((s) => s.trim()).filter(Boolean);
+    // Le montant de départ se répartit sur les activités de départ ; chaque ajustement en cours
+    // d'année va à son activité (ajoutée, retirée…). Une activité arrêtée garde donc sa part de départ
+    // diminuée de l'arrêt, et une activité ajoutée ne reçoit que son ajustement.
+    const base = decouper(m.disciplinesBase ?? m.disciplines);
+    const attribues = (m.ajustements ?? []).filter((a) => a.disciplineId);
+    const ids = [...new Set([...base, ...decouper(m.disciplines), ...attribues.map((a) => a.disciplineId as string)])];
     if (ids.length === 0) return;
-    const poids = ids.map((id) => prixSeul(id, m.age));
     const theo = theoriques[idx];
-    const partsTheo = theo == null ? ids.map(() => null) : repartirMontant(theo, poids);
+    let partsTheo: (number | null)[];
+    if (theo == null) partsTheo = ids.map(() => null);
+    else {
+      const sommeAttribuee = attribues.reduce((t, a) => t + a.montant, 0);
+      const baseIds = base.length ? base : ids;
+      const partsBase = repartirMontant(theo - sommeAttribuee, baseIds.map((id) => prixSeul(id, m.age)));
+      partsTheo = ids.map((id) => {
+        const k = baseIds.indexOf(id);
+        const partBase = k >= 0 ? partsBase[k] : 0;
+        const partAjust = attribues.filter((a) => a.disciplineId === id).reduce((t, a) => t + a.montant, 0);
+        return Math.round((partBase + partAjust) * 100) / 100;
+      });
+    }
+    // L'argent de la personne se répartit comme son théorique (prix seul si le théorique manque)
+    const poids = theo == null ? ids.map((id) => prixSeul(id, m.age)) : partsTheo.map((t) => Math.max(t ?? 0, 0));
     const partsEnc = repartirMontant(encaisseParPersonne[idx], poids);
     const partsDep = repartirMontant(deposeParPersonne[idx], poids);
     const partsRemb = repartirMontant(rembourseParPersonne[idx], poids);
