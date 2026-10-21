@@ -14,7 +14,8 @@
 7. [Modifier une inscription (papier ou en ligne)](#7-modifier-une-inscription-papier-ou-en-ligne)
 8. [Modifier le contenu du site avec Sanity](#8-modifier-le-contenu-du-site-avec-sanity)
 9. [Vérifier que les modifications sont bien en ligne](#9-vérifier-que-les-modifications-sont-bien-en-ligne)
-10. [Modifier les emails automatiques avec EmailJS](#10-modifier-les-emails-automatiques-avec-emailjs)
+10. [Les emails automatiques](#10-les-emails-automatiques)
+11. [Les sauvegardes](#11-les-sauvegardes)
 
 ---
 
@@ -34,7 +35,7 @@ Une fois connecté, votre prénom apparaît en haut à droite.
 Vous verrez un menu avec un **bouclier** → **"Gestion des membres"**
 
 > Si vous ne voyez pas "Gestion des membres", votre compte n'a pas les droits admin.
-> Contactez le développeur pour vérifier votre rôle dans Supabase.
+> Contactez le développeur pour qu'il vérifie votre rôle.
 
 ---
 
@@ -360,66 +361,29 @@ Après avoir cliqué sur **"Publish"** dans Sanity, attendre **30 secondes à 1 
 
 > Le contenu Sanity se met à jour automatiquement sur le site — pas besoin de redéployer.
 
-### Pour les modifications de code (faites par le développeur)
+### Après une mise à jour du site par le développeur
 
-Après un déploiement (`npm run deploy`), attendre **2 à 3 minutes**, puis :
-
-1. Aller sur le site
-2. Appuyer sur **Ctrl + Maj + R**
-3. Si le site n'est pas à jour après 5 minutes, vider complètement le cache :
-   - Chrome : **Ctrl + Maj + Suppr** → cocher "Images et fichiers en cache" → **Effacer**
-
-### Comment savoir si un déploiement a eu lieu
-
-Sur **https://github.com/SandrinePichla/amsp-website** :
-1. Cliquer sur l'onglet **"Actions"**
-2. La dernière ligne indique le dernier déploiement avec :
-   - ✅ Cercle vert = déploiement réussi
-   - ❌ Croix rouge = erreur lors du déploiement (contacter le développeur)
-   - 🟡 Cercle orange = déploiement en cours
+Attendre **2 à 3 minutes**, puis appuyer sur **Ctrl + Maj + R** sur la page. Si elle n'a toujours pas changé après 5 minutes : Chrome → **Ctrl + Maj + Suppr** → cocher « Images et fichiers en cache » → **Effacer**.
 
 ---
 
-## 10. Modifier les emails automatiques avec EmailJS
+## 10. Les emails automatiques
 
-EmailJS gère les emails envoyés automatiquement par le site :
-- Email reçu quand quelqu'un remplit le formulaire d'**inscription**
-- Email reçu quand quelqu'un crée un **compte membre**
-- Email envoyé depuis le formulaire de **contact**
+Le site envoie lui-même les emails automatiques (accusé de réception d'inscription, validation, refus, mot de passe oublié, invitation à créer son espace membre, formulaire de contact…), par le service **Brevo**.
 
-### Se connecter à EmailJS
+- **Rien à faire de votre côté** : ils partent tout seuls.
+- Pour **changer le texte** d'un email : demander au développeur.
+- Si un adhérent dit **ne pas avoir reçu** un email : lui demander de regarder dans ses **courriers indésirables**, puis prévenir le développeur.
 
-1. Aller sur **https://www.emailjs.com**
-2. Cliquer sur **"Sign In"** en haut à droite
-3. Se connecter avec le compte associé au projet AMSP
+---
 
-### Modifier le contenu d'un email
+## 11. Les sauvegardes
 
-1. Dans le menu gauche, cliquer sur **"Email Templates"**
-2. Vous verrez la liste des templates :
-   - **template pour les inscriptions** (reçu quand un membre remplit le formulaire d'inscription)
-   - **template pour les notifications** (reçu quand quelqu'un crée un compte membre)
-3. Cliquer sur le template à modifier
-4. Modifier le sujet (**Subject**) et le corps du message
-5. Les mots entre doubles accolades sont des variables automatiques — **ne pas les modifier** :
-   - `{{nom}}` → sera remplacé par le nom de la personne
-   - `{{email}}` → sera remplacé par son email
-   - `{{disciplines}}` → sera remplacé par les disciplines choisies
-   - etc.
-6. Cliquer sur **"Save"** pour enregistrer
+Les données du club (adhérents, règlements, comptes) et le contenu du site sont **sauvegardés automatiquement chaque jour**, de façon **chiffrée** : sur l'ordinateur du développeur, sur Google Drive et sur un serveur en ligne qui fonctionne même ordinateur éteint.
 
-> Les modifications de templates sont actives **immédiatement**, sans redéployer le site.
+**Rien à faire de votre côté.** En cas d'erreur grave (inscription supprimée par erreur, données abîmées), prévenir le développeur **rapidement** : il peut revenir à l'état de la veille.
 
-### Tester un email
-
-Dans un template EmailJS, cliquer sur **"Test It"** pour envoyer un email de test et vérifier le rendu.
-
-### Quota d'emails
-
-La version gratuite d'EmailJS permet **200 emails par mois**. Pour voir le nombre d'emails envoyés :
-- Menu gauche → **"Dashboard"** → section **"Email Sent"**
-
-Si vous dépassez 200 emails/mois, il faudra passer à un abonnement payant sur emailjs.com.
+> ⚠️ Dans l'onglet **Administration**, **ne pas utiliser le bouton « Remettre tous les membres en attente »** : il bloque la connexion de tous les adhérents. Le passage à une nouvelle saison sera revu.
 
 ---
 
@@ -440,7 +404,6 @@ Si vous dépassez 200 emails/mois, il faudra passer à un abonnement payant sur 
 | Promouvoir un admin ou admin de discipline | Site AMSP | Aucune |
 | Exporter les inscriptions en Excel | Site AMSP | Aucune |
 | Modifier textes et photos | Sanity Studio | Aucune |
-| Modifier les emails automatiques | EmailJS | Aucune |
-| Modifier le code du site | VSCode + GitHub | Développeur |
-| Déployer une mise à jour de code | Terminal | Développeur |
-| Modifier les politiques d'accès Supabase | Supabase SQL Editor | Développeur |
+| Modifier le texte des emails automatiques | Brevo | Développeur |
+| Sauvegarder les données | Automatique | Rien à faire |
+| Modifier le site, la base de données, les règles d'accès | Outils techniques | Développeur |

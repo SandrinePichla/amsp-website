@@ -1,53 +1,46 @@
-# Sauvegarde automatique AMSP
+# Sauvegardes AMSP — organisation
 
-## Ce qui est sauvegardé
-- **Supabase** : toutes les tables (inscriptions, règlements, comptes, journal…) et la liste des comptes membres (sans les mots de passe, que Supabase n'expose jamais).
-- **Sanity** : tout le contenu (textes, disciplines, galerie, paramètres) et, dans une archive à part, les photos et documents.
+Trois sauvegardes indépendantes, **toutes chiffrées** avec le même mot de passe (7-Zip, AES-256, noms de fichiers masqués). Le mot de passe est noté hors de l'ordinateur : **sans lui, aucune sauvegarde n'est lisible**.
 
-Le code du site est déjà sauvegardé par GitHub.
+| | Quoi | Quand | Où | Conservation |
+|---|---|---|---|---|
+| **1. PC — Supabase** | Structure complète + données de la base (`pg_dump`) | À l'ouverture de session Windows, 1×/jour max | `G:\Mon Drive\amsp\sauvegardes-supabase\supabase-AAAA-MM-JJ.7z` | 30 jours |
+| **2. PC — Sanity** | Textes chaque jour ; export complet avec photos 1×/semaine | Idem | `G:\Mon Drive\amsp\sauvegardes-sanity\sanity-textes-….7z` et `sanity-complet-….7z` | Textes 30 jours ; complets : les 4 derniers |
+| **3. Cloud — tout** | Structure + données Supabase (`pg_dump`), tables en JSON, comptes, textes Sanity ; photos 1×/mois | Chaque jour sur GitHub, **PC éteint ou non** : si 7 jours écoulés ou 5 nouvelles inscriptions | Dépôt privé GitHub `amsp-sauvegardes` → Actions → une exécution → Artifacts | 90 jours |
 
-## Quand
-Le planificateur de tâches Windows lance chaque jour à 13 h (ou dès que l'ordinateur est rallumé) :
+Le code du site est sauvegardé par GitHub (dépôt `amsp-website`).
 
-```
-node scripts/sauvegarde/sauvegarde.mjs --auto
-```
+## 1 et 2 — Scripts du PC
+- `C:\Dev\AMSP\sauvegardes-supabase\backup-supabase.ps1` et `C:\Dev\AMSP\sauvegardes-sanity\backup-sanity.ps1`.
+- Lancés par `backup-supabase-launcher.vbs` et `backup-sanity-launcher.vbs` dans le dossier Démarrage de Windows (`%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup`).
+- Le dump Supabase se fait dans un dossier temporaire du PC, puis est chiffré : **rien n'arrive en clair sur Google Drive**.
+- Mot de passe de la base : `%APPDATA%\postgresql\pgpass.conf`. Mot de passe des archives : `motDePasseArchives` dans `sauvegarde.config.local.json` (ce dossier).
+- Journaux : `backup-log.txt` dans chaque dossier Google Drive.
+- Anciennes versions (sans chiffrement) : fichiers `.avant-chiffrement` à côté des scripts.
 
-Une sauvegarde est faite si **7 jours** se sont écoulés depuis la précédente, **ou** si **5 nouvelles inscriptions** sont arrivées entre-temps. Sinon, rien.
+## 3 — Cloud (GitHub Actions)
+- Script : `sauvegarde.mjs --cloud --auto`, lu dans le dépôt public du site : **il doit être poussé sur GitHub** pour qu'une modification soit prise en compte.
+- Workflow : `cloud/sauvegarde-cloud.yml`, copié dans le dépôt privé sous `.github/workflows/`.
+- Secrets du dépôt privé (Settings → Secrets and variables → Actions) :
+  - `SUPABASE_SECRET_KEY` : clé secrète Supabase (`sb_secret_…`) ;
+  - `ARCHIVE_PASSWORD` : mot de passe des archives ;
+  - `SUPABASE_DB_URL` : chaîne de connexion **Session pooler** (Supabase → Connect → Session pooler), mot de passe de la base compris. Le serveur direct n'a pas d'adresse IPv4, que GitHub ne sait pas joindre.
+- Sans `SUPABASE_DB_URL`, la sauvegarde cloud **échoue volontairement** (la structure ne serait pas sauvegardée) et GitHub envoie un email.
 
-Pour sauvegarder tout de suite (par exemple avant une modification de la base) :
+## Sauvegarde manuelle (avant une modification de la base)
+Ouvrir une nouvelle session Windows suffit (une fois par jour). Pour forcer tout de suite :
+- PC : supprimer l'archive du jour `supabase-AAAA-MM-JJ.7z`, puis lancer `powershell -ExecutionPolicy Bypass -File C:\Dev\AMSP\sauvegardes-supabase\backup-supabase.ps1` ;
+- cloud : dépôt `amsp-sauvegardes` → Actions → « Sauvegarde AMSP (cloud) » → **Run workflow**.
 
-```
-node scripts/sauvegarde/sauvegarde.mjs
-```
+`node scripts/sauvegarde/sauvegarde.mjs` (sans `--cloud`) fonctionne aussi sur le PC (tables en JSON + textes et photos Sanity, dans `backups\automatiques` et `G:\Mon Drive\AMSP-sauvegardes`), mais **sans la structure** de la base, sauf à renseigner `urlBaseDeDonnees` dans la configuration.
 
-## Où
-- `C:\Dev\AMSP\amsp-project\backups\automatiques\` (ordinateur) ;
-- `G:\Mon Drive\AMSP-sauvegardes\` (Google Drive, 2e support).
-
-Chaque sauvegarde est une archive **7-Zip chiffrée** (AES-256, noms de fichiers masqués) : `amsp-sauvegarde-AAAA-MM-JJ_HHhMM.7z`. Les photos sont dans `amsp-photos-….7z`, refaite seulement quand il y a de nouvelles photos.
-
-Conservation : toutes les sauvegardes des 8 dernières semaines, puis une par mois pendant 12 mois ; les photos : les 2 dernières archives. Le reste est supprimé automatiquement.
-
-Le fichier `journal-sauvegardes.log` (dans le dossier de l'ordinateur) indique chaque passage : sauvegarde faite, pas nécessaire, ou échec.
-
-## Configuration
-`sauvegarde.config.local.json` (à côté du script, **jamais envoyé sur GitHub**) contient la clé secrète Supabase et le mot de passe des archives. Modèle : `sauvegarde.config.exemple.json`.
-
-- Si la clé Supabase est régénérée, la remplacer dans ce fichier, sinon les sauvegardes échouent (visible dans le journal).
-- **Le mot de passe des archives doit être noté en lieu sûr** (hors de cet ordinateur) : sans lui, les sauvegardes sont illisibles.
-
-## Sauvegarde dans le cloud (PC éteint)
-La même sauvegarde tourne aussi chaque jour sur GitHub Actions, dans le dépôt **privé** `amsp-sauvegardes` (jamais dans le dépôt du site, qui est public). Elle lit ce script dans le dépôt du site : **le script doit donc être poussé sur GitHub** pour que les modifications soient prises en compte.
-
-- Fichier du workflow : `cloud/sauvegarde-cloud.yml`, à copier dans le dépôt privé sous `.github/workflows/`.
-- Secrets du dépôt privé : `SUPABASE_SECRET_KEY` et `ARCHIVE_PASSWORD` (le même mot de passe que sur le PC).
-- Mêmes règles : 7 jours ou 5 nouvelles inscriptions ; photos une fois par mois.
-- Les archives sont dans l'onglet **Actions** du dépôt privé → une exécution → **Artifacts**. Elles sont gardées **90 jours**, puis supprimées automatiquement.
-- En cas d'échec, GitHub envoie un email.
-- Si la clé Supabase change, la remplacer **aussi** dans les secrets du dépôt privé.
+## Si une clé ou un mot de passe change
+- Clé secrète Supabase : `sauvegarde.config.local.json` **et** secret `SUPABASE_SECRET_KEY`.
+- Mot de passe de la base : `pgpass.conf` **et** secret `SUPABASE_DB_URL`.
+- Mot de passe des archives : `sauvegarde.config.local.json` **et** secret `ARCHIVE_PASSWORD` (les anciennes archives restent lisibles avec l'ancien mot de passe).
 
 ## Relire / restaurer
-1. Ouvrir l'archive avec 7-Zip et le mot de passe.
-2. Contenu Sanity : `sanity dataset import production-export.ndjson production` (depuis le projet du Studio).
-3. Supabase : recréer la structure avec les fichiers de `supabase/migrations/`, puis réinsérer les JSON de `supabase/tables/` table par table. Les membres devront refaire « mot de passe oublié » si les comptes sont recréés.
+1. Ouvrir l'archive avec 7-Zip et le mot de passe (cloud : télécharger l'artifact, un `.zip` qui contient le `.7z`).
+2. **Base Supabase** : sur une base vide, exécuter `schema.sql` puis `data.sql` (psql ou SQL Editor). Les comptes (schéma `auth`) sont inclus ; les mots de passe des membres aussi (chiffrés par Supabase), donc ils pourront se reconnecter normalement.
+3. **Sanity** (depuis `amsp-admin`) : `npx sanity dataset import <fichier .tar.gz ou .ndjson> production --replace`. Le `.tar.gz` (sauvegarde complète) contient aussi les photos.
+4. **Supprimer les fichiers extraits** après usage : ils sont en clair (données personnelles, dont des mineurs).

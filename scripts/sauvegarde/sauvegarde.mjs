@@ -144,6 +144,33 @@ try {
   ecrire("supabase/auth/users.json", comptes);
   resume["comptes (auth.users)"] = comptes.length;
 
+  // Supabase : STRUCTURE COMPLÈTE + données (pg_dump), indispensable pour reconstruire la base
+  // (tables, fonctions, règles d'accès, déclencheurs). Même méthode que backup-supabase.ps1 du PC.
+  // En cloud, l'adresse de connexion vient du secret SUPABASE_DB_URL (« Session pooler » : le
+  // serveur direct n'a pas d'adresse IPv4, que les serveurs GitHub ne savent pas joindre).
+  const urlBase = cloud ? process.env.SUPABASE_DB_URL : config.urlBaseDeDonnees;
+  if (urlBase) {
+    const pgDump = process.env.PG_DUMP || config.cheminPgDump || "pg_dump";
+    const exclusions = [
+      "information_schema", "pg_*", "graphql", "graphql_public", "pgsodium", "pgsodium_masks",
+      "pgtle", "repack", "tiger", "tiger_data", "timescaledb_*", "_timescaledb_*", "topology",
+      "vault", "etl", "extensions", "pgbouncer", "realtime", "supabase_migrations",
+      "_analytics", "_realtime", "_supavisor",
+    ].map((s) => `--exclude-schema=${s}`)
+      .concat(["auth.schema_migrations", "storage.migrations", "supabase_functions.migrations"].map((t) => `--exclude-table=${t}`));
+    fs.mkdirSync(path.join(tmp, "supabase/pg_dump"), { recursive: true });
+    try {
+      execFileSync(pgDump, [urlBase, "--schema-only", "--schema=*", ...exclusions, "-f", path.join(tmp, "supabase/pg_dump/schema.sql")], { stdio: "pipe" });
+      execFileSync(pgDump, [urlBase, "--data-only", "--schema=*", ...exclusions, "--column-inserts", "--rows-per-insert=1000", "-f", path.join(tmp, "supabase/pg_dump/data.sql")], { stdio: "pipe" });
+    } catch (e) {
+      // Sans la structure, la sauvegarde n'est pas complète : on échoue (email d'alerte en cloud)
+      throw new Error(`pg_dump (structure + données Supabase) a échoué : ${(e.stderr || e.message).toString().slice(0, 500)}`);
+    }
+    resume["structure Supabase (pg_dump)"] = "schema.sql + data.sql";
+  } else if (cloud) {
+    throw new Error("secret SUPABASE_DB_URL manquant : la structure de la base ne serait pas sauvegardée");
+  }
+
   // Sanity : tout le contenu (textes, disciplines, galerie, paramètres…)
   const r = await fetch(`https://${SANITY.projet}.api.sanity.io/${SANITY.version}/data/export/${SANITY.dataset}`);
   if (!r.ok) throw new Error(`export Sanity → HTTP ${r.status}`);
