@@ -1,0 +1,8 @@
+{
+  "_lisezmoi": "Copier ce fichier en sauvegarde.config.local.json (jamais envoyé sur GitHub) et remplir les champs À_REMPLIR.",
+  "cleServiceSupabase": "À_REMPLIR (Supabase → Project Settings → API Keys → clé secrète sb_secret_…)",
+  "motDePasseArchives": "À_REMPLIR (mot de passe des archives : le noter en lieu sûr, sans lui les sauvegardes sont illisibles)",
+  "dossierLocal": "C:\\Dev\\AMSP\\amsp-project\\backups\\automatiques",
+  "dossierGoogleDrive": "G:\\Mon Drive\\AMSP-sauvegardes",
+  "cheminSeptZip": "7z"
+}

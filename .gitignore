@@ -36,3 +36,6 @@ public/IDENTIFIANTS_ACCES.html
 *.njsproj
 *.sln
 *.sw?
+
+# Sauvegarde automatique : clé Supabase et mot de passe des archives — ne jamais commiter
+scripts/sauvegarde/sauvegarde.config.local.json
