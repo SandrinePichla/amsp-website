@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   getFoyerIds, repartirMontant, trancheKarateParAge, repartirFoyerParActivite, bilanFoyer, calculerSoldeFoyer, type OperationSolde,
   moisRestantsSaison, prixActiviteSeule, suggererAjustement, calculerMontantsFoyer, sommeAjustementsParInscription,
-  disciplinesApresAnnulation, conflitAnnulation, type AjustementActivite,
+  disciplinesApresAnnulation, conflitAnnulation, situationActivite, ajustementsActifs, type AjustementActivite,
 } from "./reglements";
 import type { GrilleTarifs } from "./tarifs";
 
@@ -162,6 +162,26 @@ describe("changements d'activité en cours d'année", () => {
     expect(conflitAnnulation(ajoutWutao, [ajoutWutao, arretWutao, ajoutQiGong])).toBe("wutao");
     expect(conflitAnnulation(ajoutQiGong, [ajoutWutao, arretWutao, ajoutQiGong])).toBeNull();
     expect(conflitAnnulation(arretWutao, [ajoutWutao, arretWutao, ajoutQiGong])).toBeNull();
+  });
+
+  it("un changement annulé reste en base mais ne compte plus dans le théorique", () => {
+    const ajs = [
+      { inscription_id: "s", montant: 138, annule_le: null },
+      { inscription_id: "s", montant: -184, annule_le: "2026-10-21T12:00:00Z" },
+    ];
+    expect(ajustementsActifs(ajs)).toHaveLength(1);
+    expect(sommeAjustementsParInscription(ajustementsActifs(ajs)).get("s")).toBe(138);
+  });
+
+  it("donne la situation de chaque activité pour compter les effectifs", () => {
+    const ajs = [
+      { inscription_id: "s", type: "arret" as const, discipline_retiree: "qigong", discipline_ajoutee: null, date_effet: "2026-10-21", created_at: "2026-10-21T10:00" },
+      { inscription_id: "s", type: "ajout" as const, discipline_retiree: null, discipline_ajoutee: "taichi", date_effet: "2026-11-01", created_at: "2026-10-21T11:00" },
+    ];
+    expect(situationActivite("s", "qigong", ajs)).toEqual({ statut: "arretee", date: "2026-10-21" });
+    expect(situationActivite("s", "taichi", ajs)).toEqual({ statut: "ajoutee", date: "2026-11-01" });
+    expect(situationActivite("s", "karate", ajs)).toEqual({ statut: "en_cours", date: null });
+    expect(situationActivite("autre", "qigong", ajs).statut).toBe("en_cours");
   });
 
   it("la répartition attribue chaque ajustement à son activité, sans changer les totaux", () => {

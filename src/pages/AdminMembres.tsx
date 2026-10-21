@@ -29,7 +29,7 @@ import { PrintableInscription, type RecapData } from "@/components/PrintableInsc
 import { ReglementsPanel } from "@/components/ReglementsPanel";
 import { fetchGrilleTarifs, type GrilleTarifs } from "@/lib/tarifs";
 import { appelerChangerEmail } from "@/lib/changerEmail";
-import { getFoyerIds, calculerMontantsFoyer, calculerEncaisseFoyer, bilanFoyer, formatMontant, echeancesDuMoyenPaiement, repartirFoyerParActivite, calculerSoldeFoyer, SEUIL_ECART_ACCEPTE, type OperationSoldeDetail, sommeAjustementsParInscription, ajustementsPourRepartition, type AjustementActivite } from "@/lib/reglements";
+import { getFoyerIds, calculerMontantsFoyer, calculerEncaisseFoyer, bilanFoyer, formatMontant, echeancesDuMoyenPaiement, repartirFoyerParActivite, calculerSoldeFoyer, SEUIL_ECART_ACCEPTE, type OperationSoldeDetail, sommeAjustementsParInscription, ajustementsPourRepartition, situationActivite, ajustementsActifs, type AjustementActivite } from "@/lib/reglements";
 
 interface Membre {
   id: string;
@@ -345,7 +345,9 @@ const AdminMembres = () => {
   const [operationsSolde, setOperationsSolde] = useState<OperationSoldeDetail[]>([]);
   // Changements d'activité en cours d'année (table ajustements_activite ; vide tant que la migration n'est pas faite)
   const [ajustementsActivite, setAjustementsActivite] = useState<AjustementActivite[]>([]);
-  const ajustementsParInscription = useMemo(() => sommeAjustementsParInscription(ajustementsActivite), [ajustementsActivite]);
+  // Les changements annulés restent en base pour la trace (historique, Excel) mais ne comptent nulle part
+  const ajustementsEnVigueur = useMemo(() => ajustementsActifs(ajustementsActivite), [ajustementsActivite]);
+  const ajustementsParInscription = useMemo(() => sommeAjustementsParInscription(ajustementsEnVigueur), [ajustementsEnVigueur]);
   const [chequeModal, setChequeModal] = useState<{ groupKey: string; chequeId: string | null; representative: PaymentEvent } | null>(null);
   const [chequeModalType, setChequeModalType] = useState<'cheque' | 'especes' | 'virement'>('cheque');
   const [chequeModalNumero, setChequeModalNumero] = useState("");
@@ -1824,6 +1826,10 @@ const AdminMembres = () => {
       totalGeneralAttente += totalTrimestreAttente;
     }
 
+    // Filtre posé explicitement sur les 4 trimestres : laissé à Excel, il s'arrêtait à la première
+    // ligne vide (après T1). Le TOTAL GÉNÉRAL reste hors du filtre, pour ne jamais être masqué.
+    activerFiltre(sheetReglements, NB_COLS_REGL, sheetReglements.rowCount);
+
     ajouterLigneSynthese('TOTAL GÉNÉRAL', totalGeneralRecu, totalGeneralDepose, totalGeneralAttente, true);
 
     // Le total "en attente" ci-dessus ne compte que les règlements déjà saisis avec ce statut — ça ne
@@ -1878,7 +1884,7 @@ const AdminMembres = () => {
     const foyersVusBilan = new Set<string>();
     const lignesBilanFoyer: LigneBilanFoyer[] = [];
     // Lignes "personne × activité" pour les feuilles de répartition (voir repartirFoyerParActivite)
-    type LigneRepartition = { activite: string; personne: string; type: string; foyer: string; theorique: number | null; encaisse: number; rembourse: number; ecart: number; depose: number; saison: string };
+    type LigneRepartition = { activite: string; personne: string; type: string; situation: string; active: boolean; foyer: string; theorique: number | null; encaisse: number; rembourse: number; ecart: number; depose: number; saison: string };
     const lignesRepartition: LigneRepartition[] = [];
     const nomDiscipline = (id: string) => disciplinesSanity.find((d) => d._id === id)?.nom || id;
     for (const insc of data) {
@@ -1919,7 +1925,7 @@ const AdminMembres = () => {
         const theoriqueParPersonne = new Map(calculerMontantsFoyer(grilleTarifs, membresFoyer, {}, ajustementsParInscription).map((c) => [c.inscriptionId, c.montant]));
         const repartition = repartirFoyerParActivite(
           grilleTarifs,
-          membresFoyer.map((m) => ({ id: m.id, disciplines: m.disciplines, age: calcAge(m.date_naissance), ...ajustementsPourRepartition(m.id, ajustementsActivite) })),
+          membresFoyer.map((m) => ({ id: m.id, disciplines: m.disciplines, age: calcAge(m.date_naissance), ...ajustementsPourRepartition(m.id, ajustementsEnVigueur) })),
           theoriqueParPersonne,
           bilan?.encaisse ?? 0,
           deposeFoyer,
@@ -1928,10 +1934,16 @@ const AdminMembres = () => {
         );
         for (const l of repartition) {
           const m = membresFoyer.find((x) => x.id === l.inscriptionId);
+          // Activité arrêtée en cours d'année : sa part de montant reste (mois pratiqués), mais la
+          // personne ne compte plus dans l'effectif de l'activité
+          const sit = situationActivite(l.inscriptionId, l.disciplineId, ajustementsEnVigueur);
+          const dateSit = sit.date ? new Date(sit.date).toLocaleDateString('fr-FR') : '';
           lignesRepartition.push({
             activite: nomDiscipline(l.disciplineId),
             personne: m ? `${m.nom || ''} ${m.prenom || ''}`.trim() : '',
             type: m?.type_inscription === 'mineur' ? 'Mineur' : 'Adulte',
+            situation: sit.statut === 'arretee' ? `Arrêtée le ${dateSit}` : sit.statut === 'ajoutee' ? `Ajoutée le ${dateSit}` : 'En cours',
+            active: sit.statut !== 'arretee',
             foyer: noms.join(', '),
             theorique: l.theorique,
             encaisse: l.encaisse,
@@ -2035,36 +2047,47 @@ const AdminMembres = () => {
       r.height = 30;
     };
 
-    const sheetRepart = creerFeuille('Répartition par activité', `${lignesRepartition.length} ligne(s) personne × activité — montants estimés`, 11, VERT_FG, 2);
-    styleEnTete(sheetRepart.addRow(['Activité', 'Personne', 'Type', 'Foyer', 'Théorique (part)', 'Encaissé (part)', 'Remboursé (part)', 'Écart accepté (part)', 'Remis en banque (part)', 'Reste dû (-) / Trop-perçu (+)', 'Saison']));
+    const sheetRepart = creerFeuille('Répartition par activité', `${lignesRepartition.length} ligne(s) personne × activité — montants estimés`, 12, VERT_FG, 2);
+    styleEnTete(sheetRepart.addRow(['Activité', 'Personne', 'Type', 'Situation', 'Foyer', 'Théorique (part)', 'Encaissé (part)', 'Remboursé (part)', 'Écart accepté (part)', 'Remis en banque (part)', 'Reste dû (-) / Trop-perçu (+)', 'Saison']));
     lignesRepartition.forEach((l, idx) => {
       const net = resteDuNetRepartition(l);
-      const row = sheetRepart.addRow([l.activite, l.personne, l.type, l.foyer, l.theorique ?? '', l.encaisse, l.rembourse, l.ecart, l.depose, net ?? 'à préciser (Karaté)', l.saison]);
+      const row = sheetRepart.addRow([l.activite, l.personne, l.type, l.situation, l.foyer, l.theorique ?? '', l.encaisse, l.rembourse, l.ecart, l.depose, net ?? 'à préciser (Karaté)', l.saison]);
       row.height = 18;
       row.eachCell((cell, colNum) => {
-        cell.font = { name: 'Calibri', size: 9, bold: colNum === 1 };
+        cell.font = colNum === 4 && !l.active
+          ? { name: 'Calibri', size: 9, italic: true, color: { argb: ROUGE_FG } }
+          : { name: 'Calibri', size: 9, bold: colNum === 1 };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 0 ? GRIS_CLAIR : BLANC } };
-        if (colNum === 5 || colNum === 6) cell.numFmt = FMT_EUR;
-        if (colNum === 7 || colNum === 8) cell.numFmt = FMT_OPTIONNEL;
-        if (colNum === 9) cell.numFmt = FMT_DEPOSE;
-        if (colNum === 10 && typeof cell.value === 'number') cell.numFmt = FMT_RESTE_DU;
+        if (colNum === 6 || colNum === 7) cell.numFmt = FMT_EUR;
+        if (colNum === 8 || colNum === 9) cell.numFmt = FMT_OPTIONNEL;
+        if (colNum === 10) cell.numFmt = FMT_DEPOSE;
+        if (colNum === 11 && typeof cell.value === 'number') cell.numFmt = FMT_RESTE_DU;
       });
     });
-    [22, 24, 9, 34, 15, 15, 14, 14, 17, 22, 12].forEach((w, i) => { sheetRepart.getColumn(i + 1).width = w; });
+    [22, 24, 9, 20, 34, 15, 15, 14, 14, 17, 22, 12].forEach((w, i) => { sheetRepart.getColumn(i + 1).width = w; });
     if (lignesRepartition.length > 0) {
-      appliquerAlignement(sheetRepart, 5, 4 + lignesRepartition.length, ['left', 'left', 'center', 'left', 'right', 'right', 'right', 'right', 'right', 'right', 'center']);
-      activerFiltre(sheetRepart, 11, 4 + lignesRepartition.length);
+      appliquerAlignement(sheetRepart, 5, 4 + lignesRepartition.length, ['left', 'left', 'center', 'center', 'left', 'right', 'right', 'right', 'right', 'right', 'right', 'center']);
+      activerFiltre(sheetRepart, 12, 4 + lignesRepartition.length);
+      // appliquerAlignement remet la police à plat : on remet en rouge les activités arrêtées
+      lignesRepartition.forEach((l, idx) => {
+        if (l.active) return;
+        sheetRepart.getRow(5 + idx).getCell(4).font = { name: 'Calibri', size: 9, italic: true, color: { argb: ROUGE_FG } };
+      });
     }
-    ajouterNote(sheetRepart, 11);
+    ajouterNote(sheetRepart, 12);
 
-    // Synthèse : une ligne par activité. Effectifs = personnes distinctes inscrites à l'activité.
-    type Synthese = { activite: string; personnes: Set<string>; adultes: Set<string>; mineurs: Set<string>; theorique: number; theoriqueIncomplet: boolean; encaisse: number; rembourse: number; ecart: number; depose: number };
+    // Synthèse : une ligne par activité. Effectifs = personnes distinctes qui PRATIQUENT encore
+    // l'activité ; celles qui l'ont arrêtée en cours d'année sont comptées à part (leur part de
+    // montant, pour les mois pratiqués, reste dans les totaux de l'activité).
+    type Synthese = { activite: string; personnes: Set<string>; adultes: Set<string>; mineurs: Set<string>; arrets: Set<string>; theorique: number; theoriqueIncomplet: boolean; encaisse: number; rembourse: number; ecart: number; depose: number };
     const syntheses = new Map<string, Synthese>();
     for (const l of lignesRepartition) {
-      const s = syntheses.get(l.activite) ?? { activite: l.activite, personnes: new Set(), adultes: new Set(), mineurs: new Set(), theorique: 0, theoriqueIncomplet: false, encaisse: 0, rembourse: 0, ecart: 0, depose: 0 };
+      const s = syntheses.get(l.activite) ?? { activite: l.activite, personnes: new Set(), adultes: new Set(), mineurs: new Set(), arrets: new Set(), theorique: 0, theoriqueIncomplet: false, encaisse: 0, rembourse: 0, ecart: 0, depose: 0 };
       const cle = `${l.personne}|${l.foyer}`;
-      s.personnes.add(cle);
-      (l.type === 'Mineur' ? s.mineurs : s.adultes).add(cle);
+      if (l.active) {
+        s.personnes.add(cle);
+        (l.type === 'Mineur' ? s.mineurs : s.adultes).add(cle);
+      } else s.arrets.add(cle);
       if (l.theorique == null) s.theoriqueIncomplet = true; else s.theorique += l.theorique;
       s.encaisse += l.encaisse;
       s.rembourse += l.rembourse;
@@ -2074,13 +2097,13 @@ const AdminMembres = () => {
     }
     const lignesSynthese = [...syntheses.values()].sort((a, b) => a.activite.localeCompare(b.activite, 'fr', { sensitivity: 'base' }));
     const resteSynthese = (s: Pick<Synthese, 'encaisse' | 'rembourse' | 'ecart' | 'theorique'>) => arrondi(s.encaisse - s.rembourse + s.ecart - s.theorique);
-    const sheetSynthese = creerFeuille('Synthèse par activité', `${lignesSynthese.length} activité(s) — montants estimés`, 10, VERT_FG, 1);
-    styleEnTete(sheetSynthese.addRow(['Activité', 'Adhérents', 'dont adultes', 'dont mineurs', 'Théorique', 'Encaissé', 'Remboursé', 'Écart accepté', 'Remis en banque', 'Reste dû (-) / Trop-perçu (+)']));
+    const sheetSynthese = creerFeuille('Synthèse par activité', `${lignesSynthese.length} activité(s) — montants estimés`, 11, VERT_FG, 1);
+    styleEnTete(sheetSynthese.addRow(['Activité', 'Adhérents (en cours)', 'dont adultes', 'dont mineurs', "Arrêts en cours d'année", 'Théorique', 'Encaissé', 'Remboursé', 'Écart accepté', 'Remis en banque', 'Reste dû (-) / Trop-perçu (+)']));
     let synthIncomplet = false;
     lignesSynthese.forEach((s, idx) => {
       if (s.theoriqueIncomplet) synthIncomplet = true;
       const row = sheetSynthese.addRow([
-        s.activite, s.personnes.size, s.adultes.size, s.mineurs.size,
+        s.activite, s.personnes.size, s.adultes.size, s.mineurs.size, s.arrets.size,
         s.theoriqueIncomplet ? 'partiel' : arrondi(s.theorique), arrondi(s.encaisse), arrondi(s.rembourse), arrondi(s.ecart), arrondi(s.depose),
         s.theoriqueIncomplet ? 'partiel' : resteSynthese(s),
       ]);
@@ -2088,19 +2111,22 @@ const AdminMembres = () => {
       row.eachCell((cell, colNum) => {
         cell.font = { name: 'Calibri', size: 10, bold: colNum === 1 };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 0 ? GRIS_CLAIR : BLANC } };
-        if ((colNum === 5 || colNum === 6) && typeof cell.value === 'number') cell.numFmt = FMT_EUR;
-        if (colNum === 7 || colNum === 8) cell.numFmt = FMT_OPTIONNEL;
-        if (colNum === 9) cell.numFmt = FMT_DEPOSE;
-        if (colNum === 10 && typeof cell.value === 'number') cell.numFmt = FMT_RESTE_DU;
+        if (colNum === 5) cell.numFmt = '0;-0;"–"';
+        if ((colNum === 6 || colNum === 7) && typeof cell.value === 'number') cell.numFmt = FMT_EUR;
+        if (colNum === 8 || colNum === 9) cell.numFmt = FMT_OPTIONNEL;
+        if (colNum === 10) cell.numFmt = FMT_DEPOSE;
+        if (colNum === 11 && typeof cell.value === 'number') cell.numFmt = FMT_RESTE_DU;
       });
     });
-    const personnesTotales = new Set(lignesRepartition.map((l) => `${l.personne}|${l.foyer}`));
+    const lignesActives = lignesRepartition.filter((l) => l.active);
+    const personnesTotales = new Set(lignesActives.map((l) => `${l.personne}|${l.foyer}`));
     const totalSynth = (f: (s: Synthese) => number) => arrondi(lignesSynthese.reduce((t, s) => t + f(s), 0));
     const totalSynthRow = sheetSynthese.addRow([
       'TOTAL (adhérents distincts)',
       personnesTotales.size,
-      new Set(lignesRepartition.filter((l) => l.type !== 'Mineur').map((l) => `${l.personne}|${l.foyer}`)).size,
-      new Set(lignesRepartition.filter((l) => l.type === 'Mineur').map((l) => `${l.personne}|${l.foyer}`)).size,
+      new Set(lignesActives.filter((l) => l.type !== 'Mineur').map((l) => `${l.personne}|${l.foyer}`)).size,
+      new Set(lignesActives.filter((l) => l.type === 'Mineur').map((l) => `${l.personne}|${l.foyer}`)).size,
+      lignesSynthese.reduce((t, s) => t + s.arrets.size, 0),
       synthIncomplet ? 'partiel' : totalSynth((s) => s.theorique),
       totalSynth((s) => s.encaisse),
       totalSynth((s) => s.rembourse),
@@ -2109,28 +2135,28 @@ const AdminMembres = () => {
       synthIncomplet ? 'partiel' : totalSynth((s) => resteSynthese(s)),
     ]);
     totalSynthRow.eachCell({ includeEmpty: true }, (cell, colNum) => {
-      const estColonneResteDu = colNum === 10 && typeof cell.value === 'number';
+      const estColonneResteDu = colNum === 11 && typeof cell.value === 'number';
       cell.font = estColonneResteDu ? { name: 'Calibri', size: 11, bold: true } : { name: 'Calibri', size: 11, bold: true, color: { argb: BLANC } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: estColonneResteDu ? BLANC : BLEU } };
       cell.alignment = { vertical: 'middle', horizontal: colNum === 1 ? 'left' : 'center' };
-      if ((colNum === 5 || colNum === 6) && typeof cell.value === 'number') cell.numFmt = FMT_EUR;
-      if ((colNum === 7 || colNum === 8) && typeof cell.value === 'number') cell.numFmt = FMT_OPTIONNEL;
-      if (colNum === 9 && typeof cell.value === 'number') cell.numFmt = FMT_DEPOSE;
+      if ((colNum === 6 || colNum === 7) && typeof cell.value === 'number') cell.numFmt = FMT_EUR;
+      if ((colNum === 8 || colNum === 9) && typeof cell.value === 'number') cell.numFmt = FMT_OPTIONNEL;
+      if (colNum === 10 && typeof cell.value === 'number') cell.numFmt = FMT_DEPOSE;
       if (estColonneResteDu) cell.numFmt = FMT_RESTE_DU;
     });
     totalSynthRow.height = 24;
-    [28, 12, 13, 13, 15, 15, 13, 14, 17, 22].forEach((w, i) => { sheetSynthese.getColumn(i + 1).width = w; });
+    [28, 14, 13, 13, 14, 15, 15, 13, 14, 17, 22].forEach((w, i) => { sheetSynthese.getColumn(i + 1).width = w; });
     if (lignesSynthese.length > 0) {
-      appliquerAlignement(sheetSynthese, 5, 4 + lignesSynthese.length, ['left', 'center', 'center', 'center', 'right', 'right', 'right', 'right', 'right', 'right']);
-      activerFiltre(sheetSynthese, 10, 4 + lignesSynthese.length);
+      appliquerAlignement(sheetSynthese, 5, 4 + lignesSynthese.length, ['left', 'center', 'center', 'center', 'center', 'right', 'right', 'right', 'right', 'right', 'right']);
+      activerFiltre(sheetSynthese, 11, 4 + lignesSynthese.length);
     }
     sheetSynthese.addRow([]);
-    const rEff = sheetSynthese.addRow(["Une personne inscrite à plusieurs activités compte dans l'effectif de chacune : la ligne TOTAL compte les adhérents distincts, elle n'est donc pas la somme de la colonne."]);
-    sheetSynthese.mergeCells(rEff.number, 1, rEff.number, 10);
+    const rEff = sheetSynthese.addRow(["Effectifs : personnes qui pratiquent encore l'activité. Une personne inscrite à plusieurs activités compte dans l'effectif de chacune : la ligne TOTAL compte les adhérents distincts, elle n'est donc pas la somme de la colonne. Une activité arrêtée en cours d'année n'est plus comptée dans l'effectif, mais garde dans les montants la part des mois déjà pratiqués."]);
+    sheetSynthese.mergeCells(rEff.number, 1, rEff.number, 11);
     rEff.getCell(1).font = { name: 'Calibri', size: 9, italic: true, color: { argb: GRIS_FG } };
     rEff.getCell(1).alignment = { vertical: 'top', wrapText: true };
-    rEff.height = 26;
-    ajouterNote(sheetSynthese, 10);
+    rEff.height = 40;
+    ajouterNote(sheetSynthese, 11);
 
     // ─── Feuille "Remboursements et écarts" : UN SEUL tableau pour le trésorier, filtrable par Type et
     // par Statut. On y trouve :
@@ -2253,8 +2279,11 @@ const AdminMembres = () => {
     const ajustementsExport = ajustementsActivite
       .filter((a) => idsExportes.has(a.inscription_id))
       .sort((a, b) => a.date_effet.localeCompare(b.date_effet) || a.created_at.localeCompare(b.created_at));
-    const sheetHisto = creerFeuille("Historique des activités", `${ajustementsExport.length} changement(s) en cours d'année`, 12, VERT_FG, 0);
-    styleEnTete(sheetHisto.addRow(["Date d'effet", 'Personne', 'Type', 'Activité retirée', 'Activité ajoutée', 'Mois restants', 'Montant suggéré', 'Montant retenu', 'Motif', 'Saisi par', 'Saisi le', 'Saison']));
+    // Les changements annulés restent visibles (grisés, colonne « Annulé ») pour que le comptable
+    // comprenne pourquoi une ligne d'un export précédent ne compte plus ; ils ne comptent nulle part.
+    const nbAnnules = ajustementsExport.filter((a) => a.annule_le).length;
+    const sheetHisto = creerFeuille("Historique des activités", `${ajustementsExport.length - nbAnnules} changement(s) en cours d'année${nbAnnules ? `, ${nbAnnules} annulé(s) (grisés, ne comptent pas)` : ''}`, 13, VERT_FG, 0);
+    styleEnTete(sheetHisto.addRow(["Date d'effet", 'Personne', 'Type', 'Activité retirée', 'Activité ajoutée', 'Mois restants', 'Montant suggéré', 'Montant retenu', 'Motif', 'Saisi par', 'Saisi le', 'Annulé', 'Saison']));
     ajustementsExport.forEach((a, idx) => {
       const row = sheetHisto.addRow([
         new Date(a.date_effet).toLocaleDateString('fr-FR'),
@@ -2268,20 +2297,28 @@ const AdminMembres = () => {
         a.motif || '',
         a.admin_nom || '',
         new Date(a.created_at).toLocaleDateString('fr-FR'),
+        a.annule_le ? `Annulé le ${new Date(a.annule_le).toLocaleDateString('fr-FR')}${a.annule_par ? ` par ${a.annule_par}` : ''}` : '',
         a.saison || '',
       ]);
       row.height = 18;
-      row.eachCell((cell, colNum) => {
-        cell.font = { name: 'Calibri', size: 9, bold: colNum === 3 || colNum === 8 };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 0 ? GRIS_CLAIR : BLANC } };
-        // Signe visible : + à payer en plus, − à rendre
-        if (colNum === 7 || colNum === 8) cell.numFmt = '[Green]"+"#,##0.00" €";[Red]"-"#,##0.00" €";0.00" €"';
-      });
     });
-    [13, 26, 22, 22, 22, 12, 15, 15, 34, 20, 12, 14].forEach((w, i) => { sheetHisto.getColumn(i + 1).width = w; });
+    [13, 26, 22, 22, 22, 12, 15, 15, 34, 20, 12, 30, 14].forEach((w, i) => { sheetHisto.getColumn(i + 1).width = w; });
     if (ajustementsExport.length > 0) {
-      appliquerAlignement(sheetHisto, 5, 4 + ajustementsExport.length, ['center', 'left', 'left', 'left', 'left', 'center', 'right', 'right', 'left', 'left', 'center', 'center']);
-      activerFiltre(sheetHisto, 12, 4 + ajustementsExport.length);
+      appliquerAlignement(sheetHisto, 5, 4 + ajustementsExport.length, ['center', 'left', 'left', 'left', 'left', 'center', 'right', 'right', 'left', 'left', 'center', 'left', 'center']);
+      activerFiltre(sheetHisto, 13, 4 + ajustementsExport.length);
+      // Mise en forme APRÈS l'alignement (qui remet les cellules à plat) : ligne annulée grisée et barrée
+      ajustementsExport.forEach((a, idx) => {
+        const row = sheetHisto.getRow(5 + idx);
+        const annule = !!a.annule_le;
+        row.eachCell({ includeEmpty: true }, (cell, colNum) => {
+          cell.font = annule
+            ? { name: 'Calibri', size: 9, italic: true, strike: colNum !== 12, color: { argb: GRIS_FG } }
+            : { name: 'Calibri', size: 9, bold: colNum === 3 || colNum === 8 };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: annule ? GRIS_BG : idx % 2 === 0 ? GRIS_CLAIR : BLANC } };
+          // Signe visible : + à payer en plus, − à rendre (couleur neutre si annulé)
+          if (colNum === 7 || colNum === 8) cell.numFmt = annule ? '"+"#,##0.00" €";"-"#,##0.00" €";0.00" €"' : '[Green]"+"#,##0.00" €";[Red]"-"#,##0.00" €";0.00" €"';
+        });
+      });
     } else {
       sheetHisto.addRow(['', "Aucun changement d'activité en cours d'année."]).getCell(2).font = { name: 'Calibri', size: 9, italic: true };
     }

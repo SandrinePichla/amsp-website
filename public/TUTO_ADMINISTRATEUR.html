@@ -338,7 +338,7 @@
     <tr><td><strong>Arrêt (force majeure)</strong></td><td>− prix seul × mois restants après le mois en cours / 10 (le mois commencé est dû). À rembourser avec « Solder… »</td><td>L'activité est retirée. Si c'est la seule, l'inscription reste validée avec la mention <strong>« Arrêt le … »</strong></td></tr>
   </table>
   <div class="conseil">
-    💡 Après un ajout, un changement ou un arrêt, un rappel invite à <strong>mettre à jour les accès galerie</strong> (bouton « Ouvrir les accès galerie »). Les changements s'affichent sous les montants du panneau ; <strong>chacun peut être annulé</strong> (son effet sur les activités de la fiche est inversé). Si un changement plus récent concerne la même activité, il faut l'annuler d'abord. Tout est tracé dans le journal et dans la feuille Excel « Historique des activités ».
+    💡 Après un ajout, un changement ou un arrêt, un rappel invite à <strong>mettre à jour les accès galerie</strong> (bouton « Ouvrir les accès galerie »). Sous les montants, un lien <strong>« N changements en cours d'année — voir l'historique »</strong> ouvre l'onglet <strong>Historique</strong> de la fenêtre (après « Arrêt (force majeure) »). <strong>Chaque changement peut y être annulé</strong> (« Annuler cet ajout / ce changement / cet arrêt ») : son effet sur les activités de la fiche est inversé. Si un changement plus récent concerne la même activité, il faut l'annuler d'abord. <strong>Un changement annulé n'est pas supprimé</strong> : il reste visible, barré, avec « Annulé le … par … », dans l'historique et dans l'Excel, mais ne compte plus nulle part. Tout est tracé dans le journal et dans la feuille Excel « Historique des activités ».
   </div>
 
   <h3>Solder un foyer : écart accepté ou remboursement</h3>
@@ -697,15 +697,15 @@
     </tr>
     <tr>
       <td><strong>Répartition par activité</strong></td>
-      <td>Une ligne par personne et par activité (une personne qui fait 3 activités a 3 lignes) : <em>Activité, Personne, Type, Foyer, Théorique, Encaissé, Remis en banque, Reste dû / Trop-perçu</em>. Les montants sont <strong>ventilés</strong> : le théorique de chaque personne est réparti entre ses activités au prorata du prix de chacune pratiquée seule, et l'encaissé du foyer de la même façon. Idéal pour un tableau croisé dynamique.</td>
+      <td>Une ligne par personne et par activité (une personne qui fait 3 activités a 3 lignes) : <em>Activité, Personne, Type, Situation (en cours, ajoutée le…, arrêtée le…), Foyer, Théorique, Encaissé, Remis en banque, Reste dû / Trop-perçu</em>. Les montants sont <strong>ventilés</strong> : le théorique de chaque personne est réparti entre ses activités au prorata du prix de chacune pratiquée seule, et l'encaissé du foyer de la même façon. Idéal pour un tableau croisé dynamique.</td>
     </tr>
     <tr>
       <td><strong>Synthèse par activité</strong></td>
-      <td>Une ligne par activité : <em>nombre d'adhérents (dont adultes, dont mineurs), Théorique, Encaissé, Remboursé, Écart accepté, Remis en banque, Reste dû / Trop-perçu</em>, avec une ligne TOTAL. La somme des montants de toutes les activités est égale au total du Bilan par foyer.</td>
+      <td>Une ligne par activité : <em>adhérents en cours (dont adultes, dont mineurs), arrêts en cours d'année, Théorique, Encaissé, Remboursé, Écart accepté, Remis en banque, Reste dû / Trop-perçu</em>, avec une ligne TOTAL. Les effectifs ne comptent que les personnes qui pratiquent encore l'activité ; une activité arrêtée garde dans les montants la part des mois déjà pratiqués. La somme des montants de toutes les activités est égale au total du Bilan par foyer.</td>
     </tr>
     <tr>
       <td><strong>Historique des activités</strong></td>
-      <td>Les changements en cours d'année : date d'effet, personne, type, activité retirée, activité ajoutée, mois restants, montant suggéré par le site, montant retenu, motif, auteur.</td>
+      <td>Les changements en cours d'année : date d'effet, personne, type, activité retirée, activité ajoutée, mois restants, montant suggéré par le site, montant retenu, motif, auteur, et <strong>Annulé</strong> (date et auteur de l'annulation). Les changements annulés restent visibles, grisés et barrés, mais ne comptent nulle part.</td>
     </tr>
     <tr>
       <td><strong>Remboursements et écarts</strong></td>

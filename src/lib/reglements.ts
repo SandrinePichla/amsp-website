@@ -183,7 +183,14 @@ export interface AjustementActivite {
   disciplines_avant: string | null;
   montant_attendu_avant: number | null;
   admin_nom: string | null;
+  /** Changement annulé : conservé pour la trace, mais ne compte plus nulle part. */
+  annule_le?: string | null;
+  annule_par?: string | null;
 }
+
+/** Changements qui comptent (non annulés) : à utiliser pour tous les calculs. */
+export const ajustementsActifs = <T extends { annule_le?: string | null }>(ajustements: T[]): T[] =>
+  ajustements.filter((a) => !a.annule_le);
 
 export const DUREE_SAISON_MOIS = 10;
 
@@ -308,6 +315,27 @@ export const conflitAnnulation = (a: AjustementActivite, tous: AjustementActivit
     if (commun) return commun;
   }
   return null;
+};
+
+/**
+ * Situation d'une activité pour une personne, d'après ses changements dans l'ordre : "arretee" si le
+ * dernier changement qui la concerne la retire (arrêt, ou ancienne activité d'un changement) — y compris
+ * un arrêt total, où elle reste sur la fiche ; "ajoutee" si elle a été ajoutée en cours d'année ;
+ * sinon "en_cours". Sert à compter les effectifs : une activité arrêtée garde sa part de montant
+ * (les mois déjà pratiqués) mais la personne n'est plus comptée dans l'effectif.
+ */
+export const situationActivite = (
+  inscriptionId: string,
+  disciplineId: string,
+  ajustements: Pick<AjustementActivite, "inscription_id" | "type" | "discipline_retiree" | "discipline_ajoutee" | "date_effet" | "created_at">[]
+): { statut: "en_cours" | "ajoutee" | "arretee"; date: string | null } => {
+  let situation: { statut: "en_cours" | "ajoutee" | "arretee"; date: string | null } = { statut: "en_cours", date: null };
+  const siens = ajustements.filter((a) => a.inscription_id === inscriptionId).sort((a, b) => a.created_at.localeCompare(b.created_at));
+  for (const a of siens) {
+    if ((a.type === "arret" || a.type === "changement") && a.discipline_retiree === disciplineId) situation = { statut: "arretee", date: a.date_effet };
+    if ((a.type === "ajout" || a.type === "changement") && a.discipline_ajoutee === disciplineId) situation = { statut: "ajoutee", date: a.date_effet };
+  }
+  return situation;
 };
 
 /** Somme des ajustements par inscription, pour calculerMontantsFoyer. */

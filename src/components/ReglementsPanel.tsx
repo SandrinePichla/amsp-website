@@ -29,6 +29,7 @@ import {
   trancheKarateParAge,
   disciplinesApresAnnulation,
   conflitAnnulation,
+  ajustementsActifs,
   type AjustementActivite,
   type TypeAjustement,
 } from "@/lib/reglements";
@@ -172,7 +173,9 @@ export const ReglementsPanel = ({
     [inscriptions, foyerIds]
   );
 
-  const ajustementsMap = useMemo(() => sommeAjustementsParInscription(ajustements), [ajustements]);
+  // Changements annulés : gardés pour l'historique, mais exclus de tous les calculs
+  const ajustementsValides = useMemo(() => ajustementsActifs(ajustements), [ajustements]);
+  const ajustementsMap = useMemo(() => sommeAjustementsParInscription(ajustementsValides), [ajustementsValides]);
   const calculs = useMemo(
     () => (grille ? calculerMontantsFoyer(grille, foyerMembres, tranchesKarate, ajustementsMap) : []),
     [grille, foyerMembres, tranchesKarate, ajustementsMap]
@@ -287,6 +290,7 @@ export const ReglementsPanel = ({
   // calcul automatique repartirait de zéro avec les nouvelles activités) : théorique = départ + ajustements.
   const aujourdhuiIso = () => new Date().toISOString().slice(0, 10);
   const [showChangement, setShowChangement] = useState(false);
+  const [vueHisto, setVueHisto] = useState(false);
   const [chType, setChType] = useState<TypeAjustement>("ajout");
   const [chRetiree, setChRetiree] = useState("");
   const [chAjoutee, setChAjoutee] = useState("");
@@ -298,7 +302,7 @@ export const ReglementsPanel = ({
   const [rappelGalerie, setRappelGalerie] = useState<{ ajout: string | null; retrait: string | null } | null>(null);
   const [confirmAnnulerAj, setConfirmAnnulerAj] = useState<string | null>(null);
   const resetChangement = () => {
-    setShowChangement(false); setChType("ajout"); setChRetiree(""); setChAjoutee(""); setChDate(aujourdhuiIso());
+    setShowChangement(false); setVueHisto(false); setChType("ajout"); setChRetiree(""); setChAjoutee(""); setChDate(aujourdhuiIso());
     setChTranche(""); setChMontant(""); setChMotif("");
   };
   // Changer d'adhérent referme le simulateur (resetChangement n'utilise que des setters stables)
@@ -314,9 +318,13 @@ export const ReglementsPanel = ({
     return a;
   })();
   const disciplinesActuelles = (insc?.disciplines || "").split(",").map((x) => x.trim()).filter(Boolean);
-  const ajustementsInsc = ajustements
+  const ajustementsInsc = ajustementsValides
     .filter((a) => a.inscription_id === insc?.id)
     .sort((a, b) => a.created_at.localeCompare(b.created_at));
+  // Historique complet de la personne (y compris les changements annulés), du plus récent au plus ancien
+  const historiqueInsc = ajustements
+    .filter((a) => a.inscription_id === insc?.id)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
   // Arrêt de la seule activité : l'inscription reste validée, l'activité reste sur la fiche, avec la mention
   const arretTotal = ajustementsInsc.find((a) => a.type === "arret" && a.discipline_retiree && disciplinesActuelles.includes(a.discipline_retiree));
 
@@ -414,10 +422,13 @@ export const ReglementsPanel = ({
       toast.error(`Un changement plus récent concerne aussi « ${nomDisc(conflit)} » : annulez-le d'abord.`);
       return;
     }
-    const { error } = await supabase.from("ajustements_activite").delete().eq("id", a.id);
+    // La ligne est conservée et marquée annulée (trace pour l'Excel), pas supprimée
+    const annulation = { annule_le: new Date().toISOString(), annule_par: auteur?.nom ?? null };
+    const { error } = await supabase.from("ajustements_activite").update(annulation).eq("id", a.id);
     if (error) { toast.error("Erreur : " + error.message); return; }
     const restants = ajustementsInsc.filter((x) => x.id !== a.id);
-    const premier = ajustementsInsc[0];
+    // Le montant de départ a été figé par le tout premier changement (même annulé depuis)
+    const premier = [...historiqueInsc].reverse()[0];
     const restauration: { disciplines: string; montant_attendu?: number | null } = {
       disciplines: disciplinesApresAnnulation(insc.disciplines, a),
     };
@@ -425,7 +436,7 @@ export const ReglementsPanel = ({
     const { error: errMaj } = await supabase.from("inscriptions").update(restauration).eq("id", insc.id);
     if (errMaj) toast.warning("Changement annulé, mais la fiche n'a pas pu être restaurée : " + errMaj.message);
     else setInscriptions((prev) => prev.map((i) => (i.id === insc.id ? { ...i, ...restauration } : i)));
-    setAjustements?.((prev) => prev.filter((x) => x.id !== a.id));
+    setAjustements?.((prev) => prev.map((x) => (x.id === a.id ? { ...x, ...annulation } : x)));
     await journaliser?.([{
       table_cible: "inscriptions", ligne_id: insc.id, personne: [insc.prenom, insc.nom].filter(Boolean).join(" "),
       champ: "Changement en cours d'année", ancienne_valeur: `${a.type} ${formatMontant(Number(a.montant))}`, nouvelle_valeur: "Annulé",
@@ -1032,43 +1043,8 @@ export const ReglementsPanel = ({
         )}
 
         {/* Changements en cours d'année : historique, rappel galerie, simulateur */}
-        {(ajustementsInsc.length > 0 || peutModifierActivites) && (
+        {(historiqueInsc.length > 0 || peutModifierActivites) && (
           <div className="mt-3 border-t border-border/50 pt-2 text-xs">
-            {ajustementsInsc.length > 0 && (
-              <div className="mb-2 space-y-1">
-                <p className="font-medium text-muted-foreground">Changements en cours d'année</p>
-                {ajustementsInsc.map((a) => {
-                  const libelles: Record<TypeAjustement, string> = { ajout: "Ajout", changement: "Changement", arret: "Arrêt", inscription_tardive: "Inscription tardive" };
-                  return (
-                    <div key={a.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded bg-secondary/40 px-2 py-1 text-[11px]">
-                      <span className="font-medium">
-                        {libelles[a.type]}
-                        {a.discipline_retiree ? ` : ${nomDisc(a.discipline_retiree)}` : ""}
-                        {a.discipline_retiree && a.discipline_ajoutee ? " → " : a.discipline_ajoutee ? " : " : ""}
-                        {a.discipline_ajoutee ? nomDisc(a.discipline_ajoutee) : ""}
-                      </span>
-                      <span className={Number(a.montant) >= 0 ? "text-amber-700" : "text-sky-700"}>
-                        {Number(a.montant) >= 0 ? "+" : ""}{formatMontant(Number(a.montant))}
-                      </span>
-                      <span className="text-muted-foreground">
-                        · effet le {new Date(a.date_effet).toLocaleDateString("fr-FR")} ({a.mois_restants}/10){a.motif ? ` — ${a.motif}` : ""}{a.admin_nom ? ` · ${a.admin_nom}` : ""}
-                      </span>
-                      {peutModifierActivites && (
-                        <span className="ml-auto">
-                          {confirmAnnulerAj === a.id ? (
-                            <span>Annuler ? <button onClick={() => handleAnnulerAjustement(a)} className="font-medium text-destructive underline">Oui</button>{" "}
-                              <button onClick={() => setConfirmAnnulerAj(null)} className="underline">Non</button></span>
-                          ) : (
-                            <button onClick={() => setConfirmAnnulerAj(a.id)} className="text-muted-foreground underline hover:text-destructive">Annuler</button>
-                          )}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
             {rappelGalerie && (
               <div className="mb-2 rounded-md border border-amber-200/60 bg-amber-50 px-3 py-2 text-amber-800 dark:bg-amber-950/20 dark:text-amber-300">
                 ⚠️ Pensez à mettre à jour les <strong>accès galerie</strong> de {insc.prenom} {insc.nom} :
@@ -1082,24 +1058,94 @@ export const ReglementsPanel = ({
               </div>
             )}
 
-            {peutModifierActivites && !showChangement && (
-              <button onClick={() => setShowChangement(true)} className="text-primary underline hover:no-underline">
-                Changement en cours d'année…
-              </button>
+            {!showChangement && (
+              <p className="flex flex-wrap items-center gap-x-3">
+                {peutModifierActivites && (
+                  <button onClick={() => { setVueHisto(false); setShowChangement(true); }} className="text-primary underline hover:no-underline">
+                    Changement en cours d'année…
+                  </button>
+                )}
+                {historiqueInsc.length > 0 && (
+                  <button onClick={() => { setVueHisto(true); setShowChangement(true); }} className="text-muted-foreground underline hover:text-foreground">
+                    {ajustementsInsc.length} changement{ajustementsInsc.length > 1 ? "s" : ""} en cours d'année
+                    {historiqueInsc.length > ajustementsInsc.length ? ` (+ ${historiqueInsc.length - ajustementsInsc.length} annulé${historiqueInsc.length - ajustementsInsc.length > 1 ? "s" : ""})` : ""} — voir l'historique
+                  </button>
+                )}
+              </p>
             )}
 
-            {peutModifierActivites && showChangement && (
+            {showChangement && (
               <div className="space-y-2.5 rounded-md border border-border/50 bg-card p-3">
-                <p className="font-medium">Changement en cours d'année — {insc.prenom} {insc.nom}</p>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-medium">Changement en cours d'année — {insc.prenom} {insc.nom}</p>
+                  <button onClick={resetChangement} className="text-muted-foreground hover:text-foreground" title="Fermer"><X size={13} /></button>
+                </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {([["ajout", "Ajout d'activité"], ["changement", "Changement"], ["arret", "Arrêt (force majeure)"]] as [TypeAjustement, string][]).map(([t, l]) => (
-                    <button key={t} onClick={() => { setChType(t); setChMontant(""); }}
-                      className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${chType === t ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}>
+                  {peutModifierActivites && ([["ajout", "Ajout d'activité"], ["changement", "Changement"], ["arret", "Arrêt (force majeure)"]] as [TypeAjustement, string][]).map(([t, l]) => (
+                    <button key={t} onClick={() => { setVueHisto(false); setChType(t); setChMontant(""); }}
+                      className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${!vueHisto && chType === t ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}>
                       {l}
                     </button>
                   ))}
+                  <button onClick={() => setVueHisto(true)}
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${vueHisto ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}>
+                    Historique ({historiqueInsc.length})
+                  </button>
                 </div>
 
+                {vueHisto ? (
+                  <div className="space-y-1">
+                    {historiqueInsc.length === 0 && <p className="italic text-muted-foreground">Aucun changement en cours d'année pour cette personne.</p>}
+                    {historiqueInsc.map((a) => {
+                      const libelles: Record<TypeAjustement, string> = { ajout: "Ajout", changement: "Changement", arret: "Arrêt", inscription_tardive: "Inscription tardive" };
+                      // Libellés explicites : un « Annuler » renvoyé à la ligne pouvait sembler appartenir
+                      // au changement suivant et faire annuler le mauvais
+                      const lienAnnuler: Record<TypeAjustement, string> = { ajout: "Annuler cet ajout", changement: "Annuler ce changement", arret: "Annuler cet arrêt", inscription_tardive: "Annuler" };
+                      const question = a.type === "ajout" ? `Annuler l'ajout de « ${nomDisc(a.discipline_ajoutee)} » ?`
+                        : a.type === "arret" ? `Annuler l'arrêt de « ${nomDisc(a.discipline_retiree)} » ?`
+                        : a.type === "changement" ? `Annuler le changement « ${nomDisc(a.discipline_retiree)} → ${nomDisc(a.discipline_ajoutee)} » ?`
+                        : "Annuler ce changement ?";
+                      const annule = !!a.annule_le;
+                      return (
+                        <div key={a.id} className={`rounded border px-2 py-1.5 text-[11px] ${annule ? "border-border/30 bg-secondary/20 text-muted-foreground" : "border-border/40 bg-secondary/40"}`}>
+                          <div className={`flex flex-wrap items-center gap-x-2 ${annule ? "line-through" : ""}`}>
+                            <span className="font-medium">
+                              {libelles[a.type]}
+                              {a.discipline_retiree ? ` : ${nomDisc(a.discipline_retiree)}` : ""}
+                              {a.discipline_retiree && a.discipline_ajoutee ? " → " : a.discipline_ajoutee ? " : " : ""}
+                              {a.discipline_ajoutee ? nomDisc(a.discipline_ajoutee) : ""}
+                            </span>
+                            <span className={annule ? "" : Number(a.montant) >= 0 ? "text-amber-700" : "text-sky-700"}>
+                              {Number(a.montant) >= 0 ? "+" : ""}{formatMontant(Number(a.montant))}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-x-2 text-muted-foreground">
+                            <span>
+                              Effet le {new Date(a.date_effet).toLocaleDateString("fr-FR")} ({a.mois_restants}/10){a.motif ? ` — ${a.motif}` : ""}{a.admin_nom ? ` · ${a.admin_nom}` : ""}
+                            </span>
+                            {annule ? (
+                              <span className="ml-auto font-medium">
+                                Annulé le {new Date(a.annule_le as string).toLocaleDateString("fr-FR")}{a.annule_par ? ` par ${a.annule_par}` : ""}
+                              </span>
+                            ) : peutModifierActivites && (
+                              <span className="ml-auto">
+                                {confirmAnnulerAj === a.id ? (
+                                  <span className="text-foreground">{question}{" "}
+                                    <button onClick={() => handleAnnulerAjustement(a)} className="font-medium text-destructive underline">Oui</button>{" "}
+                                    <button onClick={() => setConfirmAnnulerAj(null)} className="underline">Non</button></span>
+                                ) : (
+                                  <button onClick={() => setConfirmAnnulerAj(a.id)} className="underline hover:text-destructive">{lienAnnuler[a.type]}</button>
+                                )}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <p className="pt-1 text-[10px] text-muted-foreground">Les changements annulés restent visibles (barrés) pour la trace, mais ne comptent plus nulle part.</p>
+                  </div>
+                ) : (
+                <>
                 {(chType === "changement" || chType === "arret") && (
                   <label className="flex items-center gap-2">
                     <span className="w-28 shrink-0 text-muted-foreground">Activité {chType === "arret" ? "arrêtée" : "retirée"}</span>
@@ -1159,6 +1205,8 @@ export const ReglementsPanel = ({
                     {chEnCours ? "Enregistrement…" : "Valider le changement"}
                   </Button>
                 </div>
+                </>
+                )}
               </div>
             )}
           </div>
