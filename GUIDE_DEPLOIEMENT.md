@@ -196,6 +196,16 @@ Supabase → **Authentication** :
 ## 9. Brevo : emails
 
 - **Emails du site** : 7 templates Brevo, appelés par la fonction `send-email` ; leurs numéros sont dans `.env` (`VITE_BREVO_TEMPLATE_…`). Modifier un texte : Brevo → Email → Templates → le template → Modifier → Enregistrer. Variables : `{{ params.nom }}`, etc.
+
+  | N° | Template | Envoyé quand |
+  |---|---|---|
+  | 1 | Demande d'inscription | Au membre, à la soumission du formulaire |
+  | 2 | Validation inscription | Au membre, quand un admin valide son inscription |
+  | 3 | Validation espace membre | Au membre, quand son compte est approuvé |
+  | 4 | Formulaire de contact | Au club, quand quelqu'un remplit le formulaire de contact |
+  | 5 | Demande accès espace membre | Au club, quand quelqu'un demande un accès membre |
+  | 6 | Refus inscription | Au membre, quand un admin refuse son inscription |
+  | 7 | Nouvelle demande d'inscription (admin) | Au club, à chaque nouveau formulaire d'inscription |
 - **Emails de `changer-email`** : texte écrit directement dans la fonction (pas de template).
 - **Emails d'authentification Supabase** (mot de passe oublié, invitation) : via SMTP Brevo (`smtp-relay.brevo.com:587`), réglés dans Supabase → Project Settings → Auth → SMTP. Les identifiants sont dans `IDENTIFIANTS_ACCES.html`. La restriction d'IP Brevo doit rester **désactivée pour les clés SMTP** (Supabase utilise des IP variables).
 - Diagnostic : Brevo → Transactionnel → **Logs** (un email absent des logs n'a pas été envoyé par Brevo).
