@@ -6,6 +6,7 @@ import Layout from "@/components/Layout";
 import { client } from "@/sanityClient";
 import { urlFor } from "@/sanityImage";
 import { useAuth } from "@/contexts/AuthContext";
+import { getYoutubeId } from "@/lib/youtube";
 
 interface Photo {
   _key: string;
@@ -37,11 +38,6 @@ interface Album {
   discipline?: { _id: string; nom: string; nomCourt: string };
   photos: Photo[];
   videos?: Video[];
-}
-
-function getYoutubeId(url: string): string | null {
-  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/);
-  return m ? m[1] : null;
 }
 
 const Galerie = () => {

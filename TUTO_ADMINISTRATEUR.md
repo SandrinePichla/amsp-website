@@ -337,7 +337,10 @@ Sanity est l'outil qui permet de modifier le contenu du site (textes, photos, ac
 1. Cliquer sur **"Actualités"** dans le menu gauche
 2. Cliquer sur le bouton **"+"** ou **"New"**
 3. Remplir le titre, le texte, ajouter une image
-4. Cliquer sur **"Publish"**
+4. Pour ajouter une vidéo : champ **"Liens vidéo"** → **"Add item"** → coller l'adresse de la vidéo (YouTube, Facebook…) + une légende si besoin
+5. Cliquer sur **"Publish"**
+
+💡 Les vidéos YouTube se lisent directement dans la fiche de l'actualité (et servent d'image si l'actualité n'a ni image ni flyer). Les autres liens s'affichent sous forme de bouton **"Voir la vidéo"**.
 
 **Exemple : ajouter une photo dans la galerie**
 

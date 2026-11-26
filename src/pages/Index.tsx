@@ -10,6 +10,7 @@ import { Sparkles } from "lucide-react";
 import heroImage from "@/assets/hero-martial-banner-modif4.webp";
 import { PdfPage } from "@/components/PdfPage";
 import { slugify } from "@/lib/utils";
+import { getYoutubeId } from "@/lib/youtube";
 
 interface Discipline {
   _id: string;
@@ -35,11 +36,21 @@ interface Actualite {
   minimumPersonnes: number;
   image?: { asset: { _ref: string } };
   flyer?: { asset: { url: string } };
+  videos?: { _key: string; url?: string; legende?: string }[];
   publie: boolean;
   statut?: string;
 }
 
 const today = new Date().toISOString().split('T')[0];
+
+/** Identifiant de la première vidéo YouTube de l'actualité (sert de vignette si pas d'image ni de flyer). */
+const premierYoutubeId = (a: Actualite): string | null => {
+  for (const v of a.videos ?? []) {
+    const id = v.url ? getYoutubeId(v.url) : null;
+    if (id) return id;
+  }
+  return null;
+};
 
 const ActuCard = memo(({ a, i, onSelect }: { a: Actualite; i: number; onSelect: (a: Actualite) => void }) => (
   <motion.div
@@ -89,6 +100,12 @@ const ActuCard = memo(({ a, i, onSelect }: { a: Actualite; i: number; onSelect: 
           />
         ) : a.flyer?.asset?.url ? (
           <PdfPage cover zoom={0.90} url={a.flyer.asset.url} className="h-full w-full transition-transform duration-500 group-hover:scale-105" />
+        ) : premierYoutubeId(a) ? (
+          <img
+            src={`https://img.youtube.com/vi/${premierYoutubeId(a)}/hqdefault.jpg`}
+            alt={a.titre}
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
         ) : (
           <div className={`h-full w-full ${
             a.type === 'stage'
@@ -147,7 +164,7 @@ const Index = () => {
       .then((data) => setDisciplines(data));
 
     client
-      .fetch('*[_type == "actualite" && publie == true] | order(date asc) { ..., flyer { asset-> { url } } }')
+      .fetch('*[_type == "actualite" && publie == true] | order(date asc) { ..., flyer { asset-> { url } }, videos[] { _key, url, legende } }')
       .then((data) => setActualites(data as Actualite[]));
   }, []);
 
@@ -460,6 +477,42 @@ const Index = () => {
                   <p className="mb-4 text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
                     {selectedActu.contenu}
                   </p>
+                )}
+
+                {/* Vidéos */}
+                {selectedActu.videos?.some(v => v.url) && (
+                  <div className="mb-4 space-y-4">
+                    {selectedActu.videos.filter(v => v.url).map((v) => {
+                      const ytId = getYoutubeId(v.url);
+                      return ytId ? (
+                        <div key={v._key} className="overflow-hidden rounded-xl bg-black">
+                          <div className="aspect-video">
+                            <iframe
+                              src={`https://www.youtube-nocookie.com/embed/${ytId}`}
+                              title={v.legende || selectedActu.titre}
+                              className="h-full w-full"
+                              allowFullScreen
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            />
+                          </div>
+                          {v.legende && (
+                            <p className="px-3 py-2 text-xs text-white/70">{v.legende}</p>
+                          )}
+                        </div>
+                      ) : (
+                        <a
+                          key={v._key}
+                          href={v.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 rounded-lg border border-border px-4 py-3 text-sm font-semibold text-primary hover:bg-secondary/50"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          ▶️ {v.legende || 'Voir la vidéo'}
+                        </a>
+                      );
+                    })}
+                  </div>
                 )}
 
                 {/* Inscription */}
