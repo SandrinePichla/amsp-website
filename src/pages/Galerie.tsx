@@ -46,7 +46,6 @@ function getYoutubeId(url: string): string | null {
 
 const Galerie = () => {
   const [albums, setAlbums] = useState<Album[]>([]);
-  const [filter, setFilter] = useState("Toutes");
   const [openAlbum, setOpenAlbum] = useState<Album | null>(null);
   const [lightbox, setLightbox] = useState<{ album: Album; index: number } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -66,29 +65,18 @@ const Galerie = () => {
       });
   }, []);
 
+  // Albums publics : visibles par tout le monde, connecté ou non. Albums privés : seulement une
+  // fois connecté, selon les accès galerie (les admins voient tout). Pas de filtre par discipline
+  // (demande des admins) : tous les albums visibles sont affichés ensemble, les privés d'abord.
   const albumsVisibles = albums.filter((a) => {
-    if (!user) return !a.prive;
-    if (!a.prive) return false;
+    if (!a.prive) return true;
+    if (!user) return false;
     if (role === "admin" || role === "admin_discipline") return true;
     if (!a.discipline) return true;
     return accesGalerie.includes(a.discipline._id);
   });
 
-  const disciplinesFiltres = [
-    "Toutes",
-    ...Array.from(new Set(
-      albumsVisibles
-        .map((a) => a.discipline?.nomCourt || a.discipline?.nom)
-        .filter(Boolean)
-    ))
-  ];
-
-  const albumsFiltres = (filter === "Toutes"
-    ? albumsVisibles
-    : albumsVisibles.filter((a) =>
-        (a.discipline?.nomCourt || a.discipline?.nom) === filter
-      )
-  ).sort((a, b) => {
+  const albumsFiltres = [...albumsVisibles].sort((a, b) => {
     if (a.prive === b.prive) return 0;
     return a.prive ? -1 : 1;
   });
@@ -130,24 +118,6 @@ const Galerie = () => {
             </div>
           ) : (
             <>
-              {disciplinesFiltres.length > 1 && (!user || role === "admin" || role === "admin_discipline") && (
-                <div className="mb-8 flex flex-wrap justify-center gap-2">
-                  {disciplinesFiltres.map((d) => (
-                    <button
-                      key={d}
-                      onClick={() => setFilter(d)}
-                      className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                        filter === d
-                          ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
-                          : "bg-secondary text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {d}
-                    </button>
-                  ))}
-                </div>
-              )}
-
               {albumsFiltres.length === 0 ? (
                 <p className="text-center text-muted-foreground">Aucun album disponible.</p>
               ) : (
