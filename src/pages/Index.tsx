@@ -36,7 +36,7 @@ interface Actualite {
   minimumPersonnes: number;
   image?: { asset: { _ref: string } };
   flyer?: { asset: { url: string } };
-  videos?: { _key: string; url?: string; legende?: string }[];
+  videos?: { _key: string; _type?: string; url?: string; legende?: string; fichier?: { asset: { url: string } } }[];
   publie: boolean;
   statut?: string;
 }
@@ -164,7 +164,7 @@ const Index = () => {
       .then((data) => setDisciplines(data));
 
     client
-      .fetch('*[_type == "actualite" && publie == true] | order(date asc) { ..., flyer { asset-> { url } }, videos[] { _key, url, legende } }')
+      .fetch('*[_type == "actualite" && publie == true] | order(date asc) { ..., flyer { asset-> { url } }, videos[] { _key, _type, url, legende, fichier { asset-> { url } } } }')
       .then((data) => setActualites(data as Actualite[]));
   }, []);
 
@@ -480,9 +480,28 @@ const Index = () => {
                 )}
 
                 {/* Vidéos */}
-                {selectedActu.videos?.some(v => v.url) && (
+                {selectedActu.videos?.some(v => v.url || v.fichier?.asset?.url) && (
                   <div className="mb-4 space-y-4">
-                    {selectedActu.videos.filter(v => v.url).map((v) => {
+                    {selectedActu.videos.filter(v => v.url || v.fichier?.asset?.url).map((v) => {
+                      if (v._type === 'video_upload') {
+                        return (
+                          <div key={v._key} className="overflow-hidden rounded-xl bg-black">
+                            <video
+                              controls
+                              preload="metadata"
+                              controlsList="nodownload noremoteplayback"
+                              disablePictureInPicture
+                              onContextMenu={(e) => e.preventDefault()}
+                              className="aspect-video w-full object-contain"
+                            >
+                              <source src={v.fichier.asset.url} />
+                            </video>
+                            {v.legende && (
+                              <p className="px-3 py-2 text-xs text-white/70">{v.legende}</p>
+                            )}
+                          </div>
+                        );
+                      }
                       const ytId = getYoutubeId(v.url);
                       return ytId ? (
                         <div key={v._key} className="overflow-hidden rounded-xl bg-black">
